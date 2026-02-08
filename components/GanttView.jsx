@@ -164,3 +164,4 @@ const GanttView = ({ tasks }) => {
 };
 
 export default GanttView;
+
