@@ -45,7 +45,14 @@ serve(async (req) => {
 BUSINESS CONSTRAINTS (NON-NEGOTIABLE):
 ${businessContext}
 
-CURRENT PIPELINE STAGE: ${ragContext.stage}
+Format rules:
+- Use ▶ for major insight headers
+- Use ► for action directives
+- No generic filler — every sentence must cite a specific number or business rule
+- Tone: analytical, precise, direct
+- Length: 250-350 words`
+
+    const userPrompt = `CURRENT PIPELINE STAGE: ${ragContext.stage}
 
 RETRIEVED ANALYSIS DATA:
 ${JSON.stringify(ragContext.data, null, 2)}
@@ -55,14 +62,7 @@ GENERATE: A structured executive intelligence brief with:
 2. Concrete operational directives (exact seat counts, peso values, procurement timing)
 3. Risk quantification (downside scenarios, exposure bounds, mitigation protocols)
 4. SDG alignment mapping where applicable to this stage
-5. 3-4 actionable directives prefixed with ►
-
-Format rules:
-- Use ▶ for major insight headers
-- Use ► for action directives
-- No generic filler — every sentence must cite a specific number or business rule
-- Tone: analytical, precise, direct
-- Length: 250-350 words`
+5. 3-4 actionable directives prefixed with ►`
 
     const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -74,7 +74,8 @@ Format rules:
       body: JSON.stringify({
         model: 'claude-haiku-4-5-20251001',
         max_tokens: 700,
-        messages: [{ role: 'user', content: systemPrompt }]
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userPrompt }]
       })
     })
 
