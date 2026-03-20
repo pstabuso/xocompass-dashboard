@@ -1,43 +1,61 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
+import { auth } from '../firebase';
+import {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+  sendPasswordResetEmail,
+  updateProfile,
+} from 'firebase/auth';
 
 const AppContext = createContext();
 
-// STRICT PERSONA DEFINITIONS
-const VALID_USERS = [
-  { 
-    username: 'lanz', 
-    password: 'password123', 
-    name: 'Lanz Kristoffer', 
-    role: 'Project Manager & Backend', 
-    permissions: { canCreate: true, canDelete: true, canNudge: true, viewAll: true } 
+// Role mapping — configure roles by email. Any email not listed gets the default role.
+// Admins can be added here or managed via Firebase custom claims in the future.
+const ROLE_MAP = {
+  'default': {
+    name: null, // derived from displayName or email
+    role: 'Contributor',
+    permissions: { canCreate: true, canDelete: false, canNudge: false, viewAll: false },
   },
-  { 
-    username: 'andrei', 
-    password: 'password123', 
-    name: 'Ralph Andrei', 
-    role: 'Frontend Developer', 
-    permissions: { canCreate: false, canDelete: false, canNudge: false, viewAll: false } 
-  },
-  { 
-    username: 'paolo', 
-    password: 'password123', 
-    name: 'Paolo Miguel', 
-    role: 'Documentation Lead', 
-    permissions: { canCreate: false, canDelete: false, canNudge: false, viewAll: false } 
-  }
-];
+};
+
+function resolveUserRole(email) {
+  const entry = ROLE_MAP[email?.toLowerCase()] || ROLE_MAP['default'];
+  return { role: entry.role, permissions: { ...entry.permissions } };
+}
+
+function buildUserObject(firebaseUser) {
+  if (!firebaseUser) return null;
+  const { role, permissions } = resolveUserRole(firebaseUser.email);
+  return {
+    uid: firebaseUser.uid,
+    email: firebaseUser.email,
+    name: firebaseUser.displayName || firebaseUser.email.split('@')[0],
+    role,
+    permissions,
+  };
+}
 
 export const AppProvider = ({ children }) => {
-  const [user, setUser] = useState(JSON.parse(localStorage.getItem('user')) || null);
-  
+  const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
   const [tasks, setTasks] = useState(JSON.parse(localStorage.getItem('tasks')) || []);
   const [events, setEvents] = useState(JSON.parse(localStorage.getItem('events')) || []);
   const [activityLog, setActivityLog] = useState(JSON.parse(localStorage.getItem('activityLog')) || []);
-  
-  // NEW: Notifications for the team (sent by Lanz)
   const [notifications, setNotifications] = useState(JSON.parse(localStorage.getItem('notifications')) || []);
 
-  useEffect(() => { if (user) localStorage.setItem('user', JSON.stringify(user)); else localStorage.removeItem('user'); }, [user]);
+  // Firebase auth state listener — replaces the old localStorage user hack
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      setUser(buildUserObject(firebaseUser));
+      setAuthLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
   useEffect(() => { localStorage.setItem('tasks', JSON.stringify(tasks)); }, [tasks]);
   useEffect(() => { localStorage.setItem('events', JSON.stringify(events)); }, [events]);
   useEffect(() => { localStorage.setItem('activityLog', JSON.stringify(activityLog)); }, [activityLog]);
@@ -74,26 +92,55 @@ export const AppProvider = ({ children }) => {
     toggle: (taskId, sId) => setTasks(tasks.map(t => t.id === taskId ? { ...t, subtasks: t.subtasks.map(s => s.id === sId ? {...s, done: !s.done} : s) } : t))
   };
 
-  // NEW: Nudge Feature for Lanz
   const nudgeUser = (targetUser, taskName) => {
-    const newNotif = { id: Date.now(), to: targetUser, message: `Lanz nudged you about "${taskName}"`, read: false };
+    const newNotif = { id: Date.now(), to: targetUser, message: `${user?.name || 'Someone'} nudged you about "${taskName}"`, read: false };
     setNotifications([newNotif, ...notifications]);
     logAction('Nudged Member', `Alerted ${targetUser} about ${taskName}`);
   };
 
   const clearNotifications = () => {
-    // Only clear notifications for the logged in user
     if(!user) return;
     setNotifications(notifications.filter(n => !n.to.toLowerCase().includes(user.name.split(' ')[0].toLowerCase())));
-  }
-
-  const login = (u, p) => {
-    const found = VALID_USERS.find(x => x.username.toLowerCase() === u.toLowerCase() && x.password === p);
-    if (found) { setUser(found); return { success: true }; }
-    return { success: false, message: "Invalid credentials" };
   };
 
-  const logout = () => { setUser(null); localStorage.removeItem('user'); };
+  // --- Firebase Auth functions ---
+
+  const login = async (email, password) => {
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      return { success: true };
+    } catch (err) {
+      return { success: false, message: firebaseErrorMessage(err.code) };
+    }
+  };
+
+  const register = async (email, password, displayName) => {
+    try {
+      const cred = await createUserWithEmailAndPassword(auth, email, password);
+      if (displayName) {
+        await updateProfile(cred.user, { displayName });
+      }
+      // Re-build user object with displayName now set
+      setUser(buildUserObject(cred.user));
+      return { success: true };
+    } catch (err) {
+      return { success: false, message: firebaseErrorMessage(err.code) };
+    }
+  };
+
+  const resetPassword = async (email) => {
+    try {
+      await sendPasswordResetEmail(auth, email);
+      return { success: true };
+    } catch (err) {
+      return { success: false, message: firebaseErrorMessage(err.code) };
+    }
+  };
+
+  const logout = async () => {
+    await signOut(auth);
+    setUser(null);
+  };
 
   const getStats = () => {
     const total = tasks.length;
@@ -104,11 +151,11 @@ export const AppProvider = ({ children }) => {
   };
 
   return (
-    <AppContext.Provider value={{ 
-      user, login, logout, 
+    <AppContext.Provider value={{
+      user, authLoading, login, logout, register, resetPassword,
       tasks, addTask, updateTaskStatus, deleteTask, addTaskComment, subtasks,
       events, addEvent, updateEvent, deleteEvent,
-      activityLog, getStats, 
+      activityLog, getStats,
       notifications, nudgeUser, clearNotifications
     }}>
       {children}
@@ -117,3 +164,19 @@ export const AppProvider = ({ children }) => {
 };
 
 export const useAppContext = () => useContext(AppContext);
+
+// Map Firebase error codes to user-friendly messages
+function firebaseErrorMessage(code) {
+  const map = {
+    'auth/invalid-email': 'Please enter a valid email address.',
+    'auth/user-disabled': 'This account has been disabled.',
+    'auth/user-not-found': 'No account found with this email.',
+    'auth/wrong-password': 'Incorrect password.',
+    'auth/invalid-credential': 'Invalid email or password.',
+    'auth/email-already-in-use': 'An account with this email already exists.',
+    'auth/weak-password': 'Password must be at least 6 characters.',
+    'auth/too-many-requests': 'Too many attempts. Please try again later.',
+    'auth/network-request-failed': 'Network error. Check your connection.',
+  };
+  return map[code] || 'Authentication failed. Please try again.';
+}
