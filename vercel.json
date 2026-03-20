@@ -1,0 +1,8 @@
+{
+  "buildCommand": "cd xocompass-dashboard && npm install && npm run build",
+  "outputDirectory": "xocompass-dashboard/dist",
+  "framework": null,
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
