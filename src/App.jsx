@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, CheckSquare, Calendar, Book, FolderOpen, LogOut, Lock, Mail, User, Database, Shield, BrainCircuit, UserPlus, ArrowLeft, KeyRound } from 'lucide-react';
-import { AppProvider, useAppContext } from './context/AppContext';
+import { LayoutDashboard, CheckSquare, Calendar, Book, FolderOpen, LogOut, User, Database, Shield, BrainCircuit, Users } from 'lucide-react';
+import { AppProvider, useAppContext, TEAM_ROLES_LIST } from './context/AppContext';
 
 // Pages
 import Dashboard from './pages/Dashboard';
@@ -65,176 +65,88 @@ const Sidebar = () => {
         </div>
         <button onClick={logout} className="w-full flex items-center space-x-3 px-4 py-2 text-red-400 hover:bg-red-500/10 rounded-lg cursor-pointer transition-all duration-200 hover:pl-6">
           <LogOut size={18} />
-          <span className="text-sm font-medium">Sign Out</span>
+          <span className="text-sm font-medium">Switch Role</span>
         </button>
       </div>
     </div>
   );
 };
 
-const LoginScreen = () => {
-  const { login, register, resetPassword } = useAppContext();
-  const [mode, setMode] = useState('login'); // 'login' | 'register' | 'reset'
-  const [formData, setFormData] = useState({ email: '', password: '', displayName: '' });
-  const [error, setError] = useState('');
-  const [info, setInfo] = useState('');
-  const [loading, setLoading] = useState(false);
+const WelcomeScreen = () => {
+  const { selectRole } = useAppContext();
+  const [displayName, setDisplayName] = useState('');
+  const [selectedRole, setSelectedRole] = useState(null);
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
-    const result = await login(formData.email, formData.password);
-    if (!result.success) setError(result.message);
-    setLoading(false);
+  const handleEnter = () => {
+    if (!selectedRole) return;
+    selectRole(selectedRole, displayName.trim() || undefined);
   };
 
-  const handleRegister = async (e) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
-    const result = await register(formData.email, formData.password, formData.displayName);
-    if (!result.success) setError(result.message);
-    setLoading(false);
-  };
-
-  const handleReset = async (e) => {
-    e.preventDefault();
-    setError('');
-    setInfo('');
-    setLoading(true);
-    const result = await resetPassword(formData.email);
-    if (result.success) {
-      setInfo('Password reset email sent. Check your inbox.');
-    } else {
-      setError(result.message);
-    }
-    setLoading(false);
-  };
-
-  const switchMode = (newMode) => {
-    setMode(newMode);
-    setError('');
-    setInfo('');
+  const roleIcons = {
+    pm: <Shield size={24} className="text-sky-400" />,
+    fe: <BrainCircuit size={24} className="text-emerald-400" />,
+    doc: <Book size={24} className="text-amber-400" />,
+    guest: <Users size={24} className="text-slate-400" />,
   };
 
   return (
     <div className="h-screen flex items-center justify-center bg-slate-950 relative overflow-hidden">
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-900/20 via-slate-950 to-slate-950 pointer-events-none"></div>
-      <div className="bg-slate-900/50 backdrop-blur-xl p-8 rounded-2xl shadow-2xl w-96 border border-slate-800 relative z-10">
+      <div className="bg-slate-900/50 backdrop-blur-xl p-8 rounded-2xl shadow-2xl w-[480px] border border-slate-800 relative z-10">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-white">XoCompass</h1>
-          <p className="text-slate-400 text-sm mt-1">
-            {mode === 'login' && 'Sign in to your workspace'}
-            {mode === 'register' && 'Create your account'}
-            {mode === 'reset' && 'Reset your password'}
-          </p>
+          <p className="text-slate-400 text-sm mt-1">Select your role to enter the workspace</p>
         </div>
 
-        {/* ---------- LOGIN FORM ---------- */}
-        {mode === 'login' && (
-          <form onSubmit={handleLogin} className="space-y-4">
-            {error && <div className="bg-red-500/10 text-red-400 p-3 rounded-lg text-sm text-center border border-red-500/20">{error}</div>}
-            <div>
-              <label className="block text-sm font-bold text-slate-400 mb-1 ml-1">Email</label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-2.5 text-slate-500" size={18} />
-                <input type="email" required autoComplete="email" className="w-full pl-10 pr-4 py-2 bg-slate-800 border border-slate-700 text-white rounded-lg focus:ring-2 focus:ring-sky-500 outline-none transition" placeholder="you@example.com" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-bold text-slate-400 mb-1 ml-1">Password</label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-2.5 text-slate-500" size={18} />
-                <input type="password" required autoComplete="current-password" className="w-full pl-10 pr-4 py-2 bg-slate-800 border border-slate-700 text-white rounded-lg focus:ring-2 focus:ring-sky-500 outline-none transition" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
-              </div>
-            </div>
-            <button type="submit" disabled={loading} className="w-full bg-sky-600 text-white py-3 rounded-lg font-bold hover:bg-sky-500 transition shadow-lg shadow-sky-900/20 mt-2 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
-              {loading ? 'Signing in...' : 'Sign In'}
-            </button>
-            <div className="flex justify-between items-center pt-2 text-sm">
-              <button type="button" onClick={() => switchMode('reset')} className="text-slate-400 hover:text-sky-400 transition flex items-center gap-1">
-                <KeyRound size={14} /> Forgot Password?
-              </button>
-              <button type="button" onClick={() => switchMode('register')} className="text-sky-400 hover:text-sky-300 transition flex items-center gap-1">
-                <UserPlus size={14} /> Create Account
-              </button>
-            </div>
-          </form>
-        )}
+        {/* Name input */}
+        <div className="mb-6">
+          <label className="block text-sm font-bold text-slate-400 mb-1 ml-1">Your Name (optional)</label>
+          <div className="relative">
+            <User className="absolute left-3 top-2.5 text-slate-500" size={18} />
+            <input
+              type="text"
+              className="w-full pl-10 pr-4 py-2 bg-slate-800 border border-slate-700 text-white rounded-lg focus:ring-2 focus:ring-sky-500 outline-none transition"
+              placeholder="Enter your name"
+              value={displayName}
+              onChange={e => setDisplayName(e.target.value)}
+            />
+          </div>
+        </div>
 
-        {/* ---------- REGISTER FORM ---------- */}
-        {mode === 'register' && (
-          <form onSubmit={handleRegister} className="space-y-4">
-            {error && <div className="bg-red-500/10 text-red-400 p-3 rounded-lg text-sm text-center border border-red-500/20">{error}</div>}
-            <div>
-              <label className="block text-sm font-bold text-slate-400 mb-1 ml-1">Display Name</label>
-              <div className="relative">
-                <User className="absolute left-3 top-2.5 text-slate-500" size={18} />
-                <input type="text" required className="w-full pl-10 pr-4 py-2 bg-slate-800 border border-slate-700 text-white rounded-lg focus:ring-2 focus:ring-sky-500 outline-none transition" placeholder="Your name" value={formData.displayName} onChange={e => setFormData({...formData, displayName: e.target.value})} />
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-bold text-slate-400 mb-1 ml-1">Email</label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-2.5 text-slate-500" size={18} />
-                <input type="email" required autoComplete="email" className="w-full pl-10 pr-4 py-2 bg-slate-800 border border-slate-700 text-white rounded-lg focus:ring-2 focus:ring-sky-500 outline-none transition" placeholder="you@example.com" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-bold text-slate-400 mb-1 ml-1">Password</label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-2.5 text-slate-500" size={18} />
-                <input type="password" required autoComplete="new-password" minLength={6} className="w-full pl-10 pr-4 py-2 bg-slate-800 border border-slate-700 text-white rounded-lg focus:ring-2 focus:ring-sky-500 outline-none transition" placeholder="At least 6 characters" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} />
-              </div>
-            </div>
-            <button type="submit" disabled={loading} className="w-full bg-sky-600 text-white py-3 rounded-lg font-bold hover:bg-sky-500 transition shadow-lg shadow-sky-900/20 mt-2 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
-              {loading ? 'Creating Account...' : 'Create Account'}
+        {/* Role selection grid */}
+        <div className="grid grid-cols-2 gap-3 mb-6">
+          {TEAM_ROLES_LIST.map((r) => (
+            <button
+              key={r.id}
+              onClick={() => setSelectedRole(r.id)}
+              className={`p-4 rounded-xl border transition-all duration-200 text-left group ${
+                selectedRole === r.id
+                  ? 'bg-sky-600/15 border-sky-500/40 shadow-[0_0_20px_rgba(56,189,248,0.1)]'
+                  : 'bg-slate-800/50 border-slate-700 hover:border-slate-600 hover:bg-slate-800'
+              }`}
+            >
+              <div className="mb-2">{roleIcons[r.id]}</div>
+              <p className={`text-sm font-bold ${selectedRole === r.id ? 'text-sky-300' : 'text-slate-200'}`}>{r.name}</p>
+              <p className="text-xs text-slate-500 mt-0.5">{r.role}</p>
             </button>
-            <button type="button" onClick={() => switchMode('login')} className="w-full text-center text-sm text-slate-400 hover:text-sky-400 transition pt-2 flex items-center justify-center gap-1">
-              <ArrowLeft size={14} /> Back to Sign In
-            </button>
-          </form>
-        )}
+          ))}
+        </div>
 
-        {/* ---------- RESET PASSWORD FORM ---------- */}
-        {mode === 'reset' && (
-          <form onSubmit={handleReset} className="space-y-4">
-            {error && <div className="bg-red-500/10 text-red-400 p-3 rounded-lg text-sm text-center border border-red-500/20">{error}</div>}
-            {info && <div className="bg-green-500/10 text-green-400 p-3 rounded-lg text-sm text-center border border-green-500/20">{info}</div>}
-            <div>
-              <label className="block text-sm font-bold text-slate-400 mb-1 ml-1">Email</label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-2.5 text-slate-500" size={18} />
-                <input type="email" required autoComplete="email" className="w-full pl-10 pr-4 py-2 bg-slate-800 border border-slate-700 text-white rounded-lg focus:ring-2 focus:ring-sky-500 outline-none transition" placeholder="you@example.com" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} />
-              </div>
-            </div>
-            <button type="submit" disabled={loading} className="w-full bg-sky-600 text-white py-3 rounded-lg font-bold hover:bg-sky-500 transition shadow-lg shadow-sky-900/20 mt-2 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
-              {loading ? 'Sending...' : 'Send Reset Link'}
-            </button>
-            <button type="button" onClick={() => switchMode('login')} className="w-full text-center text-sm text-slate-400 hover:text-sky-400 transition pt-2 flex items-center justify-center gap-1">
-              <ArrowLeft size={14} /> Back to Sign In
-            </button>
-          </form>
-        )}
+        <button
+          onClick={handleEnter}
+          disabled={!selectedRole}
+          className="w-full bg-sky-600 text-white py-3 rounded-lg font-bold hover:bg-sky-500 transition shadow-lg shadow-sky-900/20 active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
+        >
+          Enter Workspace
+        </button>
       </div>
     </div>
   );
 };
 
-const LoadingScreen = () => (
-  <div className="h-screen flex items-center justify-center bg-slate-950">
-    <div className="text-center">
-      <div className="w-12 h-12 border-4 border-sky-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-      <p className="text-slate-400 text-sm">Loading...</p>
-    </div>
-  </div>
-);
-
 const AppContent = () => {
-  const { user, authLoading } = useAppContext();
-  if (authLoading) return <LoadingScreen />;
-  if (!user) return <LoginScreen />;
+  const { user } = useAppContext();
+  if (!user) return <WelcomeScreen />;
   return (
     <Router>
       <div className="flex bg-slate-950 min-h-screen font-sans text-slate-200 selection:bg-sky-500/30">
