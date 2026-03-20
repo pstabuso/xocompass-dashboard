@@ -18,20 +18,45 @@ export const AppProvider = ({ children }) => {
     try { return JSON.parse(localStorage.getItem('xo_user')) || null; } catch { return null; }
   });
 
-  const [tasks, setTasks] = useState(JSON.parse(localStorage.getItem('tasks')) || []);
-  const [events, setEvents] = useState(JSON.parse(localStorage.getItem('events')) || []);
-  const [activityLog, setActivityLog] = useState(JSON.parse(localStorage.getItem('activityLog')) || []);
-  const [notifications, setNotifications] = useState(JSON.parse(localStorage.getItem('notifications')) || []);
+  const [tasks, setTasks] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('tasks')) || []; } catch { return []; }
+  });
+  const [events, setEvents] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('events')) || []; } catch { return []; }
+  });
+  const [activityLog, setActivityLog] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('activityLog')) || []; } catch { return []; }
+  });
+  const [notifications, setNotifications] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('notifications')) || []; } catch { return []; }
+  });
+  const [minutes, setMinutes] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('minutes')) || []; } catch { return []; }
+  });
 
   useEffect(() => { if (user) localStorage.setItem('xo_user', JSON.stringify(user)); else localStorage.removeItem('xo_user'); }, [user]);
   useEffect(() => { localStorage.setItem('tasks', JSON.stringify(tasks)); }, [tasks]);
   useEffect(() => { localStorage.setItem('events', JSON.stringify(events)); }, [events]);
   useEffect(() => { localStorage.setItem('activityLog', JSON.stringify(activityLog)); }, [activityLog]);
   useEffect(() => { localStorage.setItem('notifications', JSON.stringify(notifications)); }, [notifications]);
+  useEffect(() => { localStorage.setItem('minutes', JSON.stringify(minutes)); }, [minutes]);
 
   const logAction = (action, details) => {
     const newLog = { id: Date.now(), user: user?.name || 'System', action, details, time: new Date().toLocaleString() };
     setActivityLog(prev => [newLog, ...prev].slice(0, 50));
+  };
+
+  const addMinute = (minute) => {
+    setMinutes(prev => [...prev, { ...minute, id: Date.now() }]);
+    logAction('Added Meeting', minute.topic || 'New meeting');
+  };
+
+  const updateMinute = (id, updated) => {
+    setMinutes(prev => prev.map(m => m.id === id ? { ...m, ...updated } : m));
+  };
+
+  const deleteMinute = (id) => {
+    setMinutes(prev => prev.filter(m => m.id !== id));
   };
 
   const addTask = (newTask) => {
@@ -101,6 +126,7 @@ export const AppProvider = ({ children }) => {
       tasks, addTask, updateTaskStatus, deleteTask, addTaskComment, subtasks,
       events, addEvent, updateEvent, deleteEvent,
       activityLog, getStats,
+      minutes, addMinute, updateMinute, deleteMinute,
       notifications, nudgeUser, clearNotifications
     }}>
       {children}

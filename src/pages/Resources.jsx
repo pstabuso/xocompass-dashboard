@@ -6,7 +6,7 @@ const Resources = () => {
 
   const resources = [
     { type: 'Paper', name: 'ARIMA vs SARIMA vs SARIMAX', desc: 'Methodology Comparison Matrix', action: () => setIsMatrixOpen(true) },
-    { type: 'Video', name: 'React + Firebase Tutorial', desc: 'For Dashboard implementation', link: 'https://www.youtube.com/results?search_query=react+firebase' },
+    { type: 'Video', name: 'React + Vite Tutorial', desc: 'For Dashboard implementation', link: 'https://www.youtube.com/results?search_query=react+vite' },
     { type: 'Tool', name: 'PAGASA API Docs', desc: 'Weather data endpoints', link: 'https://bagong.pagasa.dost.gov.ph' },
     { type: 'Tool', name: 'Scikit-Learn Sarimax', desc: 'Python Documentation', link: 'https://www.statsmodels.org/dev/generated/statsmodels.tsa.statespace.sarimax.SARIMAX.html' },
   ];

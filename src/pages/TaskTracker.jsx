@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { Plus, Trash2, X, MessageSquare, List, BarChart as GanttIcon, Layout, CheckSquare, AlertTriangle } from 'lucide-react';
+import { Plus, Trash2, X, MessageSquare, List, BarChart as GanttIcon, Layout, CheckSquare, AlertTriangle, Send } from 'lucide-react';
 import GanttView from '../components/GanttView';
 
 const TaskTracker = () => {
@@ -281,7 +281,7 @@ const TaskTracker = () => {
                                     ))}
                                 </div>
                                 <div className="flex gap-2">
-                                     <input type="text" className="flex-1 border border-slate-300 rounded-lg px-3 py-2 outline-none focus:border-blue-400 transition" placeholder="Write a comment..." value={commentText} onChange={(e) => setCommentText(e.target.value)} onKeyPress={(e) => e.key === 'Enter' && handleCommentSubmit(expandedTask.id)}/>
+                                     <input type="text" className="flex-1 border border-slate-300 rounded-lg px-3 py-2 outline-none focus:border-blue-400 transition" placeholder="Write a comment..." value={commentText} onChange={(e) => setCommentText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleCommentSubmit(expandedTask.id)}/>
                                      <button onClick={() => handleCommentSubmit(expandedTask.id)} className="bg-blue-600 text-white p-2 rounded-lg hover:bg-blue-700 transition"><Send size={18}/></button>
                                 </div>
                             </div>

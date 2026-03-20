@@ -3,7 +3,7 @@ import { useAppContext } from '../context/AppContext';
 import { Plus, FileText, ExternalLink, X, Trash2, Edit2, AlertTriangle } from 'lucide-react';
 
 const Minutes = () => {
-  const { minutes, addMinute, user } = useAppContext();
+  const { minutes, addMinute, updateMinute, deleteMinute, user } = useAppContext();
   
   // Safe fallback if minutes is undefined in context
   const safeMinutes = minutes || [];
@@ -31,7 +31,7 @@ const Minutes = () => {
   };
 
   const confirmDelete = () => {
-    // Logic to remove from local list (and ideally Context)
+    deleteMinute(isDeleteConfirmOpen);
     setLocalList(localList.filter(m => m.id !== isDeleteConfirmOpen));
     setIsDeleteConfirmOpen(null);
   };
@@ -40,6 +40,7 @@ const Minutes = () => {
     e.preventDefault();
     if (editingId) {
       // Edit Logic
+      updateMinute(editingId, formData);
       setLocalList(localList.map(m => m.id === editingId ? { ...m, ...formData } : m));
     } else {
       // Add Logic

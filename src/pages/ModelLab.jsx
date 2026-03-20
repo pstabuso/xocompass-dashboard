@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  CartesianGrid, AreaChart, Area, Legend, ComposedChart, BarChart as RechartsBarChart, Bar, ReferenceLine
+  CartesianGrid, AreaChart, Area, Legend, ComposedChart, BarChart as RechartsBarChart, Bar, ReferenceLine, Cell
 } from 'recharts';
 
 const ModelLab = () => {
@@ -22,11 +22,6 @@ const ModelLab = () => {
   const [searchProgress, setSearchProgress] = useState(0);
   const logsEndRef = useRef(null);
 
-  // RAG LLM States
-  const [aiInsight, setAiInsight] = useState(null);
-  const [isGeneratingInsight, setIsGeneratingInsight] = useState(false);
-  const [stageInsights, setStageInsights] = useState({});
-  const [generatingStage, setGeneratingStage] = useState(null);
 
   // Auto-scroll terminal
   useEffect(() => {
@@ -504,9 +499,9 @@ const ModelLab = () => {
   };
 
   // ==========================================
-  // RAG CONTEXT BUILDER (ALL STAGES)
+  // LOCAL DETERMINISTIC STAGE ANALYSIS
   // ==========================================
-  const buildStageRAGContext = (stageId) => {
+  const generateStageAnalysis = (stageId) => {
     const peakMonth = monthlySeasonalityData.length > 0
       ? monthlySeasonalityData.reduce((max, m) => m.avgDemand > max.avgDemand ? m : max, monthlySeasonalityData[0])
       : { month: 'Apr', avgDemand: 0 };
@@ -514,113 +509,29 @@ const ModelLab = () => {
       ? monthlySeasonalityData.reduce((min, m) => m.avgDemand < min.avgDemand ? m : min, monthlySeasonalityData[0])
       : { month: 'Jul', avgDemand: 0 };
 
-    // Compute decomposition stats for RAG
     const seasonalAmps = decompositionData.map(d => Math.abs(d.seasonal));
     const avgSeasonalAmp = seasonalAmps.length > 0 ? Number((seasonalAmps.reduce((a, b) => a + b, 0) / seasonalAmps.length).toFixed(1)) : 0;
     const residuals = decompositionData.map(d => d.residual);
-    const residualMax = Math.max(...residuals.map(Math.abs));
-    const residualStd = Math.sqrt(residuals.reduce((s, r) => s + r * r, 0) / residuals.length);
+    const residualMax = residuals.length > 0 ? Math.max(...residuals.map(Math.abs)) : 0;
+    const residualStd = residuals.length > 0 ? Math.sqrt(residuals.reduce((s, r) => s + r * r, 0) / residuals.length) : 0;
 
-    // Compute stationarity stats
     const diffs = stationaryData.map(d => d.demand_diff);
-    const diffMean = diffs.reduce((a, b) => a + b, 0) / diffs.length;
-    const diffStd = Math.sqrt(diffs.reduce((s, d) => s + Math.pow(d - diffMean, 2), 0) / diffs.length);
-
-    const contexts = {
-      ingest: {
-        stage: 'Stage 1: EDA & Historical Data Ingestion',
-        data: {
-          corpus_size: rawData.length,
-          date_range: `${rawData[0]?.date} to ${rawData[rawData.length - 1]?.date}`,
-          total_bookings: totalBookings,
-          estimated_revenue_php: estimatedRevenue,
-          avg_monthly_volume: avgMonthlyBookings,
-          peak_record: { date: maxBookingRow.date, demand: maxBookingRow.demand },
-          yoy_growth_2024_vs_2023: `${growthRate}%`,
-          peak_season_month: peakMonth,
-          low_season_month: lowMonth,
-          revenue_per_booking: 48000,
-          top_yearly: [...yearlyData].sort((a, b) => b.totalDemand - a.totalDemand).slice(0, 3),
-        }
-      },
-      correlation: {
-        stage: 'Stage 2: Correlation Analysis, VIF & Regressor Validation',
-        data: {
-          pearson_r_volume_rainfall: correlations.demand_rainfall,
-          pearson_r_volume_holidays: correlations.demand_holiday,
-          pearson_r_rainfall_holidays: correlations.rainfall_holiday,
-          vif_rainfall: correlations.vif_rainfall,
-          vif_holiday: correlations.vif_holiday,
-          vif_threshold: 5.0,
-          statistical_threshold: 0.3,
-          exogenous_variables_validated: ['Manila Rainfall (mm)', 'PH Holiday Density'],
-          multicollinearity_cleared: correlations.vif_rainfall < 5 && correlations.vif_holiday < 5,
-          revenue_per_booking: 48000,
-          avg_monthly_volume: avgMonthlyBookings,
-          exogenous_impact: exogenousImpactData,
-        }
-      },
-      process: {
-        stage: 'Stage 3: Stationarity Testing (ADF & First-Order Differencing)',
-        data: {
-          raw_series_trend: 'Non-stationary (exponential growth over 12 years)',
-          adf_raw_p_value: 0.684,
-          differencing_order: 1,
-          adf_differenced_p_value: 0.001,
-          differenced_mean: Number(diffMean.toFixed(2)),
-          differenced_std: Number(diffStd.toFixed(2)),
-          stationarity_achieved: true,
-          num_observations: stationaryData.length,
-          method: 'First-Order Differencing: Δy(t) = y(t) − y(t−1)',
-          business_implication: 'Removes trend bias so SARIMAX learns momentum patterns, not absolute growth',
-          avg_monthly_volume: avgMonthlyBookings,
-          revenue_per_booking: 48000,
-        }
-      },
-      decomp: {
-        stage: 'Stage 4: STL Signal Decomposition',
-        data: {
-          method: 'Additive STL (Centered 11-point Moving Average + Monthly Seasonal Extraction)',
-          trend_window: 11,
-          seasonal_amplitude_avg: avgSeasonalAmp,
-          residual_volatility_range: `±${Math.round(residualMax)} units`,
-          residual_std: Number(residualStd.toFixed(1)),
-          trend_direction: 'Post-2020 recovery plateau with post-2022 stabilization',
-          peak_seasonal_months: monthlySeasonalityData.filter(m => m.avgDemand > avgMonthlyBookings * 1.2).map(m => m.month),
-          low_seasonal_months: monthlySeasonalityData.filter(m => m.avgDemand < avgMonthlyBookings * 0.8).map(m => m.month),
-          avg_monthly_volume: avgMonthlyBookings,
-          revenue_per_booking: 48000,
-        }
-      },
-      train: {
-        stage: 'Stage 5: SARIMAX Grid Search & Model Selection',
-        data: {
-          search_space: '36 SARIMAX architecture combinations',
-          optimization_criterion: 'Akaike Information Criterion (AIC)',
-          best_model: bestModel ? {
-            configuration: `SARIMAX(${bestModel.p},${bestModel.d},${bestModel.q})(${bestModel.P},${bestModel.D},${bestModel.Q},12)`,
-            aic_score: bestModel.aic,
-          } : null,
-          convergence_failures: 1,
-          failed_architecture: 'SARIMAX(2,1,2)(1,1,1,12) — Hessian inversion error',
-          performance_metrics: { RMSE: 14.5, WMAPE: '9.1%' },
-          exogenous_regressors: ['Manila Rainfall (mm)', 'PH Holiday Density'],
-          correlation_coefficients: { rainfall: correlations.demand_rainfall, holiday: correlations.demand_holiday },
-          avg_monthly_volume: avgMonthlyBookings,
-          revenue_per_booking: 48000,
-        }
-      },
-    };
-    return contexts[stageId] || contexts.ingest;
-  };
-
-  // ==========================================
-  // DYNAMIC INSIGHT FALLBACK (DATA-DRIVEN)
-  // ==========================================
-  const generateDynamicInsight = (stageId, ctx) => {
-    const d = ctx.data;
+    const diffMean = diffs.length > 0 ? diffs.reduce((a, b) => a + b, 0) / diffs.length : 0;
+    const diffStd = diffs.length > 0 ? Math.sqrt(diffs.reduce((s, d) => s + Math.pow(d - diffMean, 2), 0) / diffs.length) : 0;
 
     if (stageId === 'ingest') {
+      const d = {
+        corpus_size: rawData.length,
+        date_range: `${rawData[0]?.date} to ${rawData[rawData.length - 1]?.date}`,
+        total_bookings: totalBookings,
+        estimated_revenue_php: estimatedRevenue,
+        avg_monthly_volume: avgMonthlyBookings,
+        peak_record: { date: maxBookingRow.date, demand: maxBookingRow.demand },
+        yoy_growth_2024_vs_2023: `${growthRate}%`,
+        peak_season_month: peakMonth,
+        low_season_month: lowMonth,
+        revenue_per_booking: 48000,
+      };
       const revM = (d.estimated_revenue_php / 1000000).toFixed(1);
       return `[ENTERPRISE DATA AUDIT: KJS BOOKING CORPUS — ${d.date_range}]
 
@@ -640,6 +551,17 @@ DIRECTIVES:
     }
 
     if (stageId === 'correlation') {
+      const d = {
+        pearson_r_volume_rainfall: correlations.demand_rainfall,
+        pearson_r_volume_holidays: correlations.demand_holiday,
+        pearson_r_rainfall_holidays: correlations.rainfall_holiday,
+        vif_rainfall: correlations.vif_rainfall,
+        vif_holiday: correlations.vif_holiday,
+        statistical_threshold: 0.3,
+        revenue_per_booking: 48000,
+        avg_monthly_volume: avgMonthlyBookings,
+        exogenous_impact: exogenousImpactData,
+      };
       return `[REGRESSOR VALIDATION BRIEF: EXOGENOUS FORCING FUNCTIONS]
 
 ▶ RAINFALL COEFFICIENT (r = ${d.pearson_r_volume_rainfall}): Monsoon precipitation is a statistically significant demand suppressor. At maximum monsoon intensity, operational volume contracts sharply relative to baseline. This is a mathematically predictable, calendared weather-driven floor — not market softness.
@@ -658,6 +580,15 @@ DIRECTIVES:
     }
 
     if (stageId === 'process') {
+      const d = {
+        adf_raw_p_value: 0.684,
+        adf_differenced_p_value: 0.001,
+        differenced_mean: Number(diffMean.toFixed(2)),
+        differenced_std: Number(diffStd.toFixed(2)),
+        num_observations: stationaryData.length,
+        avg_monthly_volume: avgMonthlyBookings,
+        revenue_per_booking: 48000,
+      };
       return `[STATIONARITY CERTIFICATION BRIEF: MATHEMATICAL SAFETY GATE]
 
 ▶ RAW SERIES DIAGNOSIS: The Augmented Dickey-Fuller test on raw monthly volume returns p=${d.adf_raw_p_value} — statistically non-stationary. The 12-year exponential growth trend would cause SARIMAX to hallucinate infinite upward forecasts, mathematically invalidating all downstream procurement decisions.
@@ -674,6 +605,15 @@ DIRECTIVES:
     }
 
     if (stageId === 'decomp') {
+      const d = {
+        seasonal_amplitude_avg: avgSeasonalAmp,
+        residual_volatility_range: `±${Math.round(residualMax)} units`,
+        residual_std: Number(residualStd.toFixed(1)),
+        peak_seasonal_months: monthlySeasonalityData.filter(m => m.avgDemand > avgMonthlyBookings * 1.2).map(m => m.month),
+        low_seasonal_months: monthlySeasonalityData.filter(m => m.avgDemand < avgMonthlyBookings * 0.8).map(m => m.month),
+        avg_monthly_volume: avgMonthlyBookings,
+        revenue_per_booking: 48000,
+      };
       const peakMonths = d.peak_seasonal_months?.join(', ') || 'Apr, Dec';
       const lowMonths = d.low_seasonal_months?.join(', ') || 'Jun, Jul, Aug';
       return `[STL SIGNAL EXTRACTION BRIEF: CAPITAL TIMING ARCHITECTURE]
@@ -692,8 +632,15 @@ DIRECTIVES:
     }
 
     if (stageId === 'train') {
-      if (!d.best_model) return 'Grid search not yet completed. Execute the training phase to generate model selection insights.';
-      const cfg = d.best_model.configuration;
+      if (!bestModel) return 'Grid search not yet completed. Execute the training phase to generate model selection insights.';
+      const cfg = `SARIMAX(${bestModel.p},${bestModel.d},${bestModel.q})(${bestModel.P},${bestModel.D},${bestModel.Q},12)`;
+      const d = {
+        search_space: '36 SARIMAX architecture combinations',
+        best_model: { configuration: cfg, aic_score: bestModel.aic },
+        performance_metrics: { RMSE: 14.5, WMAPE: '9.1%' },
+        avg_monthly_volume: avgMonthlyBookings,
+        revenue_per_booking: 48000,
+      };
       return `[MODEL SELECTION BRIEF: SARIMAX OPTIMIZATION OUTCOME]
 
 ▶ ELECTED ARCHITECTURE: ${cfg} with exogenous regressors [Rainfall, Holidays]. Selected from ${d.search_space} via AIC parsimony minimization (winning AIC = ${d.best_model.aic_score}).
@@ -710,177 +657,65 @@ DIRECTIVES:
 ► Schedule quarterly model refit cycles as new monthly booking data accumulates. Stale parameters erode WMAPE.
 ► RISK EXPOSURE: At ₱${d.revenue_per_booking.toLocaleString()}/booking × RMSE ${d.performance_metrics.RMSE}, maximum single-month forecast risk is ₱${(d.performance_metrics.RMSE * d.revenue_per_booking).toLocaleString()} — maintain as minimum cash liquidity buffer.`;
     }
-    return '';
-  };
 
-  // ==========================================
-  // PER-STAGE RAG INSIGHT GENERATOR
-  // ==========================================
-  const generateStageInsight = async (stageId) => {
-    setGeneratingStage(stageId);
-    setStageInsights(prev => ({ ...prev, [stageId]: null }));
+    if (stageId === 'dss') {
+      const modelLabel = bestModel
+        ? `SARIMAX(${bestModel.p},${bestModel.d},${bestModel.q})(${bestModel.P},${bestModel.D},${bestModel.Q},12)`
+        : 'SARIMAX(1,1,1)(1,1,1,12)';
+      const forecastOnly = forecastData.filter(d => d.forecast !== null);
+      const total2026Forecast = forecastOnly.reduce((sum, d) => sum + (d.forecast || 0), 0);
+      const baseRevenue = total2026Forecast * 48000;
+      const optimisticRevenue = forecastData.filter(d => d.ci_upper !== null).reduce((sum, d) => sum + (d.ci_upper || 0), 0) * 48000;
+      const peakForecast = forecastOnly.reduce((max, d) => d.forecast > (max.forecast || 0) ? d : max, {});
+      const trancheMatrix = prescriptiveData.slice(0, 6).map(d => ({
+        month: d.date, wholesale_block: d.safeWholesale, dynamic_inventory: d.dynamicInventory,
+        surge_premium: d.surgePremium, total_ceiling: d.upperLimit,
+      }));
+      const peakTranche = trancheMatrix.length > 0
+        ? trancheMatrix.reduce((max, t) => (t.wholesale_block + t.dynamic_inventory) > ((max.wholesale_block || 0) + (max.dynamic_inventory || 0)) ? t : max, trancheMatrix[0])
+        : {};
+      const totalForecastRev = (baseRevenue / 1000000).toFixed(1);
+      const optimisticRev = (optimisticRevenue / 1000000).toFixed(1);
 
-    const ragContext = buildStageRAGContext(stageId);
-    let insight = null;
+      return `[EXECUTIVE DIRECTIVE: 2026 CAPITAL PROCUREMENT — XoCompass DSS v2.0]
 
-    try {
-      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-      const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
-      if (SUPABASE_URL && SUPABASE_ANON_KEY) {
-        const response = await fetch(`${SUPABASE_URL}/functions/v1/generate-prescriptive-insights`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ ragContext }),
-          signal: AbortSignal.timeout(15000),
-        });
-        if (response.ok) {
-          const result = await response.json();
-          if (result.insight) insight = result.insight;
-        }
-      }
-    } catch (_e) { /* fall through to dynamic */ }
-
-    if (!insight) {
-      await new Promise(r => setTimeout(r, 1600));
-      insight = generateDynamicInsight(stageId, ragContext);
-    }
-
-    setStageInsights(prev => ({ ...prev, [stageId]: insight }));
-    setGeneratingStage(null);
-  };
-
-  // ==========================================
-  // STAGE 6 RAG GENERATION (DSS ENGINE)
-  // ==========================================
-  const generateAIInsights = async () => {
-    setIsGeneratingInsight(true);
-    setAiInsight(null);
-
-    const ragContext = {
-      stage: 'Stage 6: XoCompass DSS Prescriptive Engine',
-      data: {
-        forecast_horizon: '2026-01 through 2026-11',
-        model_performance: { RMSE: 14.5, WMAPE: '9.1%' },
-        monthly_forecast: forecastData.filter(d => d.forecast !== null).slice(0, 6).map(d => ({
-          date: d.date, forecast: d.forecast, ci_lower: d.ci_lower, ci_upper: d.ci_upper,
-        })),
-        tranche_matrix: prescriptiveData.slice(0, 6).map(d => ({
-          month: d.date, wholesale_block: d.safeWholesale, dynamic_inventory: d.dynamicInventory,
-          surge_premium: d.surgePremium, total_ceiling: d.upperLimit,
-        })),
-        peak_forecast_month: forecastData.filter(d => d.forecast !== null).reduce((max, d) => d.forecast > (max.forecast || 0) ? d : max, {}),
-        total_2026_forecast: forecastData.filter(d => d.forecast !== null).reduce((sum, d) => sum + (d.forecast || 0), 0),
-        revenue_projections: {
-          base_case: forecastData.filter(d => d.forecast !== null).reduce((sum, d) => sum + (d.forecast || 0), 0) * 48000,
-          optimistic_case: forecastData.filter(d => d.ci_upper !== null).reduce((sum, d) => sum + (d.ci_upper || 0), 0) * 48000,
-        },
-        fleet_capacity_daily: 25,
-        sdg_mandates: ['SDG 12: Waste margin <5%', 'SDG 8: Fleet saturation cap 25 vans/day', 'SDG 9: Dynamic surge pricing 30-50% premium'],
-        correlation_validated: { rainfall_r: correlations.demand_rainfall, holiday_r: correlations.demand_holiday },
-        best_model: bestModel
-          ? `SARIMAX(${bestModel.p},${bestModel.d},${bestModel.q})(${bestModel.P},${bestModel.D},${bestModel.Q},12)`
-          : 'SARIMAX(1,1,1)(1,1,1,12)',
-      }
-    };
-
-    let insight = null;
-    try {
-      const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-      const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
-      if (SUPABASE_URL && SUPABASE_ANON_KEY) {
-        const response = await fetch(`${SUPABASE_URL}/functions/v1/generate-prescriptive-insights`, {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ragContext }),
-          signal: AbortSignal.timeout(15000),
-        });
-        if (response.ok) {
-          const result = await response.json();
-          if (result.insight) insight = result.insight;
-        }
-      }
-    } catch (_e) { /* fall through */ }
-
-    if (!insight) {
-      await new Promise(r => setTimeout(r, 1800));
-      const d = ragContext.data;
-      const peakForecast = d.peak_forecast_month;
-      const totalForecastRev = (d.revenue_projections.base_case / 1000000).toFixed(1);
-      const optimisticRev = (d.revenue_projections.optimistic_case / 1000000).toFixed(1);
-      const peakTranche = d.tranche_matrix.reduce(
-        (max, t) => (t.wholesale_block + t.dynamic_inventory) > ((max.wholesale_block || 0) + (max.dynamic_inventory || 0)) ? t : max,
-        d.tranche_matrix[0] || {}
-      );
-
-      insight = `[EXECUTIVE DIRECTIVE: 2026 CAPITAL PROCUREMENT — XoCompass DSS v2.0]
-
-Based on the synthesized SARIMAX predictive array (WMAPE: 9.1%, active model: ${d.best_model}) cross-referenced against KJS operational constraints, the following allocations are mathematically mandated:
+Based on the synthesized SARIMAX predictive array (WMAPE: 9.1%, active model: ${modelLabel}) cross-referenced against KJS operational constraints, the following allocations are mathematically mandated:
 
 ▶ SDG 12 (RESPONSIBLE CONSUMPTION) ALIGNMENT
-Total 2026 projected volume: ${d.total_2026_forecast} bookings generating ₱${totalForecastRev}M base revenue (₱${optimisticRev}M optimistic ceiling under upper CI). To strictly enforce a waste margin below 5%, Tranche 1 (Wholesale) procurement must not exceed the lower 95% CI bound minus 5 units. For peak month (${peakForecast?.date || 'Apr/Dec'}), this hard-caps advance procurement at ${peakTranche?.wholesale_block ?? 'N/A'} seats. Excess capital must not be tied to unverified demand volume.
+Total 2026 projected volume: ${total2026Forecast} bookings generating ₱${totalForecastRev}M base revenue (₱${optimisticRev}M optimistic ceiling under upper CI). To strictly enforce a waste margin below 5%, Tranche 1 (Wholesale) procurement must not exceed the lower 95% CI bound minus 5 units. For peak month (${peakForecast?.date || 'Apr/Dec'}), this hard-caps advance procurement at ${peakTranche?.wholesale_block ?? 'N/A'} seats. Excess capital must not be tied to unverified demand volume.
 
 ▶ SDG 8 (DECENT WORK) FLEET SATURATION PROTOCOL
-The predictive surge in April and December mathematically intersects the KJS fleet saturation cap of ${d.fleet_capacity_daily} vans/day. Protocol: Deploy internal fleet to full saturation (${d.fleet_capacity_daily} vehicles), then outsource Tranche 3 overflow (${peakTranche?.surge_premium ?? 'N/A'} seats at peak) to validated third-party operators at pre-negotiated bulk rates. Sustained driver overtime accumulation generates hidden DOLE liability — operationally non-compliant.
+The predictive surge in April and December mathematically intersects the KJS fleet saturation cap of 25 vans/day. Protocol: Deploy internal fleet to full saturation (25 vehicles), then outsource Tranche 3 overflow (${peakTranche?.surge_premium ?? 'N/A'} seats at peak) to validated third-party operators at pre-negotiated bulk rates. Sustained driver overtime accumulation generates hidden DOLE liability — operationally non-compliant.
 
 ▶ SDG 9 (INNOVATION) & FINANCIAL YIELD OPTIMIZATION
-Validated by correlation analysis (Holiday r=+${d.correlation_validated.holiday_r}), Tranche 3 (Surge Premium) inventory must be held in reserve and dynamically priced at minimum ₱62,400/seat (+30% markup). Non-deployment of surge pricing on peak months forfeits ₱${(((peakTranche?.surge_premium ?? 0) * 48000 * 0.30)).toLocaleString()} in extractable premium margin per peak month. RMSE ±14.5 units defines the mandatory Tranche 3 buffer — this exact quantum must remain unharvested until 72-hour departure confirmation.`;
+Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), Tranche 3 (Surge Premium) inventory must be held in reserve and dynamically priced at minimum ₱62,400/seat (+30% markup). Non-deployment of surge pricing on peak months forfeits ₱${(((peakTranche?.surge_premium ?? 0) * 48000 * 0.30)).toLocaleString()} in extractable premium margin per peak month. RMSE ±14.5 units defines the mandatory Tranche 3 buffer — this exact quantum must remain unharvested until 72-hour departure confirmation.`;
     }
 
-    setAiInsight(insight);
-    setIsGeneratingInsight(false);
+    return '';
   };
 
   // ==========================================
   // STAGE INSIGHT PANEL COMPONENT
   // ==========================================
   const StageInsightPanel = ({ stageId, label }) => {
-    const insight = stageInsights[stageId];
-    const isGenerating = generatingStage === stageId;
-    const canGenerate = !insight && !isGenerating;
+    const analysis = generateStageAnalysis(stageId);
 
     return (
       <div className="mt-6 border-t border-slate-800 pt-6">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-3">
-          <div>
-            <h4 className="text-sm text-slate-200 font-bold tracking-wide flex items-center gap-2">
-              <BrainCircuit size={16} className="text-sky-400"/> AI Stage Intelligence — {label}
-            </h4>
-            <p className="text-[10px] text-slate-500 mt-0.5 uppercase tracking-widest font-medium">RAG-synthesized business directive from pipeline outputs</p>
-          </div>
-          {canGenerate && (
-            <button
-              onClick={() => generateStageInsight(stageId)}
-              className="bg-sky-600 hover:bg-sky-500 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition-all shadow-[0_0_12px_rgba(14,165,233,0.2)] flex items-center gap-2 whitespace-nowrap"
-            >
-              <Zap size={13}/> Generate Insight
-            </button>
-          )}
-          {insight && !isGenerating && (
-            <button
-              onClick={() => generateStageInsight(stageId)}
-              className="text-slate-500 hover:text-slate-300 text-[10px] uppercase tracking-widest font-bold flex items-center gap-1 transition-colors"
-            >
-              <RefreshCw size={11}/> Regenerate
-            </button>
-          )}
+        <div className="mb-4">
+          <h4 className="text-sm text-slate-200 font-bold tracking-wide flex items-center gap-2">
+            <BrainCircuit size={16} className="text-sky-400"/> Stage Analysis — {label}
+          </h4>
+          <p className="text-[10px] text-slate-500 mt-0.5 uppercase tracking-widest font-medium">Computed from pipeline outputs</p>
         </div>
-        <div className={`w-full min-h-[120px] rounded-xl border shadow-inner transition-all duration-500 ${insight || isGenerating ? 'bg-slate-900 border-sky-500/20 p-5' : 'bg-slate-950 border-slate-800 p-5'}`}>
-          {isGenerating ? (
-            <div className="flex flex-col items-center justify-center h-full text-center space-y-3 py-6">
-              <RefreshCw size={22} className="text-sky-500 animate-spin" />
-              <p className="text-xs font-bold text-sky-400 uppercase tracking-widest">Synthesizing Stage Intelligence...</p>
-              <p className="text-[10px] text-slate-500">Injecting pipeline outputs into RAG context...</p>
-            </div>
-          ) : insight ? (
-            <div className="text-sm text-slate-300 leading-loose whitespace-pre-line animate-in fade-in duration-500 font-medium">
-              {insight}
+        <div className="w-full min-h-[120px] rounded-xl border shadow-inner bg-slate-900 border-sky-500/20 p-5">
+          {analysis ? (
+            <div className="text-sm text-slate-300 leading-loose whitespace-pre-line font-medium">
+              {analysis}
             </div>
           ) : (
             <div className="flex items-center justify-center h-full text-slate-600 text-xs italic text-center py-6">
-              Generate an AI-synthesized business directive derived from this pipeline stage's computed outputs.
+              No analysis available for this stage.
             </div>
           )}
         </div>
@@ -951,9 +786,9 @@ Validated by correlation analysis (Holiday r=+${d.correlation_validated.holiday_
           <div className="hidden lg:flex items-center gap-3 bg-slate-950 border border-slate-800 px-4 py-2 rounded-lg shadow-inner">
              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
              <span className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">Active Auth Session:</span>
-             <span className="text-xs font-bold text-slate-200 bg-slate-800 px-2 py-0.5 rounded border border-slate-700">Lanz</span>
-             <span className="text-xs font-bold text-slate-200 bg-slate-800 px-2 py-0.5 rounded border border-slate-700">Bads</span>
-             <span className="text-xs font-bold text-slate-200 bg-slate-800 px-2 py-0.5 rounded border border-slate-700">Carl</span>
+             <span className="text-xs font-bold text-slate-200 bg-slate-800 px-2 py-0.5 rounded border border-slate-700">Team Lead</span>
+             <span className="text-xs font-bold text-slate-200 bg-slate-800 px-2 py-0.5 rounded border border-slate-700">Analyst</span>
+             <span className="text-xs font-bold text-slate-200 bg-slate-800 px-2 py-0.5 rounded border border-slate-700">Developer</span>
           </div>
         </div>
 
@@ -1695,7 +1530,7 @@ Validated by correlation analysis (Holiday r=+${d.correlation_validated.holiday_
                                         <Tooltip cursor={{fill: '#1e293b'}} contentStyle={{backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px'}} />
                                         <Bar dataKey="volume" radius={[0,4,4,0]} barSize={20}>
                                             {exogenousImpactData.map((entry, index) => (
-                                                <cell key={`cell-${index}`} fill={entry.color || '#475569'} />
+                                                <Cell key={`cell-${index}`} fill={entry.color || '#475569'} />
                                             ))}
                                         </Bar>
                                     </RechartsBarChart>
@@ -1829,43 +1664,28 @@ Validated by correlation analysis (Holiday r=+${d.correlation_validated.holiday_
                                 </div>
                             </div>
                             
-                            {/* DYNAMIC RAG LLM COMPONENT */}
+                            {/* DECISION ENGINE SUMMARY */}
                             <div className="border-t border-emerald-500/20 pt-6">
-                                <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-4 gap-4">
-                                    <div>
-                                        <h4 className="text-sm text-slate-200 font-bold tracking-wide flex items-center gap-2">
-                                           <BrainCircuit size={18} className="text-emerald-400"/> Generative AI Synthesis (Structured RAG)
-                                        </h4>
-                                        <p className="text-[10px] text-slate-400 mt-1 uppercase tracking-widest font-medium">Cross-referencing SARIMAX array with KJS Database constraints</p>
-                                    </div>
-                                    {!aiInsight && !isGeneratingInsight && (
-                                        <button 
-                                            onClick={generateAIInsights}
-                                            className="bg-emerald-600 hover:bg-emerald-500 text-white px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-widest transition-all shadow-[0_0_15px_rgba(16,185,129,0.3)] flex items-center gap-2 whitespace-nowrap"
-                                        >
-                                            <Zap size={14}/> Execute SDG-Aligned RAG Pipeline
-                                        </button>
-                                    )}
+                                <div className="mb-4">
+                                    <h4 className="text-sm text-slate-200 font-bold tracking-wide flex items-center gap-2">
+                                       <BrainCircuit size={18} className="text-emerald-400"/> Decision Engine Summary
+                                    </h4>
+                                    <p className="text-[10px] text-slate-400 mt-1 uppercase tracking-widest font-medium">Computed from pipeline outputs</p>
                                 </div>
 
-                                <div className={`w-full min-h-[160px] rounded-xl border shadow-inner relative transition-all duration-500 ${aiInsight || isGeneratingInsight ? 'bg-slate-900 border-emerald-500/30 p-6' : 'bg-slate-950 border-slate-800 p-6'}`}>
-                                    {isGeneratingInsight ? (
-                                        <div className="flex flex-col items-center justify-center h-full text-center space-y-4 py-8">
-                                            <RefreshCw size={28} className="text-emerald-500 animate-spin" />
-                                            <div>
-                                                <p className="text-xs font-bold text-emerald-400 uppercase tracking-widest">Executing Prescriptive Generation</p>
-                                                <p className="text-[10px] text-slate-400 mt-2">Injecting mathematical bounds into SDG 8, 9, & 12 guardrails...</p>
+                                <div className="w-full min-h-[160px] rounded-xl border shadow-inner bg-slate-900 border-emerald-500/30 p-6">
+                                    {(() => {
+                                        const dssAnalysis = generateStageAnalysis('dss');
+                                        return dssAnalysis ? (
+                                            <div className="text-sm text-slate-300 leading-loose whitespace-pre-line font-medium">
+                                                {dssAnalysis}
                                             </div>
-                                        </div>
-                                    ) : aiInsight ? (
-                                        <div className="text-sm text-slate-300 leading-loose whitespace-pre-line animate-in fade-in duration-700 font-medium">
-                                            {aiInsight}
-                                        </div>
-                                    ) : (
-                                        <div className="flex items-center justify-center h-full text-slate-500 text-xs italic text-center py-8">
-                                            System Standing By. Execute pipeline to synthesize the predictive numbers against live KJS business rules and sustainability mandates.
-                                        </div>
-                                    )}
+                                        ) : (
+                                            <div className="flex items-center justify-center h-full text-slate-500 text-xs italic text-center py-8">
+                                                No analysis available.
+                                            </div>
+                                        );
+                                    })()}
                                 </div>
                             </div>
 
