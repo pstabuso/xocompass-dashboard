@@ -38,7 +38,7 @@ const TaskTracker = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    addTask({ ...newTask, status: 'Not Started', priority: newTask.priority || 'Medium', dependencies: newTask.dependency ? [parseInt(newTask.dependency)] : [] });
+    addTask({ ...newTask, status: 'Not Started', priority: newTask.priority || 'Medium', dependencies: newTask.dependency ? [newTask.dependency] : [] });
     setIsModalOpen(false);
     setNewTask({ task: '', deadline: '', start: '', remarks: '', owner: '', priority: 'Medium', dependency: '' });
   };

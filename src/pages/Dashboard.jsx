@@ -1,10 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Activity, Database, Server, Layout, FileText,
-  Search, Filter, Download, ChevronDown, CheckCircle,
-  AlertCircle, Clock, Zap, GitBranch, Terminal,
-  Lightbulb, ArrowRight
+  Activity, Database, Filter, Download, ChevronDown, CheckCircle,
+  AlertCircle, Clock, Zap, Terminal, Lightbulb, ArrowRight
 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 import {
@@ -19,9 +17,11 @@ const Dashboard = () => {
 
   // --- DATA PROCESSING LAYER (BI Logic) ---
 
-  // 1. Personal Task Filter
+  // 1. Personal Task Filter — show all tasks if viewAll permission, otherwise match by owner name
   const myTasks = useMemo(() => {
-    return tasks.filter(t => t.owner.includes(user.name.split(' ')[0]) || (user.role.includes('Frontend') && t.owner.includes('Ralph')));
+    if (user?.permissions?.viewAll) return tasks;
+    const name = (user?.name || '').toLowerCase();
+    return tasks.filter(t => (t.owner || '').toLowerCase().includes(name));
   }, [tasks, user]);
 
   // 1b. Time Range Filter
@@ -37,53 +37,40 @@ const Dashboard = () => {
     });
   }, [myTasks, timeRange]);
 
-  // 2. Role-Specific Metrics
-  const getRoleMetrics = () => {
-    if (user.role.includes('Backend')) {
-      return [
-        { label: 'API Endpoints', val: '12/15', sub: 'Ready for Integration', icon: Server, color: 'text-emerald-400', bg: 'bg-emerald-900/30 border-emerald-500/30' },
-        { label: 'Model Accuracy', val: '84.2%', sub: 'SARIMAX (Test Set)', icon: Activity, color: 'text-blue-400', bg: 'bg-blue-900/30 border-blue-500/30' },
-        { label: 'System Uptime', val: '99.9%', sub: 'Last 30 Days', icon: Zap, color: 'text-amber-400', bg: 'bg-amber-900/30 border-amber-500/30' },
-      ];
-    } else if (user.role.includes('Frontend')) {
-      return [
-        { label: 'UI Components', val: '24/30', sub: 'Atomic Design System', icon: Layout, color: 'text-purple-400', bg: 'bg-purple-900/30 border-purple-500/30' },
-        { label: 'Responsiveness', val: 'Mobile', sub: '90% Optimized', icon: Search, color: 'text-pink-400', bg: 'bg-pink-900/30 border-pink-500/30' },
-        { label: 'Git Commits', val: '142', sub: 'Feature Branch: main', icon: GitBranch, color: 'text-orange-400', bg: 'bg-orange-900/30 border-orange-500/30' },
-      ];
-    } else {
-      return [
-        { label: 'Chapter 1-3', val: '95%', sub: 'Ready for Defense', icon: FileText, color: 'text-teal-400', bg: 'bg-teal-900/30 border-teal-500/30' },
-        { label: 'Citations', val: '45', sub: 'Mendeley Synced', icon: Database, color: 'text-cyan-400', bg: 'bg-cyan-900/30 border-cyan-500/30' },
-        { label: 'RRL Matrix', val: 'Complete', sub: '20 Local / 15 Foreign', icon: CheckCircle, color: 'text-indigo-400', bg: 'bg-indigo-900/30 border-indigo-500/30' },
-      ];
+  // 2. KPI Metrics — computed from real task data
+  const metrics = useMemo(() => {
+    const total = filteredTasks.length;
+    const done = filteredTasks.filter(t => t.status === 'Done').length;
+    const overdue = filteredTasks.filter(t => new Date(t.deadline) < new Date() && t.status !== 'Done').length;
+    const completionRate = total === 0 ? 0 : Math.round((done / total) * 100);
+
+    return [
+      { label: 'Completion Rate', val: `${completionRate}%`, sub: `${done} of ${total} tasks done`, icon: CheckCircle, color: 'text-emerald-400', bg: 'bg-emerald-900/30 border-emerald-500/30' },
+      { label: 'Active Tasks', val: `${total - done}`, sub: `${filteredTasks.filter(t => t.status === 'On-going').length} in progress`, icon: Activity, color: 'text-blue-400', bg: 'bg-blue-900/30 border-blue-500/30' },
+      { label: 'Overdue', val: `${overdue}`, sub: overdue === 0 ? 'All on track' : 'Needs attention', icon: overdue > 0 ? AlertCircle : Zap, color: overdue > 0 ? 'text-red-400' : 'text-amber-400', bg: overdue > 0 ? 'bg-red-900/30 border-red-500/30' : 'bg-amber-900/30 border-amber-500/30' },
+    ];
+  }, [filteredTasks]);
+
+  // 3. Dynamic Insights Generation (memoized)
+  const insights = useMemo(() => {
+    const result = [];
+    const overdueCount = filteredTasks.filter(t => new Date(t.deadline) < new Date() && t.status !== 'Done').length;
+    const progress = filteredTasks.length > 0 ? Math.round((filteredTasks.filter(t => t.status === 'Done').length / filteredTasks.length) * 100) : 0;
+
+    if (overdueCount > 0) {
+      result.push({ type: 'critical', text: `You have ${overdueCount} overdue task${overdueCount > 1 ? 's' : ''}. Prioritize these immediately to avoid bottlenecks.`, action: 'View Overdue' });
     }
-  };
-
-  const metrics = getRoleMetrics();
-
-  // 3. Dynamic Insights Generation (The "Intelligence" Layer)
-  const generateInsights = () => {
-      const insights = [];
-      const overdueCount = filteredTasks.filter(t => new Date(t.deadline) < new Date() && t.status !== 'Done').length;
-      const progress = filteredTasks.length > 0 ? Math.round((filteredTasks.filter(t => t.status === 'Done').length / filteredTasks.length) * 100) : 0;
-
-      if (overdueCount > 0) {
-          insights.push({ type: 'critical', text: `You have ${overdueCount} overdue tasks. Prioritize these immediately to avoid bottlenecks.`, action: 'View Overdue' });
-      }
-      if (progress < 50 && filteredTasks.length > 5) {
-          insights.push({ type: 'warning', text: 'Completion rate is below 50%. Consider breaking down complex tasks into subtasks.', action: 'Open Task Board' });
-      }
-      if (user.role.includes('Backend') && progress > 80) {
-           insights.push({ type: 'success', text: 'High completion rate. You can now assist Frontend with API integration testing.', action: 'Message Andrei' });
-      }
-      if (insights.length === 0) {
-          insights.push({ type: 'info', text: 'All systems go. You are on track for the next milestone.', action: 'View Schedule' });
-      }
-      return insights;
-  };
-
-  const insights = generateInsights();
+    if (progress < 50 && filteredTasks.length > 3) {
+      result.push({ type: 'warning', text: 'Completion rate is below 50%. Consider breaking down complex tasks into subtasks.', action: 'Open Task Board' });
+    }
+    if (progress >= 80 && filteredTasks.length > 0) {
+      result.push({ type: 'success', text: `Great progress! ${progress}% of tasks complete. Keep the momentum going.`, action: 'View Schedule' });
+    }
+    if (result.length === 0) {
+      result.push({ type: 'info', text: 'All systems go. You are on track for the next milestone.', action: 'View Schedule' });
+    }
+    return result;
+  }, [filteredTasks]);
 
   // 4. Chart Data Preparation
   const statusData = [

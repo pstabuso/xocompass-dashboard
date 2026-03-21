@@ -211,27 +211,27 @@ export const AppProvider = ({ children }) => {
   }, [logAction]);
 
   const updateTask = useCallback((id, updates) => {
-    setTasks(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
-    // For Supabase, we need the full row — merge and upsert
     setTasks(prev => {
-      const updated = prev.find(t => t.id === id);
-      if (updated) upsertRow(TABLES.tasks, updated);
-      return prev;
-    });
-  }, []);
-
-  const updateTaskStatus = useCallback((id, newStatus) => {
-    setTasks(prev => {
-      const next = prev.map(t => t.id === id ? { ...t, status: newStatus } : t);
+      const next = prev.map(t => t.id === id ? { ...t, ...updates } : t);
       const updated = next.find(t => t.id === id);
       if (updated) upsertRow(TABLES.tasks, updated);
       return next;
     });
+  }, []);
+
+  const updateTaskStatus = useCallback((id, newStatus) => {
+    let taskName = '';
     setTasks(prev => {
-      const task = prev.find(t => t.id === id);
-      if (task) logAction('Moved Task', `"${task.task}" is now ${newStatus}`);
-      return prev;
+      const next = prev.map(t => t.id === id ? { ...t, status: newStatus } : t);
+      const updated = next.find(t => t.id === id);
+      if (updated) {
+        taskName = updated.task;
+        upsertRow(TABLES.tasks, updated);
+      }
+      return next;
     });
+    // logAction outside setState to avoid side effects in updater
+    setTimeout(() => { if (taskName) logAction('Moved Task', `"${taskName}" is now ${newStatus}`); }, 0);
   }, [logAction]);
 
   const deleteTask = useCallback((id) => {
@@ -360,8 +360,8 @@ export const AppProvider = ({ children }) => {
     if (!user) return;
     const firstName = user.name.split(' ')[0].toLowerCase();
     setNotifications(prev => {
-      const toKeep = prev.filter(n => !(n.to_user || n.to || '').toLowerCase().includes(firstName));
-      const toRemove = prev.filter(n => (n.to_user || n.to || '').toLowerCase().includes(firstName));
+      const toKeep = prev.filter(n => !(n.to_user || '').toLowerCase().includes(firstName));
+      const toRemove = prev.filter(n => (n.to_user || '').toLowerCase().includes(firstName));
       toRemove.forEach(n => deleteRow(TABLES.notifications, n.id));
       return toKeep;
     });

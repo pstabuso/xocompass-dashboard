@@ -10,7 +10,7 @@ const DataHub = () => {
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
 
   // Form State
-  const [formData, setFormData] = useState({ name: '', type: 'Primary', status: 'Raw', size: '0 KB', rows: '0' });
+  const [formData, setFormData] = useState({ name: '', type: 'Primary', status: 'Raw', size: '0 KB', rows: 0 });
   const fileInputRef = useRef(null);
   const [dragActive, setDragActive] = useState(false);
 
@@ -53,13 +53,14 @@ const DataHub = () => {
     const reader = new FileReader();
     reader.onload = (e) => {
         const text = e.target.result;
-        const lineCount = text.split('\n').length - 1;
-        setFormData({
-            ...formData,
+        const lineCount = Math.max(0, text.split('\n').length - 1);
+        // Use functional updater to avoid stale closure; store rows as number for Supabase INTEGER column
+        setFormData(prev => ({
+            ...prev,
             name: file.name,
             size: sizeStr,
-            rows: lineCount.toLocaleString()
-        });
+            rows: lineCount,
+        }));
     };
     reader.readAsText(file);
   };
@@ -99,7 +100,7 @@ const DataHub = () => {
   const closeModal = () => {
       setIsModalOpen(false);
       setEditingId(null);
-      setFormData({ name: '', type: 'Primary', status: 'Raw', size: '0 KB', rows: '0' });
+      setFormData({ name: '', type: 'Primary', status: 'Raw', size: '0 KB', rows: 0 });
   };
 
   return (
@@ -159,7 +160,7 @@ const DataHub = () => {
                         </td>
                         <td className="p-4"><span className={`text-xs px-2 py-1 rounded font-bold ${d.type === 'Primary' ? 'bg-sky-500/15 text-sky-400' : 'bg-purple-500/15 text-purple-400'}`}>{d.type}</span></td>
                         <td className="p-4 text-slate-400 text-sm">{d.size}</td>
-                        <td className="p-4 text-slate-300 text-sm font-mono">{d.rows}</td>
+                        <td className="p-4 text-slate-300 text-sm font-mono">{Number(d.rows).toLocaleString()}</td>
                         <td className="p-4"><span className="text-xs font-bold text-emerald-400 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> {d.status}</span></td>
                         <td className="p-4 flex justify-end gap-2">
                             <button onClick={() => handleEdit(d)} className="p-2 text-slate-500 hover:text-amber-400 hover:bg-amber-500/10 rounded-lg transition"><Edit2 size={18}/></button>
@@ -210,7 +211,7 @@ const DataHub = () => {
                                     <div className="flex flex-col items-center">
                                         <div className="bg-emerald-500/15 p-2 rounded-full mb-2"><Check className="text-emerald-400" size={24}/></div>
                                         <p className="text-sm font-bold text-slate-200 break-all">{formData.name}</p>
-                                        <p className="text-xs text-slate-500">{formData.size} • {formData.rows} rows</p>
+                                        <p className="text-xs text-slate-500">{formData.size} • {Number(formData.rows).toLocaleString()} rows</p>
                                     </div>
                                 ) : (
                                     <>

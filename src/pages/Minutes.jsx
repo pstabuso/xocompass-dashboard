@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { Plus, FileText, ExternalLink, X, Trash2, Edit2, AlertTriangle } from 'lucide-react';
 
@@ -12,20 +12,16 @@ const safeUrl = (url) => {
 const Minutes = () => {
   const { minutes, addMinute, updateMinute, deleteMinute, user } = useAppContext();
 
-  // Safe fallback if minutes is undefined in context
-  const safeMinutes = minutes || [];
-
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({ date: '', topic: '', link: '' });
 
-  // Local state to handle immediate UI updates if Context is slow
-  const [localList, setLocalList] = useState(safeMinutes);
-
-  useEffect(() => {
-    setLocalList(safeMinutes);
-  }, [minutes]);
+  // Sorted list derived from context — no duplicate state
+  const sortedMinutes = useMemo(
+    () => [...(minutes || [])].sort((a, b) => new Date(b.date) - new Date(a.date)),
+    [minutes]
+  );
 
   const handleEdit = (meeting) => {
     if (!user?.permissions?.canCreate) return;
@@ -42,7 +38,6 @@ const Minutes = () => {
   const confirmDelete = () => {
     if (!user?.permissions?.canDelete) return;
     deleteMinute(isDeleteConfirmOpen);
-    setLocalList(localList.filter(m => m.id !== isDeleteConfirmOpen));
     setIsDeleteConfirmOpen(null);
   };
 
@@ -50,14 +45,10 @@ const Minutes = () => {
     e.preventDefault();
     if (!user?.permissions?.canCreate) return;
     if (editingId) {
-      // Edit Logic
       updateMinute(editingId, formData);
-      setLocalList(localList.map(m => m.id === editingId ? { ...m, ...formData } : m));
     } else {
-      // Add Logic
-      const newM = { ...formData, id: Date.now(), actionPoint: 'See Doc', items: [], notes: 'Linked via App' };
-      addMinute(newM); // Sync with Context
-      setLocalList([...localList, newM]); // Sync Local
+      // Use snake_case field names to match Supabase schema
+      addMinute({ ...formData, action_point: 'See Doc', items: [], notes: 'Linked via App' });
     }
     closeModal();
   };
@@ -86,13 +77,13 @@ const Minutes = () => {
       </div>
 
       <div className="grid grid-cols-1 gap-4">
-        {localList.length === 0 ? (
+        {sortedMinutes.length === 0 ? (
             <div className="text-center py-12 border-2 border-dashed border-slate-800 rounded-xl">
                 <FileText size={48} className="mx-auto text-slate-600 mb-2"/>
                 <p className="text-slate-500">No meetings logged yet.</p>
             </div>
         ) : (
-            localList.sort((a,b) => new Date(b.date) - new Date(a.date)).map((meeting) => (
+            sortedMinutes.map((meeting) => (
             <div key={meeting.id} className="bg-slate-900/50 border border-slate-800 rounded-xl p-5 flex justify-between items-center hover:border-slate-700 transition-all duration-300 group">
                 <div className="flex items-start space-x-4">
                     <div className="bg-sky-600/15 p-3 rounded-lg text-sky-400 group-hover:scale-110 transition-transform duration-300">
