@@ -14,7 +14,7 @@ const TaskTracker = () => {
   // Forms
   const [commentText, setCommentText] = useState('');
   const [newSubtask, setNewSubtask] = useState('');
-  const [newTask, setNewTask] = useState({ task: '', deadline: '', start: '', remarks: '', owner: 'Lanz', dependency: '' });
+  const [newTask, setNewTask] = useState({ task: '', deadline: '', start: '', remarks: '', owner: '', priority: 'Medium', dependency: '' });
 
   const filteredTasks = filter === 'All' ? tasks : tasks.filter(t => t.owner.includes(filter));
 
@@ -38,9 +38,9 @@ const TaskTracker = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    addTask({ ...newTask, status: 'Not Started', dependencies: newTask.dependency ? [parseInt(newTask.dependency)] : [] });
+    addTask({ ...newTask, status: 'Not Started', priority: newTask.priority || 'Medium', dependencies: newTask.dependency ? [parseInt(newTask.dependency)] : [] });
     setIsModalOpen(false);
-    setNewTask({ task: '', deadline: '', start: '', remarks: '', owner: 'Lanz', dependency: '' });
+    setNewTask({ task: '', deadline: '', start: '', remarks: '', owner: '', priority: 'Medium', dependency: '' });
   };
 
   const handleDeleteRequest = (id) => { setDeleteConfirmId(id); };
@@ -220,15 +220,45 @@ const TaskTracker = () => {
                                 </div>
                             </div>
 
-                            <div className="space-y-2">
-                                <label className="text-sm font-bold text-slate-400 uppercase tracking-wider">Assign To</label>
-                                <div className="flex gap-4">
-                                    {['Lanz', 'Ralph', 'Paolo', 'All'].map(owner => (
-                                        <button key={owner} type="button" onClick={() => setNewTask({...newTask, owner})} className={`px-6 py-3 rounded-lg font-bold border transition-all ${newTask.owner === owner ? 'bg-sky-600 text-white border-sky-600' : 'bg-slate-800 text-slate-400 border-slate-700 hover:border-sky-500'}`}>
-                                            {owner}
-                                        </button>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-400 mb-1">Notes (optional)</label>
+                                <textarea
+                                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 text-white rounded-lg focus:ring-2 focus:ring-sky-500 outline-none transition text-sm resize-none"
+                                    rows={2}
+                                    placeholder="Additional notes or context..."
+                                    value={newTask.remarks}
+                                    onChange={e => setNewTask({...newTask, remarks: e.target.value})}
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-bold text-slate-400 mb-1">Priority</label>
+                                <div className="flex gap-2">
+                                    {['Low', 'Medium', 'High', 'Critical'].map(p => (
+                                        <button key={p} type="button"
+                                            onClick={() => setNewTask({...newTask, priority: p})}
+                                            className={`px-3 py-1 rounded-lg text-xs font-bold transition ${
+                                                newTask.priority === p
+                                                    ? p === 'Critical' ? 'bg-red-600 text-white'
+                                                    : p === 'High' ? 'bg-orange-600 text-white'
+                                                    : p === 'Medium' ? 'bg-sky-600 text-white'
+                                                    : 'bg-emerald-600 text-white'
+                                                    : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
+                                            }`}
+                                        >{p}</button>
                                     ))}
                                 </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-sm font-bold text-slate-400 uppercase tracking-wider">Assigned To</label>
+                                <input
+                                    type="text"
+                                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 text-white rounded-lg focus:ring-2 focus:ring-sky-500 outline-none transition text-sm"
+                                    placeholder="Enter assignee name"
+                                    value={newTask.owner}
+                                    onChange={e => setNewTask({...newTask, owner: e.target.value})}
+                                />
                             </div>
                             <button className="w-full bg-sky-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-sky-500 hover:scale-[1.01] active:scale-95 transition-all shadow-xl shadow-sky-900/30">
                                 Create Task
@@ -257,6 +287,29 @@ const TaskTracker = () => {
                                     <p className="font-bold text-slate-300 mt-1">{expandedTask.deadline}</p>
                                 </div>
                             </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="p-4 bg-slate-800/30 rounded-xl border border-slate-800">
+                                    <p className="text-xs font-bold text-slate-500 uppercase">Priority</p>
+                                    <span className={`inline-block mt-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                                        expandedTask.priority === 'Critical' ? 'bg-red-600/20 text-red-400' :
+                                        expandedTask.priority === 'High' ? 'bg-orange-600/20 text-orange-400' :
+                                        expandedTask.priority === 'Medium' ? 'bg-sky-600/20 text-sky-400' :
+                                        'bg-emerald-600/20 text-emerald-400'
+                                    }`}>{expandedTask.priority || 'Medium'}</span>
+                                </div>
+                                <div className="p-4 bg-slate-800/30 rounded-xl border border-slate-800">
+                                    <p className="text-xs font-bold text-slate-500 uppercase">Assigned To</p>
+                                    <p className="font-bold text-slate-300 mt-1">{expandedTask.owner || 'Unassigned'}</p>
+                                </div>
+                            </div>
+
+                            {expandedTask.remarks && (
+                                <div className="p-4 bg-slate-800/30 rounded-xl border border-slate-800">
+                                    <p className="text-xs font-bold text-slate-500 uppercase mb-1">Notes</p>
+                                    <p className="text-sm text-slate-300 leading-relaxed">{expandedTask.remarks}</p>
+                                </div>
+                            )}
 
                             <div className="p-6 bg-slate-800/30 rounded-2xl border border-slate-800">
                                 <div className="flex justify-between items-center mb-4">

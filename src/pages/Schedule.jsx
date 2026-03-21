@@ -3,14 +3,14 @@ import { useAppContext } from '../context/AppContext';
 import { ChevronLeft, ChevronRight, Calendar as CalIcon, Edit2, Plus, X, CheckSquare, AlertCircle, Trash2 } from 'lucide-react';
 
 const Schedule = () => {
-  const { events, addEvent, updateEvent, deleteEvent, tasks, addTask } = useAppContext();
+  const { user, events, addEvent, updateEvent, deleteEvent, tasks, addTask } = useAppContext();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState('selection');
   const [editMode, setEditMode] = useState(null);
   const [eventForm, setEventForm] = useState({ title: '', description: '', time: '09:00', status: 'Not Started', date: '' });
-  const [taskForm, setTaskForm] = useState({ task: '', remarks: '', deadline: '', status: 'Not Started', owner: 'Lanz' });
+  const [taskForm, setTaskForm] = useState({ task: '', remarks: '', deadline: '', status: 'Not Started', owner: '' });
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -26,7 +26,7 @@ const Schedule = () => {
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     setSelectedDate(dateStr);
     setEventForm({ ...eventForm, date: dateStr });
-    setTaskForm({ ...taskForm, deadline: dateStr });
+    setTaskForm({ ...taskForm, deadline: dateStr, owner: user?.name || '' });
     setModalMode('selection');
     setEditMode(null);
     setIsModalOpen(true);
@@ -34,7 +34,7 @@ const Schedule = () => {
   const handleEditEvent = (evt) => { setEventForm(evt); setEditMode(evt.id); setModalMode('event'); setSelectedDate(evt.date); setIsModalOpen(true); };
   const submitEvent = (e) => { e.preventDefault(); if (editMode) { updateEvent(editMode, eventForm); } else { addEvent({ ...eventForm, date: selectedDate, type: 'event' }); } closeModal(); };
   const submitTask = (e) => { e.preventDefault(); addTask({ ...taskForm, deadline: selectedDate }); closeModal(); };
-  const closeModal = () => { setIsModalOpen(false); setEventForm({ title: '', description: '', time: '09:00', status: 'Not Started', date: '' }); setTaskForm({ task: '', remarks: '', deadline: '', status: 'Not Started', owner: 'Lanz' }); setEditMode(null); };
+  const closeModal = () => { setIsModalOpen(false); setEventForm({ title: '', description: '', time: '09:00', status: 'Not Started', date: '' }); setTaskForm({ task: '', remarks: '', deadline: '', status: 'Not Started', owner: '' }); setEditMode(null); };
 
   const getItemsForDay = (day) => {
       const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -131,6 +131,7 @@ const Schedule = () => {
                       <div><label className="text-xs font-bold text-slate-500">Event Name</label><input required type="text" className="w-full bg-slate-800 border border-slate-700 p-2 rounded-lg mt-1 outline-none text-white focus:ring-2 focus:ring-sky-500" value={eventForm.title} onChange={e => setEventForm({...eventForm, title: e.target.value})} /></div>
                       <div><label className="text-xs font-bold text-slate-500">Description</label><textarea className="w-full bg-slate-800 border border-slate-700 p-2 rounded-lg mt-1 outline-none text-white focus:ring-2 focus:ring-sky-500" rows="2" value={eventForm.description} onChange={e => setEventForm({...eventForm, description: e.target.value})} /></div>
                       <div className="grid grid-cols-2 gap-4"><div><label className="text-xs font-bold text-slate-500">Date</label><input type="date" className="w-full bg-slate-800 border border-slate-700 p-2 rounded-lg mt-1 text-white" value={eventForm.date} onChange={e => setEventForm({...eventForm, date: e.target.value})} /></div><div><label className="text-xs font-bold text-slate-500">Time</label><input type="time" className="w-full bg-slate-800 border border-slate-700 p-2 rounded-lg mt-1 text-white" value={eventForm.time} onChange={e => setEventForm({...eventForm, time: e.target.value})} /></div></div>
+                      <div><label className="text-xs font-bold text-slate-500">Status</label><select value={eventForm.status} onChange={e => setEventForm({...eventForm, status: e.target.value})} className="w-full px-3 py-2 bg-slate-800 border border-slate-700 text-white rounded-lg mt-1 outline-none focus:ring-2 focus:ring-sky-500"><option value="Not Started">Not Started</option><option value="On-going">On-going</option><option value="Done">Done</option></select></div>
                       <button className="w-full bg-emerald-600 text-white py-2 rounded-lg font-bold hover:bg-emerald-500 transition">Save Event</button>
                       {editMode && (
                         <button type="button" onClick={() => { deleteEvent(editMode); closeModal(); }} className="w-full flex items-center justify-center gap-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 py-2 rounded-lg font-bold transition mt-2">
@@ -146,6 +147,8 @@ const Schedule = () => {
                    <div className="p-6 space-y-4">
                       <div><label className="text-xs font-bold text-slate-500">Task Name</label><input required type="text" className="w-full bg-slate-800 border border-slate-700 p-2 rounded-lg mt-1 outline-none text-white focus:ring-2 focus:ring-sky-500" value={taskForm.task} onChange={e => setTaskForm({...taskForm, task: e.target.value})} /></div>
                       <div className="grid grid-cols-2 gap-4"><div><label className="text-xs font-bold text-slate-500">Deadline</label><input type="date" className="w-full bg-slate-800 border border-slate-700 p-2 rounded-lg mt-1 text-white" value={taskForm.deadline} onChange={e => setTaskForm({...taskForm, deadline: e.target.value})} /></div><div><label className="text-xs font-bold text-slate-500">Status</label><select className="w-full bg-slate-800 border border-slate-700 p-2 rounded-lg mt-1 text-white" value={taskForm.status} onChange={e => setTaskForm({...taskForm, status: e.target.value})}><option>Not Started</option><option>On-going</option></select></div></div>
+                      <div><label className="text-xs font-bold text-slate-500">Assigned To</label><input type="text" className="w-full bg-slate-800 border border-slate-700 p-2 rounded-lg mt-1 outline-none text-white focus:ring-2 focus:ring-sky-500" placeholder="Enter assignee name" value={taskForm.owner} onChange={e => setTaskForm({...taskForm, owner: e.target.value})} /></div>
+                      <div><label className="text-xs font-bold text-slate-500">Notes (optional)</label><textarea className="w-full bg-slate-800 border border-slate-700 p-2 rounded-lg mt-1 outline-none text-white focus:ring-2 focus:ring-sky-500 resize-none text-sm" rows={2} placeholder="Additional notes or context..." value={taskForm.remarks} onChange={e => setTaskForm({...taskForm, remarks: e.target.value})} /></div>
                       <button className="w-full bg-amber-600 text-white py-2 rounded-lg font-bold hover:bg-amber-500 mt-2 transition">Create Task</button>
                    </div>
                 </form>

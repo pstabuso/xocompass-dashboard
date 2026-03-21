@@ -1,12 +1,9 @@
-import React, { useState, useRef } from 'react';
-import { Database, FileText, Upload, Download, AlertCircle, Trash2, Edit2, X, AlertTriangle, Check, FileSpreadsheet } from 'lucide-react';
+import React, { useState, useRef, useMemo } from 'react';
+import { Database, FileText, Upload, AlertCircle, Trash2, Edit2, X, AlertTriangle, Check, FileSpreadsheet } from 'lucide-react';
+import { useAppContext } from '../context/AppContext';
 
 const DataHub = () => {
-  const [datasets, setDatasets] = useState([
-    { id: 1, name: 'KJS_Bookings_2019_2024.csv', size: '2.4 MB', rows: '15,400', status: 'Cleaned', type: 'Primary' },
-    { id: 2, name: 'PAGASA_Rainfall_NCR.csv', size: '500 KB', rows: '2,100', status: 'Raw', type: 'Exogenous' },
-    { id: 3, name: 'PH_Holidays_2019_2025.csv', size: '12 KB', rows: '150', status: 'Verified', type: 'Exogenous' },
-  ]);
+  const { datasets, addDataset, updateDataset, deleteDataset, user } = useAppContext();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -17,6 +14,19 @@ const DataHub = () => {
   const fileInputRef = useRef(null);
   const [dragActive, setDragActive] = useState(false);
 
+  // --- COMPUTED STATS ---
+  const stats = useMemo(() => {
+    const parseRows = (r) => {
+      if (typeof r === 'number') return r;
+      if (typeof r === 'string') return parseInt(r.replace(/,/g, ''), 10) || 0;
+      return 0;
+    };
+    const totalRecords = datasets.reduce((sum, d) => sum + parseRows(d.rows), 0);
+    const verifiedCount = datasets.filter(d => d.status === 'Verified').length;
+    const integrityPct = datasets.length === 0 ? 0 : Math.round((verifiedCount / datasets.length) * 100);
+    return { totalRecords, integrityPct };
+  }, [datasets]);
+
   // --- ACTIONS ---
   const handleEdit = (data) => {
     setFormData({ name: data.name, type: data.type, status: data.status, size: data.size, rows: data.rows });
@@ -25,7 +35,7 @@ const DataHub = () => {
   };
 
   const handleDelete = () => {
-    setDatasets(datasets.filter(d => d.id !== deleteConfirmId));
+    deleteDataset(deleteConfirmId);
     setDeleteConfirmId(null);
   };
 
@@ -79,9 +89,9 @@ const DataHub = () => {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (editingId) {
-        setDatasets(datasets.map(d => d.id === editingId ? { ...d, ...formData } : d));
+        updateDataset(editingId, { type: formData.type, status: formData.status });
     } else {
-        setDatasets([...datasets, { id: Date.now(), ...formData }]);
+        addDataset({ name: formData.name, type: formData.type, status: formData.status, size: formData.size, rows: formData.rows });
     }
     closeModal();
   };
@@ -108,12 +118,12 @@ const DataHub = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
          <div className="bg-slate-900/50 p-6 rounded-xl border border-slate-800 transition hover:shadow-md hover:-translate-y-1 duration-300">
              <div className="flex items-center gap-3 text-slate-400 mb-2"><Database size={20}/> Total Records</div>
-             <p className="text-3xl font-bold text-slate-100">17,650</p>
+             <p className="text-3xl font-bold text-slate-100">{stats.totalRecords.toLocaleString()}</p>
          </div>
          <div className="bg-slate-900/50 p-6 rounded-xl border border-slate-800 transition hover:shadow-md hover:-translate-y-1 duration-300">
              <div className="flex items-center gap-3 text-slate-400 mb-2"><AlertCircle size={20}/> Data Integrity</div>
-             <p className="text-3xl font-bold text-emerald-400">100%</p>
-             <p className="text-xs text-slate-500">No missing values detected</p>
+             <p className="text-3xl font-bold text-emerald-400">{datasets.length === 0 ? '--' : `${stats.integrityPct}%`}</p>
+             <p className="text-xs text-slate-500">{datasets.length === 0 ? 'No datasets loaded' : stats.integrityPct === 100 ? 'All datasets verified' : `${datasets.filter(d => d.status === 'Verified').length} of ${datasets.length} verified`}</p>
          </div>
          <div className="bg-slate-900/50 p-6 rounded-xl border border-slate-800 transition hover:shadow-md hover:-translate-y-1 duration-300">
              <div className="flex items-center gap-3 text-slate-400 mb-2"><FileSpreadsheet size={20}/> Datasets</div>
@@ -121,7 +131,14 @@ const DataHub = () => {
          </div>
       </div>
 
-      {/* Table */}
+      {/* Table or Empty State */}
+      {datasets.length === 0 ? (
+        <div className="bg-slate-900/50 rounded-xl border border-slate-800 p-12 text-center">
+          <Upload size={48} className="mx-auto text-slate-600 mb-4" />
+          <h3 className="text-lg font-bold text-slate-400 mb-2">No datasets yet</h3>
+          <p className="text-slate-500 text-sm">Upload your first CSV to get started.</p>
+        </div>
+      ) : (
       <div className="bg-slate-900/50 rounded-xl border border-slate-800 overflow-hidden">
          <table className="w-full text-left">
             <thead className="bg-slate-800/30 border-b border-slate-800 text-xs font-bold text-slate-500 uppercase">
@@ -153,6 +170,7 @@ const DataHub = () => {
             </tbody>
          </table>
       </div>
+      )}
 
       {/* Delete Modal */}
       {deleteConfirmId && (

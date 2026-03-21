@@ -42,6 +42,9 @@ export const AppProvider = ({ children }) => {
   const [minutes, setMinutes] = useState(() => {
     try { return JSON.parse(localStorage.getItem('minutes')) || []; } catch { return []; }
   });
+  const [datasets, setDatasets] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('datasets')) || []; } catch { return []; }
+  });
 
   useEffect(() => { if (user) localStorage.setItem('xo_user', JSON.stringify(user)); else localStorage.removeItem('xo_user'); }, [user]);
   useEffect(() => { localStorage.setItem('tasks', JSON.stringify(tasks)); }, [tasks]);
@@ -49,6 +52,7 @@ export const AppProvider = ({ children }) => {
   useEffect(() => { localStorage.setItem('activityLog', JSON.stringify(activityLog)); }, [activityLog]);
   useEffect(() => { localStorage.setItem('notifications', JSON.stringify(notifications)); }, [notifications]);
   useEffect(() => { localStorage.setItem('minutes', JSON.stringify(minutes)); }, [minutes]);
+  useEffect(() => { localStorage.setItem('datasets', JSON.stringify(datasets)); }, [datasets]);
 
   const logAction = (action, details) => {
     const newLog = { id: Date.now(), user: user?.name || 'System', action, details, time: new Date().toLocaleString() };
@@ -66,6 +70,20 @@ export const AppProvider = ({ children }) => {
 
   const deleteMinute = (id) => {
     setMinutes(prev => prev.filter(m => m.id !== id));
+  };
+
+  const addDataset = (dataset) => {
+    setDatasets(prev => [...prev, { ...dataset, id: Date.now(), uploadedAt: new Date().toISOString() }]);
+    logAction('Uploaded Dataset', dataset.name);
+  };
+
+  const updateDataset = (id, updated) => {
+    setDatasets(prev => prev.map(d => d.id === id ? { ...d, ...updated } : d));
+  };
+
+  const deleteDataset = (id) => {
+    setDatasets(prev => prev.filter(d => d.id !== id));
+    logAction('Deleted Dataset', `ID: ${id}`);
   };
 
   const addTask = (newTask) => {
@@ -121,6 +139,31 @@ export const AppProvider = ({ children }) => {
     localStorage.removeItem('xo_user');
   };
 
+  const exportAllData = () => {
+    const data = { tasks, events, minutes, datasets, activityLog, notifications, exportedAt: new Date().toISOString(), version: '1.0' };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `xocompass-backup-${new Date().toISOString().slice(0,10)}.json`; a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const importAllData = (jsonString) => {
+    try {
+      const data = JSON.parse(jsonString);
+      if (data.tasks) setTasks(data.tasks);
+      if (data.events) setEvents(data.events);
+      if (data.minutes) setMinutes(data.minutes);
+      if (data.datasets) setDatasets(data.datasets);
+      if (data.activityLog) setActivityLog(data.activityLog);
+      if (data.notifications) setNotifications(data.notifications);
+      logAction('Imported Backup', `From ${data.exportedAt || 'unknown'}`);
+      return { success: true };
+    } catch {
+      return { success: false, message: 'Invalid backup file format.' };
+    }
+  };
+
   const getStats = () => {
     const total = tasks.length;
     const completed = tasks.filter(t => t.status === 'Done').length;
@@ -136,7 +179,9 @@ export const AppProvider = ({ children }) => {
       events, addEvent, updateEvent, deleteEvent,
       activityLog, getStats,
       minutes, addMinute, updateMinute, deleteMinute,
-      notifications, nudgeUser, clearNotifications
+      datasets, addDataset, updateDataset, deleteDataset,
+      notifications, nudgeUser, clearNotifications,
+      exportAllData, importAllData
     }}>
       {children}
     </AppContext.Provider>
