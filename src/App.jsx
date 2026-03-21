@@ -43,11 +43,11 @@ const Sidebar = () => {
             to={item.path}
             className={`flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 ease-in-out group ${
               location.pathname === item.path
-                ? 'bg-blue-600/10 text-blue-400 border border-blue-500/20 shadow-[0_0_15px_rgba(59,130,246,0.1)]'
+                ? 'bg-sky-600/10 text-sky-400 border border-sky-500/20 shadow-[0_0_15px_rgba(56,189,248,0.1)]'
                 : 'hover:bg-slate-800 hover:text-white'
             }`}
           >
-            <item.icon size={20} className={location.pathname === item.path ? 'text-blue-400' : 'group-hover:scale-110 transition-transform'} />
+            <item.icon size={20} className={location.pathname === item.path ? 'text-sky-400' : 'group-hover:scale-110 transition-transform'} />
             <span className="font-medium">{item.label}</span>
           </Link>
         ))}

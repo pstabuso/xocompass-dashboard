@@ -11,7 +11,7 @@ const DataHub = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
-  
+
   // Form State
   const [formData, setFormData] = useState({ name: '', type: 'Primary', status: 'Raw', size: '0 KB', rows: '0' });
   const fileInputRef = useRef(null);
@@ -43,10 +43,10 @@ const DataHub = () => {
     const reader = new FileReader();
     reader.onload = (e) => {
         const text = e.target.result;
-        const lineCount = text.split('\n').length - 1; // Subtract 1 assuming header or trailing newline
-        setFormData({ 
-            ...formData, 
-            name: file.name, 
+        const lineCount = text.split('\n').length - 1;
+        setFormData({
+            ...formData,
+            name: file.name,
             size: sizeStr,
             rows: lineCount.toLocaleString()
         });
@@ -96,35 +96,35 @@ const DataHub = () => {
     <div className="space-y-6 animate-enter">
       <header className="flex justify-between items-center">
         <div>
-           <h2 className="text-2xl font-bold text-slate-800">Data Hub</h2>
+           <h2 className="text-2xl font-bold text-slate-100">Data Hub</h2>
            <p className="text-slate-500 text-sm">Manage datasets for SARIMAX Training</p>
         </div>
-        <button onClick={() => setIsModalOpen(true)} className="flex items-center space-x-2 bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-emerald-700 transition hover:scale-105 active:scale-95 duration-200 shadow-lg shadow-emerald-200">
+        <button onClick={() => setIsModalOpen(true)} className="flex items-center space-x-2 bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-emerald-500 transition hover:scale-105 active:scale-95 duration-200 shadow-lg shadow-emerald-900/20">
             <Upload size={18}/> <span>Upload CSV</span>
         </button>
       </header>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-         <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm transition hover:shadow-md hover:-translate-y-1 duration-300">
-             <div className="flex items-center gap-3 text-slate-500 mb-2"><Database size={20}/> Total Records</div>
-             <p className="text-3xl font-bold text-slate-800">17,650</p>
+         <div className="bg-slate-900/50 p-6 rounded-xl border border-slate-800 transition hover:shadow-md hover:-translate-y-1 duration-300">
+             <div className="flex items-center gap-3 text-slate-400 mb-2"><Database size={20}/> Total Records</div>
+             <p className="text-3xl font-bold text-slate-100">17,650</p>
          </div>
-         <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm transition hover:shadow-md hover:-translate-y-1 duration-300">
-             <div className="flex items-center gap-3 text-slate-500 mb-2"><AlertCircle size={20}/> Data Integrity</div>
-             <p className="text-3xl font-bold text-emerald-500">100%</p>
-             <p className="text-xs text-slate-400">No missing values detected</p>
+         <div className="bg-slate-900/50 p-6 rounded-xl border border-slate-800 transition hover:shadow-md hover:-translate-y-1 duration-300">
+             <div className="flex items-center gap-3 text-slate-400 mb-2"><AlertCircle size={20}/> Data Integrity</div>
+             <p className="text-3xl font-bold text-emerald-400">100%</p>
+             <p className="text-xs text-slate-500">No missing values detected</p>
          </div>
-         <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm transition hover:shadow-md hover:-translate-y-1 duration-300">
-             <div className="flex items-center gap-3 text-slate-500 mb-2"><FileSpreadsheet size={20}/> Datasets</div>
-             <p className="text-3xl font-bold text-blue-600">{datasets.length}</p>
+         <div className="bg-slate-900/50 p-6 rounded-xl border border-slate-800 transition hover:shadow-md hover:-translate-y-1 duration-300">
+             <div className="flex items-center gap-3 text-slate-400 mb-2"><FileSpreadsheet size={20}/> Datasets</div>
+             <p className="text-3xl font-bold text-sky-400">{datasets.length}</p>
          </div>
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+      <div className="bg-slate-900/50 rounded-xl border border-slate-800 overflow-hidden">
          <table className="w-full text-left">
-            <thead className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase">
+            <thead className="bg-slate-800/30 border-b border-slate-800 text-xs font-bold text-slate-500 uppercase">
                 <tr>
                     <th className="p-4">Filename</th>
                     <th className="p-4">Type</th>
@@ -134,19 +134,19 @@ const DataHub = () => {
                     <th className="p-4 text-right">Actions</th>
                 </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-800">
                 {datasets.map((d) => (
-                    <tr key={d.id} className="hover:bg-slate-50 transition duration-200">
-                        <td className="p-4 font-medium text-slate-700 flex items-center gap-3">
-                            <FileText size={18} className="text-slate-400"/> {d.name}
+                    <tr key={d.id} className="hover:bg-slate-800/50 transition duration-200">
+                        <td className="p-4 font-medium text-slate-300 flex items-center gap-3">
+                            <FileText size={18} className="text-slate-500"/> {d.name}
                         </td>
-                        <td className="p-4"><span className={`text-xs px-2 py-1 rounded font-bold ${d.type === 'Primary' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'}`}>{d.type}</span></td>
-                        <td className="p-4 text-slate-500 text-sm">{d.size}</td>
-                        <td className="p-4 text-slate-600 text-sm font-mono">{d.rows}</td>
-                        <td className="p-4"><span className="text-xs font-bold text-emerald-600 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> {d.status}</span></td>
+                        <td className="p-4"><span className={`text-xs px-2 py-1 rounded font-bold ${d.type === 'Primary' ? 'bg-sky-500/15 text-sky-400' : 'bg-purple-500/15 text-purple-400'}`}>{d.type}</span></td>
+                        <td className="p-4 text-slate-400 text-sm">{d.size}</td>
+                        <td className="p-4 text-slate-300 text-sm font-mono">{d.rows}</td>
+                        <td className="p-4"><span className="text-xs font-bold text-emerald-400 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> {d.status}</span></td>
                         <td className="p-4 flex justify-end gap-2">
-                            <button onClick={() => handleEdit(d)} className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition"><Edit2 size={18}/></button>
-                            <button onClick={() => setDeleteConfirmId(d.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"><Trash2 size={18}/></button>
+                            <button onClick={() => handleEdit(d)} className="p-2 text-slate-500 hover:text-amber-400 hover:bg-amber-500/10 rounded-lg transition"><Edit2 size={18}/></button>
+                            <button onClick={() => setDeleteConfirmId(d.id)} className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition"><Trash2 size={18}/></button>
                         </td>
                     </tr>
                 ))}
@@ -157,15 +157,15 @@ const DataHub = () => {
       {/* Delete Modal */}
       {deleteConfirmId && (
          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[110] animate-enter">
-            <div className="bg-white p-6 rounded-2xl w-[400px] shadow-2xl text-center">
-                <div className="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
+            <div className="bg-slate-900 p-6 rounded-2xl w-[400px] shadow-2xl text-center border border-slate-700">
+                <div className="w-16 h-16 bg-red-500/15 text-red-400 rounded-full flex items-center justify-center mx-auto mb-4">
                     <AlertTriangle size={32} />
                 </div>
-                <h3 className="text-xl font-bold text-slate-800 mb-2">Delete Dataset?</h3>
-                <p className="text-slate-500 text-sm mb-6">This cannot be undone. Make sure you have a backup.</p>
+                <h3 className="text-xl font-bold text-slate-100 mb-2">Delete Dataset?</h3>
+                <p className="text-slate-400 text-sm mb-6">This cannot be undone. Make sure you have a backup.</p>
                 <div className="flex gap-3 justify-center">
-                    <button onClick={() => setDeleteConfirmId(null)} className="px-5 py-2.5 rounded-xl font-bold text-slate-600 hover:bg-slate-100 transition">Cancel</button>
-                    <button onClick={handleDelete} className="px-5 py-2.5 rounded-xl font-bold bg-red-600 text-white hover:bg-red-700 transition shadow-lg shadow-red-200">Yes, Delete</button>
+                    <button onClick={() => setDeleteConfirmId(null)} className="px-5 py-2.5 rounded-xl font-bold text-slate-300 hover:bg-slate-800 transition">Cancel</button>
+                    <button onClick={handleDelete} className="px-5 py-2.5 rounded-xl font-bold bg-red-600 text-white hover:bg-red-700 transition shadow-lg shadow-red-900/30">Yes, Delete</button>
                 </div>
             </div>
          </div>
@@ -173,32 +173,32 @@ const DataHub = () => {
 
       {/* Upload/Edit Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 animate-enter">
-            <div className="relative bg-white p-6 rounded-2xl w-96 shadow-2xl">
-                <button onClick={closeModal} className="absolute top-4 right-4 p-1 text-slate-400 hover:text-red-500 rounded-full transition"><X size={20}/></button>
-                <h3 className="text-xl font-bold text-slate-800 mb-4">{editingId ? 'Edit Metadata' : 'Upload Dataset'}</h3>
-                
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-enter">
+            <div className="relative bg-slate-900 p-6 rounded-2xl w-96 shadow-2xl border border-slate-700">
+                <button onClick={closeModal} className="absolute top-4 right-4 p-1 text-slate-400 hover:text-red-400 rounded-full transition"><X size={20}/></button>
+                <h3 className="text-xl font-bold text-slate-100 mb-4">{editingId ? 'Edit Metadata' : 'Upload Dataset'}</h3>
+
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    
+
                     {/* DRAG & DROP FILE UPLOAD AREA */}
                     {!editingId && (
-                        <div 
-                            className={`mt-1 flex flex-col justify-center px-6 pt-5 pb-6 border-2 border-dashed rounded-xl transition-all cursor-pointer relative ${dragActive ? 'border-emerald-500 bg-emerald-50' : 'border-slate-300 hover:bg-slate-50'}`}
+                        <div
+                            className={`mt-1 flex flex-col justify-center px-6 pt-5 pb-6 border-2 border-dashed rounded-xl transition-all cursor-pointer relative ${dragActive ? 'border-emerald-500 bg-emerald-500/10' : 'border-slate-700 hover:bg-slate-800/50'}`}
                             onDragEnter={handleDrag} onDragLeave={handleDrag} onDragOver={handleDrag} onDrop={handleDrop}
                             onClick={() => fileInputRef.current.click()}
                         >
                             <div className="space-y-1 text-center">
                                 {formData.name ? (
                                     <div className="flex flex-col items-center">
-                                        <div className="bg-emerald-100 p-2 rounded-full mb-2"><Check className="text-emerald-600" size={24}/></div>
-                                        <p className="text-sm font-bold text-slate-700 break-all">{formData.name}</p>
+                                        <div className="bg-emerald-500/15 p-2 rounded-full mb-2"><Check className="text-emerald-400" size={24}/></div>
+                                        <p className="text-sm font-bold text-slate-200 break-all">{formData.name}</p>
                                         <p className="text-xs text-slate-500">{formData.size} • {formData.rows} rows</p>
                                     </div>
                                 ) : (
                                     <>
-                                        <Upload className={`mx-auto h-10 w-10 ${dragActive ? 'text-emerald-500' : 'text-slate-400'}`} />
-                                        <div className="flex text-sm text-slate-600 justify-center">
-                                            <span className="font-medium text-emerald-600 hover:text-emerald-500">Click to upload</span>
+                                        <Upload className={`mx-auto h-10 w-10 ${dragActive ? 'text-emerald-400' : 'text-slate-500'}`} />
+                                        <div className="flex text-sm text-slate-400 justify-center">
+                                            <span className="font-medium text-emerald-400 hover:text-emerald-300">Click to upload</span>
                                             <span className="pl-1">or drag & drop</span>
                                         </div>
                                         <p className="text-xs text-slate-500">CSV (MAX. 10MB)</p>
@@ -214,19 +214,19 @@ const DataHub = () => {
                         {editingId && (
                             <div>
                                 <label className="text-xs font-bold text-slate-500 uppercase">Filename</label>
-                                <input required type="text" className="w-full border border-slate-300 p-2 rounded-lg mt-1 outline-none bg-slate-50" value={formData.name} readOnly />
+                                <input required type="text" className="w-full bg-slate-800 border border-slate-700 text-slate-300 p-2 rounded-lg mt-1 outline-none" value={formData.name} readOnly />
                             </div>
                         )}
                         <div>
                             <label className="text-xs font-bold text-slate-500 uppercase">Type</label>
-                            <select className="w-full border border-slate-300 p-2 rounded-lg mt-1 outline-none focus:border-emerald-500 transition" value={formData.type} onChange={e => setFormData({...formData, type: e.target.value})}>
+                            <select className="w-full bg-slate-800 border border-slate-700 text-white p-2 rounded-lg mt-1 outline-none focus:border-emerald-500 transition" value={formData.type} onChange={e => setFormData({...formData, type: e.target.value})}>
                                 <option value="Primary">Primary (Bookings)</option>
                                 <option value="Exogenous">Exogenous (External)</option>
                             </select>
                         </div>
                         <div>
                             <label className="text-xs font-bold text-slate-500 uppercase">Status</label>
-                            <select className="w-full border border-slate-300 p-2 rounded-lg mt-1 outline-none focus:border-emerald-500 transition" value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})}>
+                            <select className="w-full bg-slate-800 border border-slate-700 text-white p-2 rounded-lg mt-1 outline-none focus:border-emerald-500 transition" value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})}>
                                 <option value="Raw">Raw</option>
                                 <option value="Cleaned">Cleaned</option>
                                 <option value="Verified">Verified</option>
@@ -234,7 +234,7 @@ const DataHub = () => {
                         </div>
                     </div>
 
-                    <button className="w-full bg-emerald-600 text-white py-3 rounded-xl font-bold hover:bg-emerald-700 transition shadow-lg hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed" disabled={!formData.name}>
+                    <button className="w-full bg-emerald-600 text-white py-3 rounded-xl font-bold hover:bg-emerald-500 transition shadow-lg hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed" disabled={!formData.name}>
                         {editingId ? 'Save Changes' : 'Process Upload'}
                     </button>
                 </form>

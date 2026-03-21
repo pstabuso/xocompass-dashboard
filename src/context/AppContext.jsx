@@ -15,7 +15,16 @@ export const TEAM_ROLES_LIST = TEAM_ROLES;
 
 export const AppProvider = ({ children }) => {
   const [user, setUser] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('xo_user')) || null; } catch { return null; }
+    try {
+      const parsed = JSON.parse(localStorage.getItem('xo_user'));
+      if (!parsed) return null;
+      // Validate permissions match the role — prevent localStorage tampering
+      const roleDefaults = TEAM_ROLES.find(r => r.role === parsed.role);
+      if (roleDefaults) {
+        parsed.permissions = { ...roleDefaults.permissions };
+      }
+      return parsed;
+    } catch { return null; }
   });
 
   const [tasks, setTasks] = useState(() => {

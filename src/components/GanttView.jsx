@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Calendar as CalIcon } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 
-const GanttView = ({ tasks }) => {
+const GanttView = ({ tasks, onSelectTask }) => {
   const { events } = useAppContext();
   const [viewMode, setViewMode] = useState('Day'); 
 
@@ -149,7 +149,7 @@ const GanttView = ({ tasks }) => {
 
                     return (
                         <div key={task.id} className="h-7 relative flex items-center group z-10" style={{ paddingLeft: 20 }}>
-                            <div className={`absolute h-7 rounded border flex items-center px-3 overflow-hidden whitespace-nowrap transition-all hover:scale-[1.01] hover:shadow-md cursor-pointer hover:z-30 ${baseClass}`} style={{ left: visualLeft, width }}>
+                            <div onClick={() => onSelectTask && onSelectTask(task)} className={`absolute h-7 rounded border flex items-center px-3 overflow-hidden whitespace-nowrap transition-all hover:scale-[1.01] hover:shadow-md cursor-pointer hover:z-30 ${baseClass}`} style={{ left: visualLeft, width }}>
                                 <span className="font-bold mr-2 text-[10px]">{task.task}</span>
                                 {width > 80 && <span className="opacity-70 text-[9px] border-l border-black/10 pl-2"> {task.owner}</span>}
                             </div>

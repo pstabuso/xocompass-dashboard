@@ -4,7 +4,7 @@ import {
   Cpu, Settings, CheckCircle, RefreshCw,
   Target, Layers, ShieldCheck, Search, TrendingUp,
   Info, Lightbulb, AlertTriangle, Shield, XOctagon, Zap, ArrowDownToLine, Check,
-  BarChart4, Microscope, Binary, Briefcase, DollarSign, PieChart, BarChart, FileCode, Users,
+  BarChart4, Briefcase, DollarSign, PieChart, BarChart, FileCode, Users,
   LineChart as LineChartIcon, Crosshair, Terminal, BrainCircuit, Leaf
 } from 'lucide-react';
 import {
@@ -826,17 +826,18 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
 
                   <div>
                     <label className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 block">Exogenous Matrix (X)</label>
+                    <p className="text-[10px] text-slate-500 mb-2">All variables are included in the model</p>
                     <div className="space-y-2">
-                      <label className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-center gap-3 cursor-pointer hover:border-sky-500/40 transition-colors shadow-inner">
-                        <input type="checkbox" defaultChecked className="rounded border-slate-600 text-sky-500 focus:ring-sky-500 focus:ring-offset-slate-900" />
+                      <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-center gap-3 shadow-inner">
                         <CloudRain size={16} className="text-sky-400"/>
                         <span className="text-sm font-medium text-slate-300">Manila Rainfall (mm)</span>
-                      </label>
-                      <label className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-center gap-3 cursor-pointer hover:border-emerald-500/40 transition-colors shadow-inner">
-                        <input type="checkbox" defaultChecked className="rounded border-slate-600 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-slate-900" />
+                        <span className="ml-auto text-[10px] px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-400 border border-sky-500/20 font-bold">INCLUDED</span>
+                      </div>
+                      <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-center gap-3 shadow-inner">
                         <Calendar size={16} className="text-emerald-400"/>
                         <span className="text-sm font-medium text-slate-300">PH Holiday Density</span>
-                      </label>
+                        <span className="ml-auto text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 font-bold">INCLUDED</span>
+                      </div>
                     </div>
                   </div>
               </div>

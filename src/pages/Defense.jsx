@@ -13,23 +13,23 @@ const Defense = () => {
   return (
     <div className="max-w-3xl mx-auto space-y-6 animate-enter">
        <div className="text-center py-8">
-           <Shield size={48} className="mx-auto text-blue-600 mb-4"/>
-           <h2 className="text-3xl font-bold text-slate-800">Defense Preparation</h2>
+           <Shield size={48} className="mx-auto text-sky-400 mb-4"/>
+           <h2 className="text-3xl font-bold text-slate-100">Defense Preparation</h2>
            <p className="text-slate-500">Anticipated Questions & Standard Answers</p>
        </div>
 
        <div className="space-y-4">
            {questions.map((item, idx) => (
-               <div key={idx} className="bg-white border border-slate-200 rounded-xl overflow-hidden transition-all duration-300 hover:shadow-md">
-                   <button 
+               <div key={idx} className="bg-slate-900/50 border border-slate-800 rounded-xl overflow-hidden transition-all duration-300 hover:border-slate-700">
+                   <button
                     onClick={() => setOpenIndex(openIndex === idx ? null : idx)}
-                    className="w-full flex justify-between items-center p-6 text-left font-bold text-slate-700 hover:bg-slate-50 transition"
+                    className="w-full flex justify-between items-center p-6 text-left font-bold text-slate-200 hover:bg-slate-800/50 transition"
                    >
-                       <span className="flex items-center gap-3"><MessageCircle className="text-blue-500" size={20}/> {item.q}</span>
-                       {openIndex === idx ? <ChevronUp size={20} className="text-slate-400"/> : <ChevronDown size={20} className="text-slate-400"/>}
+                       <span className="flex items-center gap-3"><MessageCircle className="text-sky-400" size={20}/> {item.q}</span>
+                       {openIndex === idx ? <ChevronUp size={20} className="text-slate-500"/> : <ChevronDown size={20} className="text-slate-500"/>}
                    </button>
                    {openIndex === idx && (
-                       <div className="p-6 pt-0 bg-slate-50/50 text-slate-600 leading-relaxed border-t border-slate-100">
+                       <div className="p-6 pt-0 bg-slate-800/30 text-slate-400 leading-relaxed border-t border-slate-800">
                            {item.a}
                        </div>
                    )}

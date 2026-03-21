@@ -1,26 +1,41 @@
 import React, { useState, useMemo } from 'react';
-import { 
-  Activity, Database, Server, Layout, FileText, 
-  Search, Filter, Download, ChevronDown, CheckCircle, 
-  AlertCircle, Clock, Zap, GitBranch, Terminal, 
-  Lightbulb, ArrowRight 
+import { useNavigate } from 'react-router-dom';
+import {
+  Activity, Database, Server, Layout, FileText,
+  Search, Filter, Download, ChevronDown, CheckCircle,
+  AlertCircle, Clock, Zap, GitBranch, Terminal,
+  Lightbulb, ArrowRight
 } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
-import { 
-  PieChart, Pie, Cell, AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid 
+import {
+  PieChart, Pie, Cell, AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid
 } from 'recharts';
 
 const Dashboard = () => {
   const { user, tasks } = useAppContext();
+  const navigate = useNavigate();
   const [timeRange, setTimeRange] = useState('All Time');
   const [activeFilter, setActiveFilter] = useState(null); // Interactive Slicer
 
   // --- DATA PROCESSING LAYER (BI Logic) ---
-  
+
   // 1. Personal Task Filter
   const myTasks = useMemo(() => {
-    return tasks.filter(t => t.owner.includes(user.name.split(' ')[0]) || (user.username === 'andrei' && t.owner.includes('Ralph')));
+    return tasks.filter(t => t.owner.includes(user.name.split(' ')[0]) || (user.role.includes('Frontend') && t.owner.includes('Ralph')));
   }, [tasks, user]);
+
+  // 1b. Time Range Filter
+  const filteredTasks = useMemo(() => {
+    if (timeRange === 'All Time') return myTasks;
+    const now = new Date();
+    const cutoff = new Date();
+    if (timeRange === 'This Week') cutoff.setDate(now.getDate() - 7);
+    else if (timeRange === 'This Month') cutoff.setDate(now.getDate() - 30);
+    return myTasks.filter(t => {
+      const created = new Date(t.start || t.deadline);
+      return created >= cutoff;
+    });
+  }, [myTasks, timeRange]);
 
   // 2. Role-Specific Metrics
   const getRoleMetrics = () => {
@@ -50,13 +65,13 @@ const Dashboard = () => {
   // 3. Dynamic Insights Generation (The "Intelligence" Layer)
   const generateInsights = () => {
       const insights = [];
-      const overdueCount = myTasks.filter(t => new Date(t.deadline) < new Date() && t.status !== 'Done').length;
-      const progress = myTasks.length > 0 ? Math.round((myTasks.filter(t => t.status === 'Done').length / myTasks.length) * 100) : 0;
+      const overdueCount = filteredTasks.filter(t => new Date(t.deadline) < new Date() && t.status !== 'Done').length;
+      const progress = filteredTasks.length > 0 ? Math.round((filteredTasks.filter(t => t.status === 'Done').length / filteredTasks.length) * 100) : 0;
 
       if (overdueCount > 0) {
           insights.push({ type: 'critical', text: `You have ${overdueCount} overdue tasks. Prioritize these immediately to avoid bottlenecks.`, action: 'View Overdue' });
       }
-      if (progress < 50 && myTasks.length > 5) {
+      if (progress < 50 && filteredTasks.length > 5) {
           insights.push({ type: 'warning', text: 'Completion rate is below 50%. Consider breaking down complex tasks into subtasks.', action: 'Open Task Board' });
       }
       if (user.role.includes('Backend') && progress > 80) {
@@ -72,32 +87,62 @@ const Dashboard = () => {
 
   // 4. Chart Data Preparation
   const statusData = [
-    { name: 'Done', value: myTasks.filter(t => t.status === 'Done').length, color: '#10b981' },
-    { name: 'In Progress', value: myTasks.filter(t => t.status === 'On-going').length, color: '#f59e0b' },
-    { name: 'To Do', value: myTasks.filter(t => t.status === 'Not Started').length, color: '#ef4444' },
+    { name: 'Done', value: filteredTasks.filter(t => t.status === 'Done').length, color: '#10b981' },
+    { name: 'In Progress', value: filteredTasks.filter(t => t.status === 'On-going').length, color: '#f59e0b' },
+    { name: 'To Do', value: filteredTasks.filter(t => t.status === 'Not Started').length, color: '#ef4444' },
   ];
 
-  const velocityData = [
-    { day: 'Mon', tasks: 2 }, { day: 'Tue', tasks: 4 }, { day: 'Wed', tasks: 3 },
-    { day: 'Thu', tasks: 5 }, { day: 'Fri', tasks: 4 }, { day: 'Sat', tasks: 2 }, { day: 'Sun', tasks: 0 }
-  ];
+  // Velocity: compute tasks completed per day of week from actual data
+  const velocityData = useMemo(() => {
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const counts = [0, 0, 0, 0, 0, 0, 0];
+    filteredTasks.filter(t => t.status === 'Done').forEach(t => {
+      const d = new Date(t.deadline);
+      if (!isNaN(d)) counts[d.getDay()]++;
+    });
+    return dayNames.map((day, i) => ({ day, tasks: counts[i] }));
+  }, [filteredTasks]);
 
-  // --- INTERACTION HANDLER ---
+  const avgVelocity = useMemo(() => {
+    const total = velocityData.reduce((sum, d) => sum + d.tasks, 0);
+    return (total / 7).toFixed(1);
+  }, [velocityData]);
+
+  // --- INTERACTION HANDLERS ---
   const handleChartClick = (data) => {
     setActiveFilter(activeFilter === data.name ? null : data.name);
   };
 
-  const displayedTasks = activeFilter 
-    ? myTasks.filter(t => {
+  const handleInsightAction = (action) => {
+    if (action === 'View Overdue' || action === 'Open Task Board' || action === 'Message Andrei') {
+      navigate('/tasks');
+    } else if (action === 'View Schedule') {
+      navigate('/schedule');
+    } else {
+      navigate('/tasks');
+    }
+  };
+
+  const exportReport = () => {
+    const csv = ['Task,Status,Owner,Priority', ...filteredTasks.map(t => `"${t.task}","${t.status}","${t.owner || ''}","${t.priority || ''}"`)].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'xocompass-report.csv'; a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const displayedTasks = activeFilter
+    ? filteredTasks.filter(t => {
         if (activeFilter === 'In Progress') return t.status === 'On-going';
         if (activeFilter === 'To Do') return t.status === 'Not Started';
         return t.status === activeFilter;
     })
-    : myTasks;
+    : filteredTasks;
 
   return (
     <div className="min-h-screen text-slate-200 pb-10 animate-enter bg-slate-950">
-      
+
       {/* 1. HEADER: Welcome & Context */}
       <div className="flex flex-col md:flex-row justify-between items-end mb-8 border-b border-slate-800 pb-6">
         <div>
@@ -108,7 +153,7 @@ const Dashboard = () => {
             <Terminal size={14} className="text-emerald-500" /> System Status: <span className="text-emerald-400 font-mono tracking-wide">OPERATIONAL</span>
           </p>
         </div>
-        
+
         {/* Global Controls */}
         <div className="flex gap-3 mt-4 md:mt-0">
           <button onClick={() => setTimeRange(prev => prev === 'All Time' ? 'This Week' : prev === 'This Week' ? 'This Month' : 'All Time')} className="flex items-center gap-2 px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm font-medium hover:bg-slate-700 hover:border-slate-600 transition text-slate-300">
@@ -116,7 +161,7 @@ const Dashboard = () => {
             {timeRange}
             <ChevronDown size={14} className="text-slate-500"/>
           </button>
-          <button onClick={() => alert('Report export coming soon')} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-bold shadow-lg shadow-blue-900/20 transition">
+          <button onClick={exportReport} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-bold shadow-lg shadow-blue-900/20 transition">
             <Download size={16}/> Export Report
           </button>
         </div>
@@ -145,15 +190,15 @@ const Dashboard = () => {
 
       {/* 3. MAIN DASHBOARD GRID */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        
+
         {/* LEFT COL: Charts */}
         <div className="lg:col-span-2 space-y-6">
-            
+
             {/* Velocity Chart */}
             <div className="bg-slate-900 rounded-2xl p-6 border border-slate-800 shadow-xl">
                 <div className="flex justify-between items-center mb-6">
                     <h3 className="font-bold text-white text-lg">Work Velocity</h3>
-                    <span className="text-xs font-bold text-emerald-400 bg-emerald-900/30 border border-emerald-500/30 px-3 py-1 rounded-full">Avg: 2.8 Tasks/Day</span>
+                    <span className="text-xs font-bold text-emerald-400 bg-emerald-900/30 border border-emerald-500/30 px-3 py-1 rounded-full">Avg: {avgVelocity} Tasks/Day</span>
                 </div>
                 <div className="h-64">
                     <ResponsiveContainer width="100%" height="100%">
@@ -166,8 +211,8 @@ const Dashboard = () => {
                         </defs>
                         <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
                         <XAxis dataKey="day" stroke="#94a3b8" tick={{fontSize: 12, fill: '#94a3b8'}} tickLine={false} axisLine={false} />
-                        <YAxis stroke="#94a3b8" tick={{fontSize: 12, fill: '#94a3b8'}} tickLine={false} axisLine={false} />
-                        <Tooltip 
+                        <YAxis stroke="#94a3b8" tick={{fontSize: 12, fill: '#94a3b8'}} tickLine={false} axisLine={false} allowDecimals={false} />
+                        <Tooltip
                         contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', borderRadius: '8px', color: '#f8fafc' }}
                         itemStyle={{ color: '#38bdf8' }}
                         />
@@ -183,6 +228,7 @@ const Dashboard = () => {
                     <h3 className="font-bold text-white flex items-center gap-2">
                         <Database size={18} className="text-slate-400"/>
                         {activeFilter ? `${activeFilter} Tasks` : 'Active Tasks'}
+                        {timeRange !== 'All Time' && <span className="text-xs text-slate-500 ml-2">({timeRange})</span>}
                     </h3>
                     {activeFilter && (
                         <button onClick={() => setActiveFilter(null)} className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1 font-bold">
@@ -226,7 +272,7 @@ const Dashboard = () => {
 
         {/* RIGHT COL: Insights & Status */}
         <div className="space-y-6">
-            
+
             {/* ACTIONABLE INSIGHTS (New Feature) */}
             <div className="bg-slate-900 rounded-2xl p-6 border border-slate-800 shadow-xl">
                 <h3 className="font-bold text-white mb-4 flex items-center gap-2">
@@ -246,7 +292,7 @@ const Dashboard = () => {
                                 insight.type === 'success' ? 'text-emerald-200' :
                                 'text-blue-200'
                             }`}>{insight.text}</p>
-                            <button onClick={() => alert(`Action: ${insight.action}`)} className={`self-start text-xs font-bold flex items-center gap-1 hover:underline ${
+                            <button onClick={() => handleInsightAction(insight.action)} className={`self-start text-xs font-bold flex items-center gap-1 hover:underline ${
                                 insight.type === 'critical' ? 'text-red-400' :
                                 insight.type === 'warning' ? 'text-amber-400' :
                                 insight.type === 'success' ? 'text-emerald-400' :
@@ -267,33 +313,33 @@ const Dashboard = () => {
                 <div className="flex-1 min-h-0 relative">
                     <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
-                        <Pie 
-                        data={statusData} 
-                        innerRadius={60} 
-                        outerRadius={80} 
-                        paddingAngle={5} 
+                        <Pie
+                        data={statusData}
+                        innerRadius={60}
+                        outerRadius={80}
+                        paddingAngle={5}
                         dataKey="value"
-                        onClick={handleChartClick} 
+                        onClick={handleChartClick}
                         cursor="pointer"
                         stroke="none"
                         >
                         {statusData.map((entry, index) => (
-                            <Cell 
-                            key={`cell-${index}`} 
-                            fill={entry.color} 
+                            <Cell
+                            key={`cell-${index}`}
+                            fill={entry.color}
                             fillOpacity={activeFilter && activeFilter !== entry.name ? 0.3 : 1}
                             className="transition-all duration-300 hover:opacity-80"
                             />
                         ))}
                         </Pie>
-                        <Tooltip 
+                        <Tooltip
                         contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', borderRadius: '8px', color: '#f8fafc' }}
                         itemStyle={{ color: '#f8fafc' }}
                         />
                     </PieChart>
                     </ResponsiveContainer>
                     <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                        <span className="text-3xl font-bold text-white">{myTasks.length}</span>
+                        <span className="text-3xl font-bold text-white">{filteredTasks.length}</span>
                         <span className="text-xs text-slate-500 uppercase font-bold tracking-wider">Total</span>
                     </div>
                 </div>
