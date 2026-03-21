@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, CheckSquare, Calendar, Book, FolderOpen, LogOut, User, Database, Shield, BrainCircuit, Users } from 'lucide-react';
+import { LayoutDashboard, CheckSquare, Calendar, Book, FolderOpen, LogOut, User, Database, Shield, BrainCircuit, Users, Cloud, CloudOff, Loader2 } from 'lucide-react';
 import { AppProvider, useAppContext, TEAM_ROLES_LIST } from './context/AppContext';
 
 // Pages
@@ -16,7 +16,7 @@ import ModelLab from './pages/ModelLab';
 // Sidebar (Dark Mode)
 const Sidebar = () => {
   const location = useLocation();
-  const { user, logout } = useAppContext();
+  const { user, logout, syncStatus } = useAppContext();
 
   const menuItems = [
     { path: '/', icon: LayoutDashboard, label: 'Overview' },
@@ -33,7 +33,13 @@ const Sidebar = () => {
     <div className="w-64 h-screen bg-slate-900 border-r border-slate-800 text-slate-300 fixed left-0 top-0 flex flex-col z-50">
       <div className="p-6 border-b border-slate-800">
         <h1 className="text-2xl font-bold text-sky-400 tracking-tight">XoCompass</h1>
-        <p className="text-xs text-slate-500 mt-1">LEAP Thesis 2 Manager</p>
+        <div className="flex items-center space-x-2 mt-1">
+          <p className="text-xs text-slate-500">LEAP Thesis 2 Manager</p>
+          {syncStatus === 'synced' && <span title="Cloud synced — real-time"><Cloud size={12} className="text-emerald-400" /></span>}
+          {syncStatus === 'connecting' && <span title="Connecting to cloud..."><Loader2 size={12} className="text-amber-400 animate-spin" /></span>}
+          {syncStatus === 'error' && <span title="Cloud error — using local storage"><CloudOff size={12} className="text-red-400" /></span>}
+          {syncStatus === 'local' && <span title="Local storage only"><CloudOff size={12} className="text-slate-600" /></span>}
+        </div>
       </div>
 
       <nav className="flex-1 p-4 space-y-2">
