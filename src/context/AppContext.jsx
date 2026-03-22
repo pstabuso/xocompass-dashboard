@@ -128,34 +128,38 @@ const clearRetryQueue = () => {
   try { localStorage.removeItem(RETRY_QUEUE_KEY); } catch { /* ignore */ }
 };
 
-/** Upsert a row to Supabase with retry on failure.
- *  If upsert fails due to unknown column (e.g. updated_at), retries without it. */
+// Tables that have an `updated_at` column in the Supabase schema.
+// All other tables (tasks, events, minutes, datasets, activity_log, notifications)
+// do NOT have it — sending it causes PGRST204 and silently kills every write.
+const TABLES_WITH_UPDATED_AT = new Set(['profiles']);
+
+/** Strip fields that don't exist in the Supabase table schema.
+ *  Prevents PGRST204 ("column not found in schema cache") errors. */
+const stripForDB = (table, row) => {
+  if (TABLES_WITH_UPDATED_AT.has(table)) return row;
+  const { updated_at, ...clean } = row;
+  return clean;
+};
+
+/** Upsert a row to Supabase with retry on failure */
 const upsertRow = async (table, row) => {
   if (!supabase) return;
-  const { error } = await supabase.from(table).upsert(row, { onConflict: 'id' });
+  const cleaned = stripForDB(table, row);
+  const { error } = await supabase.from(table).upsert(cleaned, { onConflict: 'id' });
   if (error) {
-    // If the error is about an unknown column, strip updated_at and retry once
-    if (error.message?.includes('updated_at') || error.code === 'PGRST204') {
-      const { updated_at, ...withoutUpdatedAt } = row;
-      const { error: retryErr } = await supabase.from(table).upsert(withoutUpdatedAt, { onConflict: 'id' });
-      if (retryErr) {
-        console.error(`[XoCompass] upsert ${table} (retry):`, retryErr.message);
-        enqueueRetry('upsert', table, withoutUpdatedAt);
-      }
-      return;
-    }
     console.error(`[XoCompass] upsert ${table}:`, error.message);
-    enqueueRetry('upsert', table, row);
+    enqueueRetry('upsert', table, cleaned);
   }
 };
 
 /** Insert a row to Supabase with retry on failure */
 const insertRow = async (table, row) => {
   if (!supabase) return;
-  const { error } = await supabase.from(table).insert(row);
+  const cleaned = stripForDB(table, row);
+  const { error } = await supabase.from(table).insert(cleaned);
   if (error) {
     console.error(`[XoCompass] insert ${table}:`, error.message);
-    enqueueRetry('insert', table, row);
+    enqueueRetry('insert', table, cleaned);
   }
 };
 
@@ -179,13 +183,14 @@ const processRetryQueue = async () => {
   const remaining = [];
   for (const item of queue) {
     let error = null;
+    const cleaned = stripForDB(item.table, item.payload);
     try {
       if (item.operation === 'upsert') {
-        ({ error } = await supabase.from(item.table).upsert(item.payload, { onConflict: 'id' }));
+        ({ error } = await supabase.from(item.table).upsert(cleaned, { onConflict: 'id' }));
       } else if (item.operation === 'insert') {
-        ({ error } = await supabase.from(item.table).insert(item.payload));
+        ({ error } = await supabase.from(item.table).insert(cleaned));
       } else if (item.operation === 'delete') {
-        ({ error } = await supabase.from(item.table).delete().eq('id', item.payload.id));
+        ({ error } = await supabase.from(item.table).delete().eq('id', cleaned.id));
       }
     } catch (e) { error = e; }
 
