@@ -862,6 +862,12 @@ export const AppProvider = ({ children }) => {
     localStorage.removeItem('notifications');
     clearRetryQueue();
     setSyncStatus(isCloudEnabled ? 'connecting' : 'local');
+    setCloudReady(false);
+    // Reset auth gate so hydration + subscriptions re-run on next sign-in.
+    // Without this, authSettled stays true and the useEffect([authSettled])
+    // hooks never re-fire, leaving all data arrays empty after sign-out→sign-in.
+    authSettledRef.current = false;
+    setAuthSettled(false);
     // Fire-and-forget: tell Supabase to end the session (non-blocking)
     if (isCloudEnabled) {
       supabase.auth.signOut().catch(() => {});
