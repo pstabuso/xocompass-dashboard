@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { isCloudEnabled, fetchAllProfiles, updateUserRole } from '../lib/supabase';
-import { Shield, Users, Activity, RefreshCw, AlertTriangle, CheckCircle, XCircle, Ban, FileText, CheckSquare, Database, Calendar, Bell } from 'lucide-react';
+import { Shield, Users, Activity, RefreshCw, AlertTriangle, CheckCircle, XCircle, Ban, FileText, CheckSquare, Database, Calendar, Bell, Edit2, Trash2, MessageSquare, LogIn, LogOut, UserPlus } from 'lucide-react';
 
 const ROLE_OPTIONS = [
   { value: 'pm', label: 'Project Manager', color: 'text-sky-400' },
@@ -12,13 +12,36 @@ const ROLE_OPTIONS = [
 ];
 
 const ACTION_ICONS = {
-  'Created Task': { icon: CheckSquare, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
-  'Moved Task': { icon: Activity, color: 'text-amber-400', bg: 'bg-amber-500/10' },
-  'Added Meeting': { icon: FileText, color: 'text-sky-400', bg: 'bg-sky-500/10' },
-  'Uploaded Dataset': { icon: Database, color: 'text-purple-400', bg: 'bg-purple-500/10' },
-  'Deleted Dataset': { icon: Database, color: 'text-red-400', bg: 'bg-red-500/10' },
-  'Imported Backup': { icon: RefreshCw, color: 'text-sky-400', bg: 'bg-sky-500/10' },
-  'Nudged Member': { icon: Bell, color: 'text-amber-400', bg: 'bg-amber-500/10' },
+  // Tasks
+  'Created Task':       { icon: CheckSquare,   color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
+  'Edited Task':        { icon: Edit2,         color: 'text-sky-400',     bg: 'bg-sky-500/10' },
+  'Moved Task':         { icon: Activity,      color: 'text-amber-400',   bg: 'bg-amber-500/10' },
+  'Deleted Task':       { icon: Trash2,        color: 'text-red-400',     bg: 'bg-red-500/10' },
+  'Commented':          { icon: MessageSquare, color: 'text-sky-400',     bg: 'bg-sky-500/10' },
+  'Added Subtask':      { icon: CheckSquare,   color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
+  'Completed Subtask':  { icon: CheckCircle,   color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
+  'Unchecked Subtask':  { icon: XCircle,       color: 'text-slate-400',   bg: 'bg-slate-500/10' },
+  // Events
+  'Created Event':      { icon: Calendar,      color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
+  'Edited Event':       { icon: Edit2,         color: 'text-sky-400',     bg: 'bg-sky-500/10' },
+  'Deleted Event':      { icon: Trash2,        color: 'text-red-400',     bg: 'bg-red-500/10' },
+  // Minutes
+  'Added Meeting':      { icon: FileText,      color: 'text-sky-400',     bg: 'bg-sky-500/10' },
+  'Edited Meeting':     { icon: Edit2,         color: 'text-sky-400',     bg: 'bg-sky-500/10' },
+  'Deleted Meeting':    { icon: Trash2,        color: 'text-red-400',     bg: 'bg-red-500/10' },
+  // Datasets
+  'Uploaded Dataset':   { icon: Database,      color: 'text-purple-400',  bg: 'bg-purple-500/10' },
+  'Updated Dataset':    { icon: Edit2,         color: 'text-purple-400',  bg: 'bg-purple-500/10' },
+  'Deleted Dataset':    { icon: Trash2,        color: 'text-red-400',     bg: 'bg-red-500/10' },
+  // Notifications
+  'Nudged Member':      { icon: Bell,          color: 'text-amber-400',   bg: 'bg-amber-500/10' },
+  'Cleared Notifications': { icon: Bell,       color: 'text-slate-400',   bg: 'bg-slate-500/10' },
+  // Auth
+  'Signed In':          { icon: LogIn,         color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
+  'Signed Out':         { icon: LogOut,        color: 'text-slate-400',   bg: 'bg-slate-500/10' },
+  'Signed Up':          { icon: UserPlus,      color: 'text-sky-400',     bg: 'bg-sky-500/10' },
+  // System
+  'Imported Backup':    { icon: RefreshCw,     color: 'text-sky-400',     bg: 'bg-sky-500/10' },
 };
 
 const AdminPanel = () => {

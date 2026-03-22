@@ -326,24 +326,26 @@ export const AppProvider = ({ children }) => {
     return () => clearInterval(interval);
   }, []);
 
-  // ── Activity Log ──
+  // ── Activity Log (stable ref — never stale, no dependency chain issues) ──
+  const userRef = useRef(user);
+  useEffect(() => { userRef.current = user; }, [user]);
+
   const logAction = useCallback((action, details) => {
     const newLog = {
       id: crypto.randomUUID(),
-      user_name: sanitize(user?.name || 'System'),
+      user_name: sanitize(userRef.current?.name || 'System'),
       action: sanitize(action),
       details: sanitize(details),
       time: new Date().toLocaleString(),
       created_at: new Date().toISOString(),
     };
-    setActivityLog(prev => [newLog, ...prev].slice(0, 50));
+    setActivityLog(prev => [newLog, ...prev].slice(0, 200));
     insertRow(TABLES.activity_log, newLog);
-  }, [user]);
+  }, []); // stable — reads user from ref
 
-  // ── TASKS CRUD (ISO 25010 — Reliability: sync captured row directly) ──
+  // ── TASKS CRUD ──
   const addTask = useCallback((newTask) => {
     const sanitized = sanitizeRow(newTask);
-    // Validate status & priority
     if (sanitized.status && !VALID_STATUSES.includes(sanitized.status)) sanitized.status = 'Not Started';
     if (sanitized.priority && !VALID_PRIORITIES.includes(sanitized.priority)) sanitized.priority = 'Medium';
 
@@ -359,12 +361,9 @@ export const AppProvider = ({ children }) => {
     };
     setTasks(prev => [...prev, task]);
     insertRow(TABLES.tasks, task);
-    logAction('Created Task', sanitized.task);
+    logAction('Created Task', `"${sanitized.task}" assigned to ${sanitized.owner || 'unassigned'}`);
   }, [logAction]);
 
-  // FIX: Capture merged row INSIDE setState, then sync it OUTSIDE setState.
-  // The old queueMicrotask+setState pattern was broken — React 19 can skip
-  // updaters that return unchanged references, silently dropping the upsertRow call.
   const updateTask = useCallback((id, updates) => {
     const sanitized = sanitizeRow(updates);
     if (sanitized.status && !VALID_STATUSES.includes(sanitized.status)) delete sanitized.status;
@@ -377,9 +376,13 @@ export const AppProvider = ({ children }) => {
       rowToSync = merged;
       return merged;
     }));
-    // rowToSync is populated synchronously by the updater
-    if (rowToSync) upsertRow(TABLES.tasks, rowToSync);
-  }, []);
+    if (rowToSync) {
+      upsertRow(TABLES.tasks, rowToSync);
+      // Build a human-readable summary of what changed
+      const changes = Object.keys(sanitized).filter(k => k !== 'updated_at').join(', ');
+      logAction('Edited Task', `"${rowToSync.task}" — updated ${changes}`);
+    }
+  }, [logAction]);
 
   const updateTaskStatus = useCallback((id, newStatus) => {
     if (!VALID_STATUSES.includes(newStatus)) return;
@@ -393,19 +396,26 @@ export const AppProvider = ({ children }) => {
     }));
     if (rowToSync) {
       upsertRow(TABLES.tasks, rowToSync);
-      logAction('Moved Task', `"${rowToSync.task}" is now ${newStatus}`);
+      logAction('Moved Task', `"${rowToSync.task}" → ${newStatus}`);
     }
   }, [logAction]);
 
   const deleteTask = useCallback((id) => {
-    setTasks(prev => prev.filter(t => t.id !== id));
+    let deletedName = null;
+    setTasks(prev => {
+      const target = prev.find(t => t.id === id);
+      if (target) deletedName = target.task;
+      return prev.filter(t => t.id !== id);
+    });
     deleteRow(TABLES.tasks, id);
-  }, []);
+    logAction('Deleted Task', deletedName ? `"${deletedName}"` : `ID: ${id}`);
+  }, [logAction]);
 
   const addTaskComment = useCallback((taskId, commentText) => {
     const safeText = sanitize(commentText).slice(0, MAX_COMMENT_LENGTH);
     if (!safeText) return;
-    const comment = { user: sanitize(user?.name || 'Anonymous'), text: safeText, time: new Date().toLocaleTimeString() };
+    const commenter = sanitize(userRef.current?.name || 'Anonymous');
+    const comment = { user: commenter, text: safeText, time: new Date().toLocaleTimeString() };
 
     let rowToSync = null;
     setTasks(prev => prev.map(t => {
@@ -414,8 +424,11 @@ export const AppProvider = ({ children }) => {
       rowToSync = merged;
       return merged;
     }));
-    if (rowToSync) upsertRow(TABLES.tasks, rowToSync);
-  }, [user]);
+    if (rowToSync) {
+      upsertRow(TABLES.tasks, rowToSync);
+      logAction('Commented', `on "${rowToSync.task}": "${safeText.slice(0, 60)}${safeText.length > 60 ? '...' : ''}"`);
+    }
+  }, [logAction]);
 
   const subtasks = {
     add: (taskId, name) => {
@@ -430,21 +443,34 @@ export const AppProvider = ({ children }) => {
         rowToSync = merged;
         return merged;
       }));
-      if (rowToSync) upsertRow(TABLES.tasks, rowToSync);
+      if (rowToSync) {
+        upsertRow(TABLES.tasks, rowToSync);
+        logAction('Added Subtask', `"${safeName}" to "${rowToSync.task}"`);
+      }
     },
     toggle: (taskId, sId) => {
       let rowToSync = null;
+      let toggledName = '';
+      let toggledDone = false;
       setTasks(prev => prev.map(t => {
         if (t.id !== taskId) return t;
         const merged = {
           ...t,
-          subtasks: (t.subtasks || []).map(s => s.id === sId ? { ...s, done: !s.done } : s),
+          subtasks: (t.subtasks || []).map(s => {
+            if (s.id !== sId) return s;
+            toggledName = s.name;
+            toggledDone = !s.done;
+            return { ...s, done: !s.done };
+          }),
           updated_at: new Date().toISOString(),
         };
         rowToSync = merged;
         return merged;
       }));
-      if (rowToSync) upsertRow(TABLES.tasks, rowToSync);
+      if (rowToSync) {
+        upsertRow(TABLES.tasks, rowToSync);
+        logAction(toggledDone ? 'Completed Subtask' : 'Unchecked Subtask', `"${toggledName}" in "${rowToSync.task}"`);
+      }
     },
   };
 
@@ -455,7 +481,8 @@ export const AppProvider = ({ children }) => {
     const event = { ...sanitized, id: crypto.randomUUID(), status: sanitized.status || 'Not Started', created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
     setEvents(prev => [...prev, event]);
     insertRow(TABLES.events, event);
-  }, []);
+    logAction('Created Event', `"${sanitized.title}" on ${sanitized.date || event.date || 'TBD'}`);
+  }, [logAction]);
 
   const updateEvent = useCallback((id, updatedEvt) => {
     const sanitized = sanitizeRow(updatedEvt);
@@ -468,13 +495,22 @@ export const AppProvider = ({ children }) => {
       rowToSync = merged;
       return merged;
     }));
-    if (rowToSync) upsertRow(TABLES.events, rowToSync);
-  }, []);
+    if (rowToSync) {
+      upsertRow(TABLES.events, rowToSync);
+      logAction('Edited Event', `"${rowToSync.title}"`);
+    }
+  }, [logAction]);
 
   const deleteEvent = useCallback((id) => {
-    setEvents(prev => prev.filter(e => e.id !== id));
+    let deletedTitle = null;
+    setEvents(prev => {
+      const target = prev.find(e => e.id === id);
+      if (target) deletedTitle = target.title;
+      return prev.filter(e => e.id !== id);
+    });
     deleteRow(TABLES.events, id);
-  }, []);
+    logAction('Deleted Event', deletedTitle ? `"${deletedTitle}"` : `ID: ${id}`);
+  }, [logAction]);
 
   // ── MINUTES CRUD ──
   const addMinute = useCallback((minute) => {
@@ -482,7 +518,7 @@ export const AppProvider = ({ children }) => {
     const m = { ...sanitized, id: crypto.randomUUID(), created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
     setMinutes(prev => [...prev, m]);
     insertRow(TABLES.minutes, m);
-    logAction('Added Meeting', sanitized.topic || 'New meeting');
+    logAction('Added Meeting', `"${sanitized.topic || 'Untitled'}" on ${sanitized.date || 'TBD'}`);
   }, [logAction]);
 
   const updateMinute = useCallback((id, updates) => {
@@ -495,13 +531,22 @@ export const AppProvider = ({ children }) => {
       rowToSync = merged;
       return merged;
     }));
-    if (rowToSync) upsertRow(TABLES.minutes, rowToSync);
-  }, []);
+    if (rowToSync) {
+      upsertRow(TABLES.minutes, rowToSync);
+      logAction('Edited Meeting', `"${rowToSync.topic || 'Untitled'}"`);
+    }
+  }, [logAction]);
 
   const deleteMinute = useCallback((id) => {
-    setMinutes(prev => prev.filter(m => m.id !== id));
+    let deletedTopic = null;
+    setMinutes(prev => {
+      const target = prev.find(m => m.id === id);
+      if (target) deletedTopic = target.topic;
+      return prev.filter(m => m.id !== id);
+    });
     deleteRow(TABLES.minutes, id);
-  }, []);
+    logAction('Deleted Meeting', deletedTopic ? `"${deletedTopic}"` : `ID: ${id}`);
+  }, [logAction]);
 
   // ── DATASETS CRUD ──
   const addDataset = useCallback((dataset) => {
@@ -511,7 +556,7 @@ export const AppProvider = ({ children }) => {
     const d = { ...sanitized, id: crypto.randomUUID(), uploadedAt: new Date().toISOString(), created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
     setDatasets(prev => [...prev, d]);
     insertRow(TABLES.datasets, d);
-    logAction('Uploaded Dataset', sanitized.name);
+    logAction('Uploaded Dataset', `"${sanitized.name}" (${sanitized.type}, ${sanitized.rows || 0} rows)`);
   }, [logAction]);
 
   const updateDataset = useCallback((id, updates) => {
@@ -526,13 +571,21 @@ export const AppProvider = ({ children }) => {
       rowToSync = merged;
       return merged;
     }));
-    if (rowToSync) upsertRow(TABLES.datasets, rowToSync);
-  }, []);
+    if (rowToSync) {
+      upsertRow(TABLES.datasets, rowToSync);
+      logAction('Updated Dataset', `"${rowToSync.name}" — ${Object.keys(sanitized).join(', ')}`);
+    }
+  }, [logAction]);
 
   const deleteDataset = useCallback((id) => {
-    setDatasets(prev => prev.filter(d => d.id !== id));
+    let deletedName = null;
+    setDatasets(prev => {
+      const target = prev.find(d => d.id === id);
+      if (target) deletedName = target.name;
+      return prev.filter(d => d.id !== id);
+    });
     deleteRow(TABLES.datasets, id);
-    logAction('Deleted Dataset', `ID: ${id}`);
+    logAction('Deleted Dataset', deletedName ? `"${deletedName}"` : `ID: ${id}`);
   }, [logAction]);
 
   // ── NOTIFICATIONS ──
@@ -540,25 +593,27 @@ export const AppProvider = ({ children }) => {
     const notif = {
       id: crypto.randomUUID(),
       to_user: targetUser,
-      message: `${user?.name || 'Someone'} nudged you about "${taskName}"`,
+      message: `${userRef.current?.name || 'Someone'} nudged you about "${taskName}"`,
       read: false,
       created_at: new Date().toISOString(),
     };
     setNotifications(prev => [notif, ...prev]);
     insertRow(TABLES.notifications, notif);
-    logAction('Nudged Member', `Alerted ${targetUser} about ${taskName}`);
-  }, [user, logAction]);
+    logAction('Nudged Member', `Alerted ${targetUser} about "${taskName}"`);
+  }, [logAction]);
 
   const clearNotifications = useCallback(() => {
-    if (!user) return;
-    const firstName = user.name.split(' ')[0].toLowerCase();
+    const currentUser = userRef.current;
+    if (!currentUser) return;
+    const firstName = currentUser.name.split(' ')[0].toLowerCase();
     setNotifications(prev => {
       const toKeep = prev.filter(n => !(n.to_user || '').toLowerCase().includes(firstName));
       const toRemove = prev.filter(n => (n.to_user || '').toLowerCase().includes(firstName));
       toRemove.forEach(n => deleteRow(TABLES.notifications, n.id));
       return toKeep;
     });
-  }, [user]);
+    logAction('Cleared Notifications', `${userRef.current?.name} cleared their notifications`);
+  }, [logAction]);
 
   // ── AUTH: handle profile → user, with restricted check ──
   const sessionInitRef = useRef(false); // prevent double-fetch between initSession and onAuthStateChange
@@ -683,6 +738,7 @@ export const AppProvider = ({ children }) => {
         avatar_url: null,
       };
       setUser(immediateUser);
+      logAction('Signed In', email);
 
       // Background: enrich with full profile (avatar, updated role, restricted check)
       fetchProfile(data.user.id).then(profile => {
@@ -696,7 +752,7 @@ export const AppProvider = ({ children }) => {
         setUser(buildUser(profile));
       }).catch(() => { /* profile enrichment is best-effort */ });
     }
-  }, []);
+  }, [logAction]);
 
   // ── AUTH: sign up with email/password + profile metadata ──
   const signUp = useCallback(async (email, password, name, roleKey) => {
@@ -715,6 +771,7 @@ export const AppProvider = ({ children }) => {
 
     // If email confirmation is required, session will be null
     if (!data?.session) {
+      logAction('Signed Up', `${email} (awaiting email confirmation)`);
       throw new Error('CONFIRM_EMAIL');
     }
 
@@ -738,12 +795,16 @@ export const AppProvider = ({ children }) => {
         };
         setUser(fallbackUser);
       }
+      logAction('Signed Up', `${email} as ${ROLE_LABELS[roleKey] || roleKey}`);
     }
-  }, []);
+  }, [logAction]);
 
   // ── AUTH: sign out (instant — clears state first, then notifies Supabase) ──
   const signOut = useCallback(() => {
-    const email = user?.email;
+    const email = userRef.current?.email;
+    const name = userRef.current?.name;
+    // Log BEFORE clearing state (so user_name is captured)
+    logAction('Signed Out', email || name || 'Unknown user');
     // Clear UI state IMMEDIATELY — never block on network
     setUser(null);
     setTasks([]);
@@ -765,7 +826,7 @@ export const AppProvider = ({ children }) => {
     if (isCloudEnabled) {
       supabase.auth.signOut().catch(() => {});
     }
-  }, [user]);
+  }, [logAction]);
 
   // ── AUTH: local-only mode (when Supabase is not configured) ──
   const localSignIn = useCallback((name, roleKey) => {
