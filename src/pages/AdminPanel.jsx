@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { isCloudEnabled, fetchAllProfiles, updateUserRole } from '../lib/supabase';
-import { Shield, Users, Activity, RefreshCw, AlertTriangle, CheckCircle, XCircle, Ban, FileText, CheckSquare, Database, Calendar, Bell, Edit2, Trash2, MessageSquare, LogIn, LogOut, UserPlus } from 'lucide-react';
+import { Shield, Users, Activity, RefreshCw, AlertTriangle, CheckCircle, XCircle, Ban, FileText, CheckSquare, Database, Calendar, Bell, Edit2, Trash2, MessageSquare, LogIn, LogOut, UserPlus, Send, LockKeyhole } from 'lucide-react';
 
 const ROLE_OPTIONS = [
   { value: 'pm', label: 'Project Manager', color: 'text-sky-400' },
@@ -42,10 +42,12 @@ const ACTION_ICONS = {
   'Signed Up':          { icon: UserPlus,      color: 'text-sky-400',     bg: 'bg-sky-500/10' },
   // System
   'Imported Backup':    { icon: RefreshCw,     color: 'text-sky-400',     bg: 'bg-sky-500/10' },
+  // Access requests
+  'Requested Access':   { icon: LockKeyhole,   color: 'text-amber-400',   bg: 'bg-amber-500/10' },
 };
 
 const AdminPanel = () => {
-  const { user, activityLog } = useAppContext();
+  const { user, activityLog, notifications, clearNotifications } = useAppContext();
   const [tab, setTab] = useState('users');
   const [profiles, setProfiles] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -153,6 +155,17 @@ const AdminPanel = () => {
           <Users size={16} /> User Management
         </button>
         <button
+          onClick={() => setTab('notifications')}
+          className={`px-4 py-2 rounded-lg text-sm font-bold transition flex items-center gap-2 relative ${tab === 'notifications' ? 'bg-sky-600 text-white shadow' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}
+        >
+          <Bell size={16} /> Notifications
+          {(() => {
+            const myFirstName = (user?.name || '').split(' ')[0].toLowerCase();
+            const unread = (notifications || []).filter(n => !n.read && (n.to_user || '').toLowerCase().includes(myFirstName)).length;
+            return unread > 0 ? <span className="ml-1 px-1.5 py-0.5 bg-amber-500 text-white text-[10px] rounded-full font-bold">{unread}</span> : null;
+          })()}
+        </button>
+        <button
           onClick={() => setTab('activity')}
           className={`px-4 py-2 rounded-lg text-sm font-bold transition flex items-center gap-2 ${tab === 'activity' ? 'bg-sky-600 text-white shadow' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}
         >
@@ -243,6 +256,71 @@ const AdminPanel = () => {
           </table>
         </div>
       )}
+
+      {/* NOTIFICATIONS TAB */}
+      {tab === 'notifications' && (() => {
+        const myFirstName = (user?.name || '').split(' ')[0].toLowerCase();
+        const myNotifs = (notifications || []).filter(n => (n.to_user || '').toLowerCase().includes(myFirstName))
+          .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        const accessRequests = myNotifs.filter(n => n.type === 'access_request');
+        const otherNotifs = myNotifs.filter(n => n.type !== 'access_request');
+
+        return (
+          <div className="space-y-4">
+            {/* Access Requests Section */}
+            {accessRequests.length > 0 && (
+              <div>
+                <h3 className="text-sm font-bold text-amber-400 uppercase mb-3 flex items-center gap-2"><LockKeyhole size={16} /> Access Requests</h3>
+                <div className="bg-slate-900/50 rounded-xl border border-slate-800 divide-y divide-slate-800">
+                  {accessRequests.map(n => (
+                    <div key={n.id} className="p-4 flex items-start gap-3">
+                      <div className="w-9 h-9 rounded-full bg-amber-500/10 text-amber-400 flex items-center justify-center shrink-0">
+                        <Send size={16} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-slate-200">{n.message}</p>
+                        <p className="text-[10px] text-slate-500 mt-1">{timeAgo(n.created_at)}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-slate-600 mt-2">Go to <span className="text-sky-400 font-bold cursor-pointer" onClick={() => setTab('users')}>User Management</span> to change their role.</p>
+              </div>
+            )}
+
+            {/* Other Notifications */}
+            {otherNotifs.length > 0 && (
+              <div className="bg-slate-900/50 rounded-xl border border-slate-800 divide-y divide-slate-800">
+                {otherNotifs.map(n => (
+                  <div key={n.id} className="p-4 flex items-start gap-3">
+                    <div className="w-9 h-9 rounded-full bg-sky-500/10 text-sky-400 flex items-center justify-center shrink-0">
+                      <Bell size={16} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-slate-200">{n.message}</p>
+                      <p className="text-[10px] text-slate-500 mt-1">{timeAgo(n.created_at)}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {myNotifs.length === 0 && (
+              <div className="bg-slate-900/50 rounded-xl border border-slate-800 p-8 text-center text-slate-500">
+                <Bell size={32} className="mx-auto mb-2 text-slate-600" />
+                <p>No notifications yet.</p>
+                <p className="text-xs mt-1">Access requests from team members will appear here.</p>
+              </div>
+            )}
+
+            {myNotifs.length > 0 && (
+              <button onClick={clearNotifications} className="text-xs text-slate-500 hover:text-red-400 transition font-bold">
+                Clear all notifications
+              </button>
+            )}
+          </div>
+        );
+      })()}
 
       {/* ACTIVITY LOG TAB */}
       {tab === 'activity' && (

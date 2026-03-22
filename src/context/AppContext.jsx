@@ -3,6 +3,9 @@ import { supabase, isCloudEnabled, fetchProfile } from '../lib/supabase';
 
 const AppContext = createContext();
 
+// The canonical PM account — always gets PM role regardless of DB state
+const PM_EMAIL = 'pstabuso@fit.edu.ph';
+
 // ─── ROLE → PERMISSIONS MAP (non-hardcoded users, roles from DB) ──
 // Roles are stored in the `profiles` table; permissions derived here.
 const ROLE_PERMISSIONS = {
@@ -655,6 +658,23 @@ export const AppProvider = ({ children }) => {
     logAction('Nudged Member', `Alerted ${targetUser} about "${taskName}"`);
   }, [logAction, showWriteError]);
 
+  // ── ACCESS REQUEST: guest sends request to PM ──
+  const requestAccess = useCallback((pageName) => {
+    const currentUser = userRef.current;
+    if (!currentUser) return;
+    const notif = {
+      id: crypto.randomUUID(),
+      to_user: 'Pao',  // PM name — notifications are matched by first name
+      type: 'access_request',
+      message: `${currentUser.name} (${currentUser.email || 'local user'}) is requesting access to "${pageName}". Go to Admin Panel → change their role to grant access.`,
+      read: false,
+      created_at: new Date().toISOString(),
+    };
+    setNotifications(prev => [notif, ...prev]);
+    insertRow(TABLES.notifications, notif).then(r => showWriteError('access request', r));
+    logAction('Requested Access', `${currentUser.name} requested access to "${pageName}"`);
+  }, [logAction, showWriteError]);
+
   const clearNotifications = useCallback(() => {
     const currentUser = userRef.current;
     if (!currentUser) return;
@@ -669,8 +689,13 @@ export const AppProvider = ({ children }) => {
   }, [logAction]);
 
   // ── AUTH: handle profile → user, with restricted check ──
+  // PM_EMAIL always gets PM role, even if DB says otherwise
   const handleProfile = useCallback((profile, eventSource) => {
     if (!profile) return null;
+    // Force PM role for the canonical PM email
+    if (profile.email === PM_EMAIL && profile.role !== 'pm') {
+      profile = { ...profile, role: 'pm' };
+    }
     if (profile.role === 'restricted') {
       return { restricted: true, email: profile.email };
     }
@@ -718,7 +743,8 @@ export const AppProvider = ({ children }) => {
             } else {
               // Fallback: build user from JWT metadata
               const meta = session.user.user_metadata || {};
-              const roleKey = meta.role || 'guest';
+              // Force PM role for the canonical PM email
+              const roleKey = session.user.email === PM_EMAIL ? 'pm' : (meta.role || 'guest');
               setUser({
                 id: session.user.id,
                 email: session.user.email,
@@ -964,7 +990,7 @@ export const AppProvider = ({ children }) => {
       activityLog, getStats,
       minutes, addMinute, updateMinute, deleteMinute,
       datasets, addDataset, updateDataset, deleteDataset,
-      notifications, nudgeUser, clearNotifications,
+      notifications, nudgeUser, clearNotifications, requestAccess,
       exportAllData, importAllData,
       syncStatus, syncError, isCloudEnabled, cloudReady,
     }}>
