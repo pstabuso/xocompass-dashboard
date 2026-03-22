@@ -600,13 +600,10 @@ export const AppProvider = ({ children }) => {
     }
   }, []);
 
-  // ── AUTH: sign out (clears all local state + Supabase session) ──
-  const signOut = useCallback(async () => {
+  // ── AUTH: sign out (instant — clears state first, then notifies Supabase) ──
+  const signOut = useCallback(() => {
     const email = user?.email;
-    if (isCloudEnabled) {
-      await supabase.auth.signOut();
-      if (email) logAuthEvent(email, 'sign_out');
-    }
+    // Clear UI state IMMEDIATELY — never block on network
     setUser(null);
     setTasks([]);
     setEvents([]);
@@ -622,6 +619,11 @@ export const AppProvider = ({ children }) => {
     localStorage.removeItem('activityLog');
     localStorage.removeItem('notifications');
     setSyncStatus(isCloudEnabled ? 'connecting' : 'local');
+    // Fire-and-forget: tell Supabase to end the session (non-blocking)
+    if (isCloudEnabled) {
+      supabase.auth.signOut().catch(() => {});
+      if (email) logAuthEvent(email, 'sign_out');
+    }
   }, [user]);
 
   // ── AUTH: local-only mode (when Supabase is not configured) ──
