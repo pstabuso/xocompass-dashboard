@@ -497,12 +497,23 @@ export const AppProvider = ({ children }) => {
     return () => subscription.unsubscribe();
   }, [handleProfile]);
 
+  // ── Helper: race a promise against a timeout ──
+  const withTimeout = (promise, ms, msg) =>
+    Promise.race([
+      promise,
+      new Promise((_, reject) => setTimeout(() => reject(new Error(msg)), ms)),
+    ]);
+
   // ── AUTH: sign in with email/password + audit logging ──
   // Strategy: ONE network call (signInWithPassword) → set user from metadata instantly
   //           → enrich with full profile in the background (non-blocking).
   const signIn = useCallback(async (email, password) => {
     if (!isCloudEnabled) throw new Error('Cloud not configured. Use local mode instead.');
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await withTimeout(
+      supabase.auth.signInWithPassword({ email, password }),
+      8000,
+      'Sign-in timed out. Check your internet connection or try again.'
+    );
     if (error) {
       logAuthEvent(email, 'sign_in_failed', { reason: error.message });
       if (error.message?.includes('Invalid login credentials')) {
@@ -547,11 +558,11 @@ export const AppProvider = ({ children }) => {
   // ── AUTH: sign up with email/password + profile metadata ──
   const signUp = useCallback(async (email, password, name, roleKey) => {
     if (!isCloudEnabled) throw new Error('Cloud not configured. Use local mode instead.');
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { data: { name, role: roleKey } },
-    });
+    const { data, error } = await withTimeout(
+      supabase.auth.signUp({ email, password, options: { data: { name, role: roleKey } } }),
+      8000,
+      'Sign-up timed out. Check your internet connection or try again.'
+    );
     if (error) {
       logAuthEvent(email, 'sign_up_failed', { reason: error.message });
       if (error.message?.includes('already registered')) {

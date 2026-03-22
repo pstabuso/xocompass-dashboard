@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { fetchAllProfiles, updateUserRole, fetchAuditLog } from '../lib/supabase';
+import { isCloudEnabled, fetchAllProfiles, updateUserRole, fetchAuditLog } from '../lib/supabase';
 import { Shield, Users, Activity, RefreshCw, AlertTriangle, CheckCircle, XCircle, Clock, LogIn, LogOut, UserPlus, Ban, Eye } from 'lucide-react';
 
 const ROLE_OPTIONS = [
@@ -36,7 +36,7 @@ const AdminPanel = () => {
   const [tab, setTab] = useState('users');
   const [profiles, setProfiles] = useState([]);
   const [auditLog, setAuditLog] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(null);
   const [confirmAction, setConfirmAction] = useState(null);
   const [auditFilter, setAuditFilter] = useState('all');
@@ -44,6 +44,7 @@ const AdminPanel = () => {
   const isAdmin = user?.permissions?.isAdmin;
 
   const loadData = useCallback(async () => {
+    if (!isCloudEnabled) return; // nothing to fetch in local mode
     setLoading(true);
     const [p, a] = await Promise.all([fetchAllProfiles(), fetchAuditLog(200)]);
     if (p) setProfiles(p);
