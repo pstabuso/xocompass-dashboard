@@ -156,15 +156,15 @@ const Schedule = () => {
 
       {/* RIGHT SIDEBAR: Upcoming Agenda — below calendar on mobile, beside on desktop */}
       <div className="w-full lg:w-80 bg-slate-900/50 rounded-xl border border-slate-800 flex flex-col overflow-hidden max-h-[400px] lg:max-h-none">
-         <div className="p-4 border-b border-slate-800 bg-slate-800/30"><h3 className="font-bold text-slate-100">Upcoming Agenda</h3></div>
-         <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
+         <div className="p-3 sm:p-4 border-b border-slate-800 bg-slate-800/30"><h3 className="font-bold text-slate-100 text-sm sm:text-base">Upcoming Agenda</h3></div>
+         <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 sm:space-y-4 custom-scrollbar">
             {events.length > 0 && (
               <div><h4 className="text-xs font-bold text-emerald-400 uppercase mb-2">Events</h4>
                 <div className="space-y-2">{[...events].sort((a,b) => new Date(a.date) - new Date(b.date)).map(evt => (
                     <div key={evt.id} className="p-3 rounded-lg border border-slate-800 bg-slate-800/30 hover:border-emerald-500/30 group relative transition-all duration-300 hover:shadow-md hover:-translate-y-1">
-                       <div className="flex justify-between items-start">
-                          <div>
-                            <p className="font-bold text-sm text-slate-200">{evt.title}</p>
+                       <div className="flex justify-between items-start gap-2">
+                          <div className="min-w-0 flex-1">
+                            <p className="font-bold text-sm text-slate-200 truncate">{evt.title}</p>
                             <p className="text-xs text-slate-500">{evt.date} • {evt.time}</p>
                             <span className={`text-[10px] px-1.5 py-0.5 rounded mt-1 inline-block ${evt.status === 'Done' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-slate-700 text-slate-400'}`}>{evt.status}</span>
                           </div>
@@ -183,7 +183,7 @@ const Schedule = () => {
             {tasks.filter(t => t.status !== 'Done').length > 0 && (
               <div><h4 className="text-xs font-bold text-amber-400 uppercase mb-2 mt-4">Pending Deadlines</h4>
                 <div className="space-y-2">{[...tasks].filter(t => t.status !== 'Done').sort((a,b) => new Date(a.deadline) - new Date(b.deadline)).map(t => (
-                    <div key={t.id} className="p-3 rounded-lg border border-slate-800 bg-slate-800/30 hover:border-amber-500/30 transition-all duration-300 hover:shadow-md hover:-translate-y-1"><p className="font-bold text-sm text-slate-200">{t.task}</p><div className="flex justify-between items-center mt-1"><p className="text-xs text-amber-400 font-medium">Due: {t.deadline}</p><span className="text-[10px] bg-slate-700 text-slate-400 px-1.5 rounded">{t.owner}</span></div></div>
+                    <div key={t.id} className="p-3 rounded-lg border border-slate-800 bg-slate-800/30 hover:border-amber-500/30 transition-all duration-300 hover:shadow-md hover:-translate-y-1"><p className="font-bold text-sm text-slate-200 truncate">{t.task}</p><div className="flex justify-between items-center mt-1"><p className="text-xs text-amber-400 font-medium">Due: {t.deadline}</p><span className="text-[10px] bg-slate-700 text-slate-400 px-1.5 rounded truncate max-w-[80px]">{t.owner}</span></div></div>
                   ))}</div></div>
             )}
          </div>

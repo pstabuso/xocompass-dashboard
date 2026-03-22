@@ -150,10 +150,10 @@ const TaskTracker = () => {
   );
 
   return (
-    <div className="space-y-4 sm:space-y-6 h-[calc(100vh-140px)] lg:h-[calc(100vh-140px)] flex flex-col animate-enter">
+    <div className="space-y-3 sm:space-y-6 h-[calc(100vh-140px)] lg:h-[calc(100vh-140px)] flex flex-col animate-enter">
       {!canCreate && <RequestBanner page="Task Tracker" />}
       {/* Controls */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 shrink-0">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-3 shrink-0">
         <div>
            <h2 className="text-xl sm:text-2xl font-bold text-slate-100">Task Tracker</h2>
            <p className="text-xs sm:text-sm text-slate-500">View: <span className="font-bold capitalize text-sky-400">{viewMode}</span></p>
@@ -162,19 +162,19 @@ const TaskTracker = () => {
             <select
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
-              className="bg-slate-800 border border-slate-700 rounded-lg px-2 sm:px-3 py-1.5 text-sm text-slate-300 font-medium outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition"
+              className="bg-slate-800 border border-slate-700 rounded-lg px-2 sm:px-3 py-1.5 text-sm text-slate-300 font-medium outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition whitespace-nowrap shrink-0"
             >
               {ownerOptions.map(opt => (
                 <option key={opt} value={opt} className="bg-slate-900">{opt === 'All' ? 'All Owners' : opt}</option>
               ))}
             </select>
-            <div className="flex bg-slate-800 p-1 rounded-lg border border-slate-700">
-                <button onClick={() => setViewMode('list')} className={`p-1.5 rounded-md transition-all duration-200 ${viewMode === 'list' ? 'bg-slate-700 shadow text-slate-100 scale-105' : 'text-slate-500 hover:text-slate-300'}`}><List size={18}/></button>
-                <button onClick={() => setViewMode('board')} className={`p-1.5 rounded-md transition-all duration-200 ${viewMode === 'board' ? 'bg-slate-700 shadow text-slate-100 scale-105' : 'text-slate-500 hover:text-slate-300'}`}><Layout size={18}/></button>
-                <button onClick={() => setViewMode('gantt')} className={`p-1.5 rounded-md transition-all duration-200 ${viewMode === 'gantt' ? 'bg-slate-700 shadow text-slate-100 scale-105' : 'text-slate-500 hover:text-slate-300'}`}><GanttIcon size={18}/></button>
+            <div className="flex bg-slate-800 p-0.5 sm:p-1 rounded-lg border border-slate-700 shrink-0">
+                <button onClick={() => setViewMode('list')} className={`p-1 sm:p-1.5 rounded-md transition-all duration-200 ${viewMode === 'list' ? 'bg-slate-700 shadow text-slate-100 scale-105' : 'text-slate-500 hover:text-slate-300'}`}><List size={16}/></button>
+                <button onClick={() => setViewMode('board')} className={`p-1 sm:p-1.5 rounded-md transition-all duration-200 ${viewMode === 'board' ? 'bg-slate-700 shadow text-slate-100 scale-105' : 'text-slate-500 hover:text-slate-300'}`}><Layout size={16}/></button>
+                <button onClick={() => setViewMode('gantt')} className={`p-1 sm:p-1.5 rounded-md transition-all duration-200 ${viewMode === 'gantt' ? 'bg-slate-700 shadow text-slate-100 scale-105' : 'text-slate-500 hover:text-slate-300'}`}><GanttIcon size={16}/></button>
             </div>
             {canCreate && (
-              <button onClick={() => setIsModalOpen(true)} className="flex items-center space-x-2 bg-sky-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-sky-500 hover:scale-105 active:scale-95 transition-all duration-200 shadow-md">
+              <button onClick={() => setIsModalOpen(true)} className="flex items-center space-x-1.5 sm:space-x-2 bg-sky-600 text-white px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg hover:bg-sky-500 hover:scale-105 active:scale-95 transition-all duration-200 shadow-md whitespace-nowrap shrink-0">
                   <Plus size={16} /> <span className="hidden sm:inline">Add Task</span>
               </button>
             )}
@@ -183,7 +183,7 @@ const TaskTracker = () => {
 
       <div className="flex-1 overflow-hidden relative">
           {viewMode === 'board' && (
-              <div className="flex space-x-4 h-full overflow-x-auto pb-4 custom-scrollbar">
+              <div className="flex space-x-3 sm:space-x-4 h-full overflow-x-auto pb-4 custom-scrollbar">
                   {renderKanbanColumn('To Do', 'Not Started', '', '', filteredTasks.filter(t => t.status === 'Not Started'))}
                   {renderKanbanColumn('In Progress', 'On-going', '', '', filteredTasks.filter(t => t.status === 'On-going'))}
                   {renderKanbanColumn('Completed', 'Done', '', '', filteredTasks.filter(t => t.status === 'Done'))}
@@ -217,12 +217,12 @@ const TaskTracker = () => {
       {/* DELETE CONFIRMATION MODAL */}
       {deleteConfirmId && (
          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[110] animate-fade-in">
-            <div className="bg-slate-900 p-6 rounded-2xl w-[calc(100%-2rem)] max-w-[400px] shadow-2xl text-center border border-slate-700 mx-4">
-                <div className="w-16 h-16 bg-red-500/15 text-red-400 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <AlertTriangle size={32} />
+            <div className="bg-slate-900 p-4 sm:p-6 rounded-2xl w-[calc(100%-2rem)] max-w-[400px] shadow-2xl text-center border border-slate-700 mx-4">
+                <div className="w-12 h-12 sm:w-16 sm:h-16 bg-red-500/15 text-red-400 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
+                    <AlertTriangle size={28} />
                 </div>
-                <h3 className="text-xl font-bold text-slate-100 mb-2">Delete Task?</h3>
-                <p className="text-slate-400 text-sm mb-6">This will permanently remove this task and its subtasks. Are you sure?</p>
+                <h3 className="text-lg sm:text-xl font-bold text-slate-100 mb-2">Delete Task?</h3>
+                <p className="text-slate-400 text-sm mb-4 sm:mb-6">This will permanently remove this task and its subtasks. Are you sure?</p>
                 <div className="flex gap-3 justify-center">
                     <button onClick={() => setDeleteConfirmId(null)} className="px-5 py-2.5 rounded-xl font-bold text-slate-300 hover:bg-slate-800 transition">Cancel</button>
                     <button onClick={confirmDelete} className="px-5 py-2.5 rounded-xl font-bold bg-red-600 text-white hover:bg-red-700 transition shadow-lg shadow-red-900/30">Yes, Delete</button>
@@ -238,7 +238,7 @@ const TaskTracker = () => {
             {/* Header */}
             <div className="max-w-4xl mx-auto pt-4 sm:pt-10 pb-4 sm:pb-6 px-4 sm:px-6 flex justify-between items-start sm:items-center border-b border-slate-800">
                 <div className="min-w-0 flex-1">
-                    <h2 className="text-xl sm:text-3xl font-bold text-slate-100">
+                    <h2 className="text-xl sm:text-2xl font-bold text-slate-100">
                         {isModalOpen ? 'Create New Task' : isEditing ? 'Edit Task' : 'Task Details'}
                     </h2>
                     <p className="text-slate-500 mt-1 text-xs sm:text-base truncate">
@@ -272,10 +272,10 @@ const TaskTracker = () => {
             </div>
 
             {/* Content Container */}
-            <div className="max-w-4xl mx-auto p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-12">
+            <div className="max-w-4xl mx-auto p-3 sm:p-6 grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-6 lg:gap-12">
 
                 {/* LEFT COLUMN: FORM */}
-                <div className="lg:col-span-2 space-y-8">
+                <div className="lg:col-span-2 space-y-4 sm:space-y-8">
                     {/* If Adding New Task */}
                     {isModalOpen && (
                         <form onSubmit={handleSubmit} className="space-y-6">
@@ -284,7 +284,7 @@ const TaskTracker = () => {
                                 <input required type="text" className="w-full text-xl font-bold border-b-2 border-slate-700 py-2 outline-none focus:border-sky-500 transition-colors bg-transparent text-white" placeholder="e.g. Data Cleaning Phase 1" value={newTask.task} onChange={e => setNewTask({...newTask, task: e.target.value})} />
                             </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-8">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-8">
                                 <div className="space-y-2">
                                     <label className="text-sm font-bold text-slate-400 uppercase tracking-wider">Start Date</label>
                                     <input type="date" className="w-full bg-slate-800 p-3 rounded-lg border border-slate-700 outline-none focus:ring-2 focus:ring-sky-500 transition-all text-white" value={newTask.start} onChange={e => setNewTask({...newTask, start: e.target.value})} />
@@ -308,11 +308,11 @@ const TaskTracker = () => {
 
                             <div>
                                 <label className="block text-xs font-bold text-slate-400 mb-1">Priority</label>
-                                <div className="flex gap-2">
+                                <div className="flex gap-2 overflow-x-auto">
                                     {['Low', 'Medium', 'High', 'Critical'].map(p => (
                                         <button key={p} type="button"
                                             onClick={() => setNewTask({...newTask, priority: p})}
-                                            className={`px-3 py-1 rounded-lg text-xs font-bold transition ${
+                                            className={`px-3 py-1 rounded-lg text-xs font-bold transition whitespace-nowrap shrink-0 ${
                                                 newTask.priority === p
                                                     ? p === 'Critical' ? 'bg-red-600 text-white'
                                                     : p === 'High' ? 'bg-orange-600 text-white'
@@ -335,7 +335,7 @@ const TaskTracker = () => {
                                     onChange={e => setNewTask({...newTask, owner: e.target.value})}
                                 />
                             </div>
-                            <button className="w-full bg-sky-600 text-white py-4 rounded-xl font-bold text-lg hover:bg-sky-500 hover:scale-[1.01] active:scale-95 transition-all shadow-xl shadow-sky-900/30">
+                            <button className="w-full bg-sky-600 text-white py-3 sm:py-4 rounded-xl font-bold text-base sm:text-lg hover:bg-sky-500 hover:scale-[1.01] active:scale-95 transition-all shadow-xl shadow-sky-900/30">
                                 Create Task
                             </button>
                         </form>
@@ -343,7 +343,7 @@ const TaskTracker = () => {
 
                     {/* If Viewing/Editing Task (Expanded) */}
                     {expandedTask && (
-                        <div className="space-y-8 animate-enter">
+                        <div className="space-y-4 sm:space-y-8 animate-enter">
                             {/* EDIT MODE: Inline editable fields */}
                             {isEditing ? (
                               <div className="space-y-6">
@@ -372,11 +372,11 @@ const TaskTracker = () => {
                                   </div>
                                   <div className="space-y-2">
                                     <label className="text-xs font-bold text-slate-400 uppercase">Priority</label>
-                                    <div className="flex gap-2 pt-1">
+                                    <div className="flex gap-2 pt-1 overflow-x-auto">
                                       {['Low', 'Medium', 'High', 'Critical'].map(p => (
                                         <button key={p} type="button"
                                           onClick={() => setEditForm({...editForm, priority: p})}
-                                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap shrink-0 ${
                                             editForm.priority === p
                                               ? p === 'Critical' ? 'bg-red-600 text-white'
                                               : p === 'High' ? 'bg-orange-600 text-white'
@@ -468,9 +468,9 @@ const TaskTracker = () => {
                             )}
 
                             {/* Subtasks — always visible */}
-                            <div className="p-6 bg-slate-800/30 rounded-2xl border border-slate-800">
+                            <div className="p-3 sm:p-6 bg-slate-800/30 rounded-2xl border border-slate-800">
                                 <div className="flex justify-between items-center mb-4">
-                                    <h3 className="font-bold text-slate-100 flex items-center gap-2"><CheckSquare /> Subtasks / Checklist</h3>
+                                    <h3 className="font-bold text-slate-100 flex items-center gap-2 text-sm sm:text-base"><CheckSquare size={18} /> Subtasks / Checklist</h3>
                                     <span className="text-xs text-slate-500">{getProgress(expandedTask)}%</span>
                                 </div>
                                 <div className="w-full bg-slate-700 h-2 rounded-full overflow-hidden mb-4">
@@ -500,8 +500,8 @@ const TaskTracker = () => {
                             </div>
 
                             {/* Comments — always visible */}
-                            <div className="p-6 bg-slate-800/30 rounded-2xl border border-slate-800">
-                                <h3 className="font-bold text-slate-100 mb-4 flex items-center gap-2"><MessageSquare /> Team Discussion</h3>
+                            <div className="p-3 sm:p-6 bg-slate-800/30 rounded-2xl border border-slate-800">
+                                <h3 className="font-bold text-slate-100 mb-4 flex items-center gap-2 text-sm sm:text-base"><MessageSquare size={18} /> Team Discussion</h3>
                                 <div className="space-y-4 mb-4 max-h-40 overflow-y-auto custom-scrollbar">
                                     {(expandedTask.comments || []).map((c, i) => (
                                         <div key={i} className="bg-slate-800/50 p-3 rounded-lg border border-slate-700">
@@ -530,13 +530,13 @@ const TaskTracker = () => {
                 </div>
 
                 {/* RIGHT COLUMN: PREVIEW / META — hidden on mobile */}
-                <div className="hidden lg:block lg:col-span-1 border-l border-slate-800 pl-12 space-y-8">
-                    <div className="p-6 bg-amber-500/10 rounded-2xl border border-amber-500/20">
+                <div className="hidden lg:block lg:col-span-1 border-l border-slate-800 pl-12 space-y-6">
+                    <div className="p-3 sm:p-6 bg-amber-500/10 rounded-2xl border border-amber-500/20">
                         <h4 className="font-bold text-amber-400 mb-2">Pro Tip</h4>
                         <p className="text-sm text-amber-300/70 leading-relaxed">Breaking down tasks into subtasks increases completion rates by 40%. Don't just write "Chapter 1", write "Draft Intro", "Review RRL", etc.</p>
                     </div>
                     {!canCreate && (
-                      <div className="p-6 bg-slate-800/30 rounded-2xl border border-slate-800">
+                      <div className="p-3 sm:p-6 bg-slate-800/30 rounded-2xl border border-slate-800">
                         <h4 className="font-bold text-slate-400 mb-2">View Only</h4>
                         <p className="text-sm text-slate-500 leading-relaxed">Your current role doesn't have edit permissions. Contact the PM to request access.</p>
                       </div>

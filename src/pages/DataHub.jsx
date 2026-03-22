@@ -110,7 +110,7 @@ const DataHub = () => {
   };
 
   return (
-    <div className="space-y-6 animate-enter">
+    <div className="space-y-3 sm:space-y-6 animate-enter">
       {!canCreate && (
         <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center gap-3">
           <LockKeyhole size={16} className="text-amber-400 shrink-0" />
@@ -137,32 +137,34 @@ const DataHub = () => {
       </header>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-         <div className="bg-slate-900/50 p-6 rounded-xl border border-slate-800 transition hover:shadow-md hover:-translate-y-1 duration-300">
-             <div className="flex items-center gap-3 text-slate-400 mb-2"><Database size={20}/> Total Records</div>
-             <p className="text-3xl font-bold text-slate-100">{stats.totalRecords.toLocaleString()}</p>
+      <div className="grid grid-cols-3 gap-2 sm:gap-4">
+         <div className="bg-slate-900/50 p-3 sm:p-5 rounded-xl border border-slate-800 transition hover:shadow-md hover:-translate-y-1 duration-300">
+             <div className="flex items-center gap-1.5 sm:gap-3 text-slate-400 mb-1 sm:mb-2"><Database size={14} className="sm:w-[20px] sm:h-[20px]"/> <span className="text-[10px] sm:text-sm">Records</span></div>
+             <p className="text-lg sm:text-3xl font-bold text-slate-100">{stats.totalRecords.toLocaleString()}</p>
          </div>
-         <div className="bg-slate-900/50 p-6 rounded-xl border border-slate-800 transition hover:shadow-md hover:-translate-y-1 duration-300">
-             <div className="flex items-center gap-3 text-slate-400 mb-2"><AlertCircle size={20}/> Data Integrity</div>
-             <p className="text-3xl font-bold text-emerald-400">{datasets.length === 0 ? '--' : `${stats.integrityPct}%`}</p>
-             <p className="text-xs text-slate-500">{datasets.length === 0 ? 'No datasets loaded' : stats.integrityPct === 100 ? 'All datasets verified' : `${datasets.filter(d => d.status === 'Verified').length} of ${datasets.length} verified`}</p>
+         <div className="bg-slate-900/50 p-3 sm:p-5 rounded-xl border border-slate-800 transition hover:shadow-md hover:-translate-y-1 duration-300">
+             <div className="flex items-center gap-1.5 sm:gap-3 text-slate-400 mb-1 sm:mb-2"><AlertCircle size={14} className="sm:w-[20px] sm:h-[20px]"/> <span className="text-[10px] sm:text-sm">Integrity</span></div>
+             <p className="text-lg sm:text-3xl font-bold text-emerald-400">{datasets.length === 0 ? '--' : `${stats.integrityPct}%`}</p>
+             <p className="text-[10px] sm:text-xs text-slate-500 hidden sm:block">{datasets.length === 0 ? 'No datasets loaded' : stats.integrityPct === 100 ? 'All datasets verified' : `${datasets.filter(d => d.status === 'Verified').length} of ${datasets.length} verified`}</p>
          </div>
-         <div className="bg-slate-900/50 p-6 rounded-xl border border-slate-800 transition hover:shadow-md hover:-translate-y-1 duration-300">
-             <div className="flex items-center gap-3 text-slate-400 mb-2"><FileSpreadsheet size={20}/> Datasets</div>
-             <p className="text-3xl font-bold text-sky-400">{datasets.length}</p>
+         <div className="bg-slate-900/50 p-3 sm:p-5 rounded-xl border border-slate-800 transition hover:shadow-md hover:-translate-y-1 duration-300">
+             <div className="flex items-center gap-1.5 sm:gap-3 text-slate-400 mb-1 sm:mb-2"><FileSpreadsheet size={14} className="sm:w-[20px] sm:h-[20px]"/> <span className="text-[10px] sm:text-sm">Datasets</span></div>
+             <p className="text-lg sm:text-3xl font-bold text-sky-400">{datasets.length}</p>
          </div>
       </div>
 
       {/* Table or Empty State */}
       {datasets.length === 0 ? (
-        <div className="bg-slate-900/50 rounded-xl border border-slate-800 p-12 text-center">
+        <div className="bg-slate-900/50 rounded-xl border border-slate-800 p-6 sm:p-12 text-center">
           <Upload size={48} className="mx-auto text-slate-600 mb-4" />
           <h3 className="text-lg font-bold text-slate-400 mb-2">No datasets yet</h3>
           <p className="text-slate-500 text-sm">Upload your first CSV to get started.</p>
         </div>
       ) : (
-      <div className="bg-slate-900/50 rounded-xl border border-slate-800 overflow-x-auto">
-         <table className="w-full text-left min-w-[600px]">
+      <>
+      {/* Desktop table — hidden on small screens */}
+      <div className="hidden md:block bg-slate-900/50 rounded-xl border border-slate-800 overflow-x-auto">
+         <table className="w-full text-left">
             <thead className="bg-slate-800/30 border-b border-slate-800 text-xs font-bold text-slate-500 uppercase">
                 <tr>
                     <th className="p-4">Filename</th>
@@ -177,11 +179,11 @@ const DataHub = () => {
                 {datasets.map((d) => (
                     <tr key={d.id} className="hover:bg-slate-800/50 transition duration-200">
                         <td className="p-4 font-medium text-slate-300 flex items-center gap-3">
-                            <FileText size={18} className="text-slate-500"/> {d.name}
+                            <FileText size={18} className="text-slate-500 shrink-0"/> <span className="truncate max-w-[200px]">{d.name}</span>
                         </td>
                         <td className="p-4"><span className={`text-xs px-2 py-1 rounded font-bold ${d.type === 'Primary' ? 'bg-sky-500/15 text-sky-400' : 'bg-purple-500/15 text-purple-400'}`}>{d.type}</span></td>
                         <td className="p-4 text-slate-400 text-sm">{d.size}</td>
-                        <td className="p-4 text-slate-300 text-sm font-mono">{Number(d.rows).toLocaleString()}</td>
+                        <td className="p-4 text-slate-300 text-sm font-mono truncate">{Number(d.rows).toLocaleString()}</td>
                         <td className="p-4"><span className="text-xs font-bold text-emerald-400 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> {d.status}</span></td>
                         <td className="p-4 flex justify-end gap-2">
                             {canCreate && (
@@ -196,6 +198,37 @@ const DataHub = () => {
             </tbody>
          </table>
       </div>
+
+      {/* Mobile card layout — visible on small screens */}
+      <div className="md:hidden space-y-3">
+        {datasets.map((d) => (
+          <div key={d.id} className="bg-slate-900/50 rounded-xl border border-slate-800 p-3 space-y-2.5">
+            {/* File header */}
+            <div className="flex items-center gap-2.5">
+              <FileText size={16} className="text-slate-500 shrink-0"/>
+              <p className="font-bold text-sm text-slate-200 truncate flex-1">{d.name}</p>
+              <span className={`text-[10px] px-2 py-0.5 rounded font-bold shrink-0 ${d.type === 'Primary' ? 'bg-sky-500/15 text-sky-400' : 'bg-purple-500/15 text-purple-400'}`}>{d.type}</span>
+            </div>
+            {/* Meta row */}
+            <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-800/50">
+              <div className="flex items-center gap-3 text-[10px] text-slate-400">
+                <span>{d.size}</span>
+                <span className="font-mono">{Number(d.rows).toLocaleString()} rows</span>
+                <span className="text-emerald-400 font-bold flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>{d.status}</span>
+              </div>
+              <div className="flex gap-1 shrink-0">
+                {canCreate && (
+                  <button onClick={() => handleEdit(d)} className="p-1.5 text-slate-500 hover:text-amber-400 hover:bg-amber-500/10 rounded-lg transition"><Edit2 size={14}/></button>
+                )}
+                {canDelete && (
+                  <button onClick={() => setDeleteConfirmId(d.id)} className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition"><Trash2 size={14}/></button>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+      </>
       )}
 
       {/* Delete Modal */}
@@ -218,7 +251,7 @@ const DataHub = () => {
       {/* Upload/Edit Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
-            <div className="relative bg-slate-900 p-6 rounded-2xl w-96 shadow-2xl border border-slate-700">
+            <div className="relative bg-slate-900 p-4 sm:p-6 rounded-2xl w-[calc(100%-2rem)] max-w-[420px] shadow-2xl border border-slate-700 mx-4">
                 <button onClick={closeModal} className="absolute top-4 right-4 p-1 text-slate-400 hover:text-red-400 rounded-full transition"><X size={20}/></button>
                 <h3 className="text-xl font-bold text-slate-100 mb-4">{editingId ? 'Edit Metadata' : 'Upload Dataset'}</h3>
 

@@ -61,7 +61,7 @@ const Minutes = () => {
   };
 
   return (
-    <div className="space-y-6 animate-enter">
+    <div className="space-y-3 sm:space-y-6 animate-enter">
       {!user?.permissions?.canCreate && (
         <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center gap-3">
           <LockKeyhole size={16} className="text-amber-400 shrink-0" />
@@ -90,7 +90,7 @@ const Minutes = () => {
         )}
       </div>
 
-      <div className="grid grid-cols-1 gap-4">
+      <div className="grid grid-cols-1 gap-3 sm:gap-4">
         {sortedMinutes.length === 0 ? (
             <div className="text-center py-12 border-2 border-dashed border-slate-800 rounded-xl">
                 <FileText size={48} className="mx-auto text-slate-600 mb-2"/>
@@ -118,9 +118,9 @@ const Minutes = () => {
                       href={safeUrl(meeting.link)}
                       target="_blank"
                       rel="noreferrer"
-                      className="flex items-center space-x-1.5 sm:space-x-2 bg-slate-800/50 text-slate-300 px-3 sm:px-4 py-2 rounded-lg font-bold border border-slate-700 transition-all duration-200 hover:bg-emerald-500/10 hover:text-emerald-400 hover:border-emerald-500/30 active:scale-95 text-sm"
+                      className="flex items-center space-x-1.5 sm:space-x-2 bg-slate-800/50 text-slate-300 px-2.5 sm:px-4 py-2 rounded-lg font-bold border border-slate-700 transition-all duration-200 hover:bg-emerald-500/10 hover:text-emerald-400 hover:border-emerald-500/30 active:scale-95 text-sm"
                     >
-                        <span>Open</span>
+                        <span className="hidden sm:inline">Open</span>
                         <ExternalLink size={14} />
                     </a>
                     {user?.permissions?.canCreate && (

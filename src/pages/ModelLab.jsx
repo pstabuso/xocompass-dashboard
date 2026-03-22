@@ -817,28 +817,28 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
   };
 
   const RuleInsight = ({ title, leftTitle, leftIcon: LeftIcon, rightTitle, rightIcon: RightIcon, systemRule, businessInsight }) => (
-      <div className="mb-6 rounded-xl border bg-slate-900/60 border-slate-700/50 overflow-hidden shadow-lg animate-in fade-in zoom-in-95 duration-500">
-          <div className="p-3 border-b border-slate-700/50 bg-slate-800/80 flex justify-between items-center">
-             <h4 className="text-sm font-bold text-sky-400 flex items-center gap-2">
-                 <Settings size={16} /> Phase Objective: {title}
+      <div className="mb-4 sm:mb-6 rounded-xl border bg-slate-900/60 border-slate-700/50 overflow-hidden shadow-lg animate-in fade-in zoom-in-95 duration-500">
+          <div className="p-2.5 sm:p-3 border-b border-slate-700/50 bg-slate-800/80 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1.5 sm:gap-2">
+             <h4 className="text-xs sm:text-sm font-bold text-sky-400 flex items-center gap-2">
+                 <Settings size={14} className="shrink-0" /> <span className="line-clamp-1">Phase Objective: {title}</span>
              </h4>
-             <span className="text-[10px] uppercase font-bold text-slate-400 tracking-widest bg-slate-950 px-2 py-1 rounded border border-slate-700 shadow-inner flex items-center gap-1">
-                <Shield size={10} className="text-emerald-500"/> ISO 25010 Validated
+             <span className="text-[9px] sm:text-[10px] uppercase font-bold text-slate-400 tracking-widest bg-slate-950 px-2 py-0.5 sm:py-1 rounded border border-slate-700 shadow-inner flex items-center gap-1 shrink-0">
+                <Shield size={10} className="text-emerald-500"/> ISO 25010
              </span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-slate-700/50">
-              <div className="p-5 flex gap-3 items-start bg-sky-900/10 hover:bg-sky-900/20 transition-colors">
-                  <div className="mt-0.5 text-sky-400"><LeftIcon size={20} className="shrink-0" /></div>
-                  <div className="w-full">
-                      <h4 className="text-xs font-bold text-sky-300 mb-3 uppercase tracking-wider border-b border-sky-500/20 pb-2">{leftTitle}</h4>
-                      <div className="text-sm text-slate-300 leading-relaxed space-y-2">{systemRule}</div>
+              <div className="p-3 sm:p-5 flex gap-2 sm:gap-3 items-start bg-sky-900/10 hover:bg-sky-900/20 transition-colors">
+                  <div className="mt-0.5 text-sky-400 shrink-0"><LeftIcon size={18} /></div>
+                  <div className="min-w-0">
+                      <h4 className="text-[10px] sm:text-xs font-bold text-sky-300 mb-2 sm:mb-3 uppercase tracking-wider border-b border-sky-500/20 pb-2">{leftTitle}</h4>
+                      <div className="text-xs sm:text-sm text-slate-300 leading-relaxed space-y-2">{systemRule}</div>
                   </div>
               </div>
-              <div className="p-5 flex gap-3 items-start bg-emerald-900/10 hover:bg-emerald-900/20 transition-colors">
-                  <div className="mt-0.5 text-emerald-400"><RightIcon size={20} className="shrink-0" /></div>
-                  <div className="w-full">
-                      <h4 className="text-xs font-bold text-emerald-300 mb-3 uppercase tracking-wider border-b border-emerald-500/20 pb-2">{rightTitle}</h4>
-                      <div className="text-sm text-slate-300 leading-relaxed space-y-2">{businessInsight}</div>
+              <div className="p-3 sm:p-5 flex gap-2 sm:gap-3 items-start bg-emerald-900/10 hover:bg-emerald-900/20 transition-colors">
+                  <div className="mt-0.5 text-emerald-400 shrink-0"><RightIcon size={18} /></div>
+                  <div className="min-w-0">
+                      <h4 className="text-[10px] sm:text-xs font-bold text-emerald-300 mb-2 sm:mb-3 uppercase tracking-wider border-b border-emerald-500/20 pb-2">{rightTitle}</h4>
+                      <div className="text-xs sm:text-sm text-slate-300 leading-relaxed space-y-2">{businessInsight}</div>
                   </div>
               </div>
           </div>
@@ -847,17 +847,17 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
 
   return (
     <div className="min-h-screen text-slate-200 pb-10 bg-slate-950 font-sans selection:bg-sky-500/30">
-      <div className="mb-6 p-6 border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-50">
-        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6">
-          <div>
-            <h1 className="text-3xl font-black text-white tracking-tight flex items-center gap-3">
-               <Cpu className="text-sky-400" size={32} /> XoCompass SARIMAX Engine
+      <div className="mb-6 p-3 sm:p-6 border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-50">
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3 sm:gap-4 mb-4 sm:mb-6">
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-3xl font-black text-white tracking-tight flex items-center gap-2 sm:gap-3">
+               <Cpu className="text-sky-400 shrink-0" size={24} /> <span className="truncate">XoCompass SARIMAX Engine</span>
             </h1>
-            <p className="text-slate-400 mt-1 text-sm flex items-center gap-2 font-medium">
-                <Shield size={14} className="text-emerald-500"/> Business Decision Support System (DSS) • Fault-Tolerant
+            <p className="text-slate-400 mt-1 text-xs sm:text-sm flex items-center gap-2 font-medium">
+                <Shield size={14} className="text-emerald-500 shrink-0"/> <span className="truncate">Business Decision Support System (DSS) • Fault-Tolerant</span>
             </p>
           </div>
-          <div className="hidden lg:flex items-center gap-3 bg-slate-950 border border-slate-800 px-4 py-2 rounded-lg shadow-inner">
+          <div className="hidden lg:flex items-center gap-3 bg-slate-950 border border-slate-800 px-4 py-2 rounded-lg shadow-inner shrink-0">
              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
              <span className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">Active Auth Session:</span>
              <span className="text-xs font-bold text-slate-200 bg-slate-800 px-2 py-0.5 rounded border border-slate-700">Team Lead</span>
@@ -866,27 +866,27 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
           </div>
         </div>
 
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 no-scrollbar">
+        <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-2 no-scrollbar custom-scrollbar">
           {steps.map((s, idx) => (
-            <div key={s.id} className="flex items-center">
+            <div key={s.id} className="flex items-center shrink-0">
               <button
                 onClick={() => runPipeline(s.id)}
-                className={`whitespace-nowrap px-4 py-2 rounded-lg text-sm font-bold border transition-all duration-300 ${stage === s.id ? 'bg-sky-600 text-white border-sky-500 shadow-[0_0_15px_rgba(14,165,233,0.3)]' : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-slate-200 hover:border-slate-600'}`}
+                className={`whitespace-nowrap px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-bold border transition-all duration-300 ${stage === s.id ? 'bg-sky-600 text-white border-sky-500 shadow-[0_0_15px_rgba(14,165,233,0.3)]' : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-slate-200 hover:border-slate-600'}`}
               >
                 {s.label}
               </button>
-              {idx < steps.length - 1 && <ArrowRight size={16} className="mx-2 text-slate-600" />}
+              {idx < steps.length - 1 && <ArrowRight size={14} className="mx-1 sm:mx-2 text-slate-600" />}
             </div>
           ))}
         </div>
       </div>
 
-      <div className="px-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="px-3 sm:px-6 grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
         {/* LEFT CONTROL PANEL */}
         <div className="lg:col-span-3 space-y-6">
-            <div className="bg-slate-900/60 backdrop-blur rounded-2xl p-6 border border-slate-800 shadow-xl">
-              <h3 className="font-bold text-white mb-4 flex items-center gap-2">
-                <Settings size={18} className="text-sky-400"/> System Parameters
+            <div className="bg-slate-900/60 backdrop-blur rounded-2xl p-4 sm:p-6 border border-slate-800 shadow-xl">
+              <h3 className="font-bold text-white mb-3 sm:mb-4 flex items-center gap-2 text-sm sm:text-base">
+                <Settings size={16} className="text-sky-400 shrink-0"/> System Parameters
               </h3>
               
               <div className="space-y-5">
@@ -942,31 +942,31 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                 <div className="animate-in fade-in slide-in-from-bottom-4 space-y-6">
                     
                     {/* KPI Dashboard */}
-                    <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-                        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 shadow-lg">
-                            <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 flex items-center gap-1"><Database size={12}/> Total Demand</h4>
-                            <div className="text-2xl font-black text-white">{totalDemandUnits.toLocaleString()}</div>
-                            <p className="text-[10px] text-slate-400 mt-1">12-Year Aggregate</p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-4">
+                        <div className="bg-slate-900/80 border border-slate-800 rounded-xl sm:rounded-2xl p-3 sm:p-4 shadow-lg">
+                            <h4 className="text-[9px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 flex items-center gap-1"><Database size={10} className="shrink-0"/> Total Demand</h4>
+                            <div className="text-lg sm:text-2xl font-black text-white">{totalDemandUnits.toLocaleString()}</div>
+                            <p className="text-[9px] sm:text-[10px] text-slate-400 mt-1">12-Year Aggregate</p>
                         </div>
-                        <div className="bg-slate-900/80 border border-emerald-500/20 rounded-2xl p-4 shadow-lg border-l-2 border-l-emerald-500">
-                            <h4 className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest mb-1 flex items-center gap-1"><DollarSign size={12}/> Est. Revenue</h4>
-                            <div className="text-2xl font-black text-emerald-400">₱{(estimatedRevenue / 1000000).toFixed(2)}M</div>
-                            <p className="text-[10px] text-slate-400 mt-1">Based on avg net</p>
+                        <div className="bg-slate-900/80 border border-emerald-500/20 rounded-xl sm:rounded-2xl p-3 sm:p-4 shadow-lg border-l-2 border-l-emerald-500">
+                            <h4 className="text-[9px] sm:text-[10px] font-bold text-emerald-500 uppercase tracking-widest mb-1 flex items-center gap-1"><DollarSign size={10} className="shrink-0"/> Est. Revenue</h4>
+                            <div className="text-lg sm:text-2xl font-black text-emerald-400">₱{(estimatedRevenue / 1000000).toFixed(2)}M</div>
+                            <p className="text-[9px] sm:text-[10px] text-slate-400 mt-1">Based on avg net</p>
                         </div>
-                        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 shadow-lg">
-                            <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 flex items-center gap-1"><PieChart size={12}/> Avg Monthly</h4>
-                            <div className="text-2xl font-black text-white">{avgMonthlyDemand}</div>
-                            <p className="text-[10px] text-slate-400 mt-1">Units per month</p>
+                        <div className="bg-slate-900/80 border border-slate-800 rounded-xl sm:rounded-2xl p-3 sm:p-4 shadow-lg">
+                            <h4 className="text-[9px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 flex items-center gap-1"><PieChart size={10} className="shrink-0"/> Avg Monthly</h4>
+                            <div className="text-lg sm:text-2xl font-black text-white">{avgMonthlyDemand}</div>
+                            <p className="text-[9px] sm:text-[10px] text-slate-400 mt-1">Units per month</p>
                         </div>
-                        <div className="bg-slate-900/80 border border-purple-500/20 rounded-2xl p-4 shadow-lg border-l-2 border-l-purple-500">
-                            <h4 className="text-[10px] font-bold text-purple-400 uppercase tracking-widest mb-1 flex items-center gap-1"><TrendingUp size={12}/> Peak Record</h4>
-                            <div className="text-2xl font-black text-purple-400">{peakDemandRow.demand}</div>
-                            <p className="text-[10px] text-slate-400 mt-1">Recorded {peakDemandRow.date}</p>
+                        <div className="bg-slate-900/80 border border-purple-500/20 rounded-xl sm:rounded-2xl p-3 sm:p-4 shadow-lg border-l-2 border-l-purple-500">
+                            <h4 className="text-[9px] sm:text-[10px] font-bold text-purple-400 uppercase tracking-widest mb-1 flex items-center gap-1"><TrendingUp size={10} className="shrink-0"/> Peak Record</h4>
+                            <div className="text-lg sm:text-2xl font-black text-purple-400">{peakDemandRow.demand}</div>
+                            <p className="text-[9px] sm:text-[10px] text-slate-400 mt-1">Recorded {peakDemandRow.date}</p>
                         </div>
-                        <div className="bg-slate-900/80 border border-sky-500/20 rounded-2xl p-4 shadow-lg border-l-2 border-l-sky-500">
-                            <h4 className="text-[10px] font-bold text-sky-400 uppercase tracking-widest mb-1 flex items-center gap-1"><Activity size={12}/> YoY Growth</h4>
-                            <div className="text-2xl font-black text-sky-400">{growthRate}%</div>
-                            <p className="text-[10px] text-slate-400 mt-1">2024 vs 2023 FY</p>
+                        <div className="bg-slate-900/80 border border-sky-500/20 rounded-xl sm:rounded-2xl p-3 sm:p-4 shadow-lg border-l-2 border-l-sky-500 col-span-2 sm:col-span-1">
+                            <h4 className="text-[9px] sm:text-[10px] font-bold text-sky-400 uppercase tracking-widest mb-1 flex items-center gap-1"><Activity size={10} className="shrink-0"/> YoY Growth</h4>
+                            <div className="text-lg sm:text-2xl font-black text-sky-400">{growthRate}%</div>
+                            <p className="text-[9px] sm:text-[10px] text-slate-400 mt-1">2024 vs 2023 FY</p>
                         </div>
                     </div>
 
@@ -978,12 +978,12 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                         businessInsight={<><p>Historical demand data is a deeply undervalued business asset. This 12-year archive quantitatively demonstrates structural market resilience and demand patterns.</p><p><strong>Strategic Action:</strong> The era of "guessing" peak seasons via intuition is over. Maintaining this continuous data ingestion pipeline allows XoCompass to function as a fully quantitative Decision Support System.</p></>}
                     />
                     
-                    <div className="bg-slate-900/60 backdrop-blur rounded-2xl p-6 border border-slate-800 shadow-xl">
-                        <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-lg font-bold text-white flex items-center gap-2"><LineChartIcon size={20} className="text-sky-400"/> Demand Timeline vs Exogenous Variables</h3>
-                            <span className="bg-slate-950 px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-widest rounded border border-slate-800">2013-2025</span>
+                    <div className="bg-slate-900/60 backdrop-blur rounded-2xl p-4 sm:p-6 border border-slate-800 shadow-xl">
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-4 sm:mb-6">
+                            <h3 className="text-sm sm:text-lg font-bold text-white flex items-center gap-2"><LineChartIcon size={18} className="text-sky-400 shrink-0"/> Demand Timeline vs Exogenous Variables</h3>
+                            <span className="bg-slate-950 px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-widest rounded border border-slate-800 shrink-0">2013-2025</span>
                         </div>
-                        <div className="h-[320px] w-full bg-slate-950/80 rounded-xl border border-slate-800 p-4 shadow-inner">
+                        <div className="h-[240px] sm:h-[320px] w-full bg-slate-950/80 rounded-xl border border-slate-800 p-2 sm:p-4 shadow-inner">
                             <ResponsiveContainer width="100%" height="100%">
                                 <ComposedChart data={rawData}>
                                     <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" vertical={false}/>
@@ -1077,11 +1077,11 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                             </>
                         }
                     />
-                    <div className="bg-slate-900/60 backdrop-blur rounded-2xl p-6 border border-slate-800 shadow-xl">
-                        <h3 className="text-xl font-bold text-white mb-6">Feature Correlations Matrix</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="bg-slate-950/80 p-6 rounded-xl border border-slate-800 flex items-center justify-center shadow-inner">
-                                <div className="grid grid-cols-4 gap-2 w-full text-center">
+                    <div className="bg-slate-900/60 backdrop-blur rounded-2xl p-4 sm:p-6 border border-slate-800 shadow-xl">
+                        <h3 className="text-base sm:text-xl font-bold text-white mb-4 sm:mb-6">Feature Correlations Matrix</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
+                            <div className="bg-slate-950/80 p-3 sm:p-6 rounded-xl border border-slate-800 flex items-center justify-center shadow-inner overflow-x-auto">
+                                <div className="grid grid-cols-4 gap-1 sm:gap-2 w-full text-center min-w-[240px]">
                                     <div className="p-2"></div>
                                     <div className="p-2 text-xs font-bold text-slate-500 uppercase tracking-wide">Volume</div>
                                     <div className="p-2 text-xs font-bold text-slate-500 uppercase tracking-wide">Rain</div>
@@ -1130,18 +1130,18 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
             {stage === 'process' && (
                  <div className="animate-in fade-in slide-in-from-bottom-4 space-y-6">
                     
-                    <div className="bg-slate-900/60 border border-slate-700/50 rounded-2xl p-5 shadow-lg flex items-start gap-4">
-                        <div className="p-2 bg-slate-950 rounded-lg text-emerald-400 border border-slate-800 mt-1"><Shield size={20}/></div>
-                        <div>
-                            <h4 className="text-xs font-bold text-slate-300 uppercase tracking-widest mb-1 flex items-center gap-2">STRIDE Threat Resolution: Denial of Service (DoS) Blocked</h4>
+                    <div className="bg-slate-900/60 border border-slate-700/50 rounded-2xl p-3 sm:p-5 shadow-lg flex items-start gap-3 sm:gap-4">
+                        <div className="p-1.5 sm:p-2 bg-slate-950 rounded-lg text-emerald-400 border border-slate-800 mt-1 shrink-0"><Shield size={18}/></div>
+                        <div className="min-w-0">
+                            <h4 className="text-[10px] sm:text-xs font-bold text-slate-300 uppercase tracking-widest mb-1 flex items-center gap-2">STRIDE Threat Resolution: DoS Blocked</h4>
                             <p className="text-sm text-slate-400 leading-relaxed">
                                 To prevent JSX rendering engines from crashing on pure mathematical syntax strings, all complex formula blocks have been strictly cast to safe Unicode notation. A `safeFormat()` fallback mechanism guarantees the UI degrades gracefully to 0 instead of dismounting during heavy data ticks.
                             </p>
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        <div className="bg-slate-900/60 border border-rose-500/20 rounded-2xl p-5 shadow-lg hover:border-rose-500/40 transition-colors">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
+                        <div className="bg-slate-900/60 border border-rose-500/20 rounded-2xl p-4 sm:p-5 shadow-lg hover:border-rose-500/40 transition-colors">
                             <div className="flex items-center gap-2 mb-4 border-b border-rose-500/20 pb-3">
                                 <div className="p-1.5 bg-rose-500/10 rounded-lg text-rose-400"><XOctagon size={18}/></div>
                                 <h4 className="font-bold text-rose-300 text-sm uppercase tracking-wider">1. The Problem</h4>
@@ -1184,10 +1184,12 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                     {/* The Mathematical Proof Block - JSX Safe */}
                     <div className="bg-slate-900 border border-slate-700/50 rounded-2xl p-6 shadow-xl relative overflow-hidden">
                         <div className="absolute top-0 right-0 w-64 h-64 bg-slate-800/20 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
-                        <div className="flex items-center gap-3 mb-6 border-b border-slate-800 pb-3">
-                            <div className="p-2 bg-slate-950 rounded border border-slate-800 text-sky-400"><FileCode size={20}/></div>
-                            <h3 className="text-xl font-bold text-white tracking-tight">Mathematical Proof: First-Order Differencing</h3>
-                            <span className="text-[10px] uppercase font-bold text-slate-500 tracking-widest bg-slate-950 px-2 py-1 rounded border border-slate-800 ml-auto shadow-inner">d = 1 Operation</span>
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 mb-4 sm:mb-6 border-b border-slate-800 pb-3">
+                            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                                <div className="p-1.5 sm:p-2 bg-slate-950 rounded border border-slate-800 text-sky-400 shrink-0"><FileCode size={18}/></div>
+                                <h3 className="text-sm sm:text-xl font-bold text-white tracking-tight">Mathematical Proof: First-Order Differencing</h3>
+                            </div>
+                            <span className="text-[10px] uppercase font-bold text-slate-500 tracking-widest bg-slate-950 px-2 py-1 rounded border border-slate-800 sm:ml-auto shadow-inner shrink-0">d = 1</span>
                         </div>
                         
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 relative z-10">
@@ -1281,24 +1283,24 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
             {stage === 'decomp' && (
                  <div className="animate-in fade-in slide-in-from-bottom-4 space-y-6">
                     
-                    <div className="border-b border-slate-800 pb-5 mb-8">
-                        <h2 className="text-3xl font-black text-white flex items-center gap-3 tracking-tight">
-                            <Layers className="text-purple-400" size={32}/> 
-                            XoCompass STL Signal Extraction Engine
+                    <div className="border-b border-slate-800 pb-4 sm:pb-5 mb-6 sm:mb-8">
+                        <h2 className="text-xl sm:text-3xl font-black text-white flex items-center gap-2 sm:gap-3 tracking-tight">
+                            <Layers className="text-purple-400 shrink-0" size={24}/>
+                            <span>XoCompass STL Signal Extraction</span>
                         </h2>
-                        <p className="text-slate-400 mt-2 text-sm leading-relaxed max-w-3xl">Raw time series data is a mathematically chaotic blend of conflicting forces. The XoCompass DSS deploys <strong>Additive Seasonal-Trend Decomposition using LOESS (STL)</strong> to computationally disentangle this noise into pure, isolated signals for Executive command and control.</p>
+                        <p className="text-slate-400 mt-2 text-xs sm:text-sm leading-relaxed max-w-3xl">Raw time series data is a mathematically chaotic blend of conflicting forces. The XoCompass DSS deploys <strong>Additive Seasonal-Trend Decomposition using LOESS (STL)</strong> to computationally disentangle this noise into pure, isolated signals for Executive command and control.</p>
                     </div>
 
                     {/* TIER 1: The Chaotic Reality */}
-                    <div className="bg-slate-900/60 backdrop-blur rounded-2xl p-6 border border-slate-800 shadow-xl relative overflow-hidden group hover:border-slate-600 transition-colors">
-                        <div className="flex justify-between items-center mb-4 border-b border-slate-800 pb-4">
-                            <div className="flex items-center gap-3">
-                                <span className="bg-slate-800 text-slate-300 font-mono font-black px-3 py-1 rounded-lg">1</span>
-                                <h3 className="text-xl font-bold text-white tracking-tight">The Chaotic Reality (Raw Observed Data)</h3>
+                    <div className="bg-slate-900/60 backdrop-blur rounded-2xl p-4 sm:p-6 border border-slate-800 shadow-xl relative overflow-hidden group hover:border-slate-600 transition-colors">
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-3 sm:mb-4 border-b border-slate-800 pb-3 sm:pb-4">
+                            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                                <span className="bg-slate-800 text-slate-300 font-mono font-black px-2.5 py-1 rounded-lg shrink-0">1</span>
+                                <h3 className="text-sm sm:text-xl font-bold text-white tracking-tight">The Chaotic Reality (Raw Observed Data)</h3>
                             </div>
-                            <span className="bg-slate-950 text-slate-500 border border-slate-800 px-3 py-1 rounded text-[10px] font-bold uppercase tracking-widest shadow-inner">Unfiltered Input</span>
+                            <span className="bg-slate-950 text-slate-500 border border-slate-800 px-2 sm:px-3 py-1 rounded text-[9px] sm:text-[10px] font-bold uppercase tracking-widest shadow-inner shrink-0">Unfiltered Input</span>
                         </div>
-                        <div className="h-[200px] bg-slate-950/80 rounded-xl border border-slate-800 p-2 shadow-inner">
+                        <div className="h-[160px] sm:h-[200px] bg-slate-950/80 rounded-xl border border-slate-800 p-2 shadow-inner">
                             <ResponsiveContainer width="100%" height="100%">
                                 <LineChart data={decompositionData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                                     <XAxis dataKey="date" hide/>
@@ -1454,15 +1456,15 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                     />
                     
                     <div className="bg-slate-900/60 backdrop-blur rounded-2xl border border-slate-800 shadow-xl mb-6 overflow-hidden flex flex-col">
-                        <div className="p-6 border-b border-slate-800 bg-slate-900/40 flex justify-between items-center">
-                            <h3 className="text-xl font-bold text-white flex items-center gap-2 tracking-tight"><Terminal className="text-sky-400"/> Live Execution Terminal</h3>
-                            <div className="flex items-center gap-4">
+                        <div className="p-3 sm:p-6 border-b border-slate-800 bg-slate-900/40 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-4">
+                            <h3 className="text-sm sm:text-xl font-bold text-white flex items-center gap-2 tracking-tight"><Terminal className="text-sky-400 shrink-0"/> Live Execution Terminal</h3>
+                            <div className="flex items-center gap-3 sm:gap-4">
                                 {isProcessing && (
-                                    <div className="flex items-center gap-2 text-sky-400 text-[10px] font-bold tracking-widest uppercase">
-                                        <RefreshCw size={12} className="animate-spin"/> Executing Grid Search
+                                    <div className="hidden sm:flex items-center gap-2 text-sky-400 text-[10px] font-bold tracking-widest uppercase">
+                                        <RefreshCw size={12} className="animate-spin"/> Grid Search
                                     </div>
                                 )}
-                                <div className="w-32 h-2 bg-slate-800 rounded-full overflow-hidden shadow-inner">
+                                <div className="w-24 sm:w-32 h-2 bg-slate-800 rounded-full overflow-hidden shadow-inner">
                                     <div className="h-full bg-sky-500 transition-all duration-300" style={{width: `${searchProgress}%`}}></div>
                                 </div>
                             </div>
@@ -1554,11 +1556,11 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                         <div className="inline-flex items-center gap-2 bg-emerald-900/20 border border-emerald-500/30 text-emerald-400 px-3 py-1 rounded mb-3 text-[10px] font-black uppercase tracking-widest">
                             <CheckCircle size={12}/> XoCompass DSS Validated & Ready
                         </div>
-                        <h2 className="text-3xl font-black text-white flex items-center gap-3 tracking-tight">
-                            <BarChart4 className="text-sky-400" size={32}/> 
-                            The Implications Engine
+                        <h2 className="text-xl sm:text-3xl font-black text-white flex items-center gap-2 sm:gap-3 tracking-tight">
+                            <BarChart4 className="text-sky-400 shrink-0" size={24}/>
+                            <span>The Implications Engine</span>
                         </h2>
-                        <p className="text-slate-400 mt-2 text-sm max-w-2xl leading-relaxed">A highly dense, 4-step Executive Command Center extracting absolute business logic from the preceding pipeline phases. Color-coded by pipeline analytics stage.</p>
+                        <p className="text-slate-400 mt-2 text-xs sm:text-sm max-w-2xl leading-relaxed">A highly dense, 4-step Executive Command Center extracting absolute business logic from the preceding pipeline phases. Color-coded by pipeline analytics stage.</p>
                     </div>
 
                     {/* DENSE GRID SYNTHESIS */}
@@ -1621,8 +1623,8 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                                 <h3 className="text-sm font-bold text-slate-200 uppercase tracking-wide">Volatility Constraint via Parsimony</h3>
                             </div>
                             
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-8 items-center relative z-10">
-                                <div className="md:col-span-1 space-y-5">
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 sm:gap-8 items-center relative z-10">
+                                <div className="md:col-span-1 space-y-3 sm:space-y-5">
                                     <p className="text-[11px] text-slate-400 leading-relaxed">
                                         Because we strictly locked Stationarity (Step 3) and forced AIC Parsimony (Step 5), the model generated an extraordinarily tight 95% Confidence Interval. We have successfully constrained future volatility into a predictable mathematical tunnel.
                                     </p>
@@ -1666,16 +1668,16 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                             <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-6 border-b border-emerald-500/20 pb-4 gap-4">
                                 <div className="flex items-center gap-3">
                                     <span className="bg-emerald-950 text-emerald-400 border border-emerald-800 text-[9px] font-black uppercase px-2 py-1 rounded tracking-widest shadow-inner">4. Prescriptive</span>
-                                    <h3 className="text-xl font-black text-white uppercase tracking-wider flex items-center gap-2"><Briefcase size={20} className="text-emerald-400"/> Tactical Resource Allocation</h3>
+                                    <h3 className="text-sm sm:text-xl font-black text-white uppercase tracking-wider flex items-center gap-2"><Briefcase size={18} className="text-emerald-400 shrink-0"/> <span className="truncate">Tactical Resource Allocation</span></h3>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <span className="bg-slate-900 border border-slate-800 px-3 py-1 rounded-full text-[10px] font-bold text-slate-400 flex items-center gap-1 shadow-inner"><Leaf size={12} className="text-emerald-500"/> SDG Compliant Engine</span>
                                 </div>
                             </div>
                             
-                            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-8">
+                            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-8 mb-6 sm:mb-8">
                                 {/* Storytelling Column */}
-                                <div className="lg:col-span-4 space-y-4">
+                                <div className="lg:col-span-4 space-y-3 sm:space-y-4">
                                     <p className="text-sm text-slate-200 font-bold tracking-wide">
                                         Data Science must evolve into Strategic Decision Engineering. We don't just "expect" these numbers; we act on them.
                                     </p>
@@ -1700,11 +1702,11 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                                 </div>
 
                                 {/* Heavy Visualization Column */}
-                                <div className="lg:col-span-8 bg-slate-950 rounded-2xl border border-slate-800 p-6 shadow-inner relative">
-                                    <h4 className="text-sm font-bold text-white text-center mb-1 uppercase tracking-widest">2026 Resource Allocation Matrix</h4>
-                                    <p className="text-[10px] text-slate-500 text-center mb-6 uppercase tracking-widest font-bold">Actionable Tier Architecture</p>
-                                    
-                                    <div className="h-[380px] w-full">
+                                <div className="lg:col-span-8 bg-slate-950 rounded-2xl border border-slate-800 p-3 sm:p-6 shadow-inner relative">
+                                    <h4 className="text-xs sm:text-sm font-bold text-white text-center mb-1 uppercase tracking-widest">2026 Resource Allocation Matrix</h4>
+                                    <p className="text-[9px] sm:text-[10px] text-slate-500 text-center mb-4 sm:mb-6 uppercase tracking-widest font-bold">Actionable Tier Architecture</p>
+
+                                    <div className="h-[260px] sm:h-[380px] w-full">
                                         <ResponsiveContainer width="100%" height="100%">
                                             <ComposedChart data={prescriptiveData} margin={{ top: 20, right: 20, bottom: 0, left: -20 }}>
                                                 <CartesianGrid stroke="#1e293b" vertical={false} />

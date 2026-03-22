@@ -131,7 +131,7 @@ const Dashboard = () => {
     <div className="min-h-screen text-slate-200 pb-10 animate-enter bg-slate-950">
 
       {/* 1. HEADER: Welcome & Context */}
-      <div className="flex flex-col md:flex-row justify-between items-end mb-8 border-b border-slate-800 pb-6">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 sm:mb-8 border-b border-slate-800 pb-4 sm:pb-6">
         <div>
           <h1 className="text-2xl sm:text-4xl font-bold text-white tracking-tight mb-2">
             Welcome, <span className="text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-blue-500">{user.name.split(' ')[0]}</span>
@@ -157,19 +157,19 @@ const Dashboard = () => {
       </div>
 
       {/* 2. KPI CARDS (High Contrast) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-6 mb-8">
         {metrics.map((m, idx) => (
-          <div key={idx} className={`p-6 rounded-2xl relative overflow-hidden group border transition-all duration-300 ${m.bg} hover:border-opacity-50`}>
+          <div key={idx} className={`p-3 sm:p-5 rounded-2xl relative overflow-hidden group border transition-all duration-300 ${m.bg} hover:border-opacity-50`}>
             <div className={`absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity transform group-hover:scale-110 ${m.color}`}>
               <m.icon size={80} />
             </div>
             <div className="relative z-10">
-              <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-4 bg-slate-950/30 border border-white/10`}>
+              <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-3 sm:mb-4 bg-slate-950/30 border border-white/10`}>
                 <m.icon size={20} className={m.color} />
               </div>
               <p className="text-slate-300 text-xs font-bold uppercase tracking-widest mb-1 opacity-80">{m.label}</p>
-              <h3 className="text-3xl font-bold text-white tracking-tight">{m.val}</h3>
-              <p className="text-slate-400 text-sm mt-2 flex items-center gap-1 font-medium">
+              <h3 className="text-lg sm:text-2xl font-bold text-white tracking-tight">{m.val}</h3>
+              <p className="text-slate-400 text-sm mt-1 sm:mt-2 flex items-center gap-1 font-medium">
                 <Activity size={14} className={m.color}/> {m.sub}
               </p>
             </div>
@@ -178,18 +178,18 @@ const Dashboard = () => {
       </div>
 
       {/* 3. MAIN DASHBOARD GRID */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-6 mb-8">
 
         {/* LEFT COL: Charts */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 space-y-3 sm:space-y-6">
 
             {/* Velocity Chart */}
-            <div className="bg-slate-900 rounded-2xl p-6 border border-slate-800 shadow-xl">
-                <div className="flex justify-between items-center mb-6">
-                    <h3 className="font-bold text-white text-lg">Work Velocity</h3>
-                    <span className="text-xs font-bold text-emerald-400 bg-emerald-900/30 border border-emerald-500/30 px-3 py-1 rounded-full">Avg: {avgVelocity} Tasks/Day</span>
+            <div className="bg-slate-900 rounded-2xl p-3 sm:p-6 border border-slate-800 shadow-xl">
+                <div className="flex justify-between items-center mb-4 sm:mb-6">
+                    <h3 className="font-bold text-white text-base sm:text-lg">Work Velocity</h3>
+                    <span className="text-[10px] sm:text-xs font-bold text-emerald-400 bg-emerald-900/30 border border-emerald-500/30 px-2 sm:px-3 py-1 rounded-full">Avg: {avgVelocity}/Day</span>
                 </div>
-                <div className="h-64">
+                <div className="h-[200px] sm:h-[280px]">
                     <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={velocityData}>
                         <defs>
@@ -213,7 +213,7 @@ const Dashboard = () => {
 
             {/* Task Table (Filtered) */}
             <div className="bg-slate-900 rounded-2xl border border-slate-800 shadow-xl overflow-hidden">
-                <div className="p-6 border-b border-slate-800 flex justify-between items-center">
+                <div className="p-3 sm:p-6 border-b border-slate-800 flex justify-between items-center">
                     <h3 className="font-bold text-white flex items-center gap-2">
                         <Database size={18} className="text-slate-400"/>
                         {activeFilter ? `${activeFilter} Tasks` : 'Active Tasks'}
@@ -225,7 +225,30 @@ const Dashboard = () => {
                         </button>
                     )}
                 </div>
-                <div className="overflow-x-auto">
+                {/* Mobile card layout */}
+                <div className="sm:hidden p-3 space-y-3">
+                    {displayedTasks.length === 0 ? (
+                        <p className="p-6 text-center italic text-slate-500">No data available for this filter.</p>
+                    ) : displayedTasks.slice(0, 5).map(t => (
+                        <div key={t.id} className="p-3 rounded-lg border border-slate-800 bg-slate-800/30 space-y-2">
+                            <div className="flex justify-between items-start gap-2">
+                                <p className="font-medium text-slate-200 text-sm truncate flex-1">{t.task}</p>
+                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold border shrink-0 ${t.priority === 'High' ? 'bg-red-900/20 text-red-400 border-red-500/20' : 'bg-blue-900/20 text-blue-400 border-blue-500/20'}`}>
+                                    {t.priority || 'Normal'}
+                                </span>
+                            </div>
+                            <div className="flex justify-between items-center text-xs text-slate-400">
+                                <span>{t.deadline}</span>
+                                <span className="flex items-center gap-1.5">
+                                    <span className={`inline-block w-2 h-2 rounded-full ${t.status === 'Done' ? 'bg-emerald-500' : t.status === 'On-going' ? 'bg-amber-500' : 'bg-red-500'}`}></span>
+                                    {t.status}
+                                </span>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+                {/* Desktop table layout */}
+                <div className="hidden sm:block overflow-x-auto">
                     <table className="w-full text-left text-sm text-slate-400">
                         <thead className="bg-slate-950 text-xs uppercase font-bold text-slate-500">
                         <tr>
@@ -260,10 +283,10 @@ const Dashboard = () => {
         </div>
 
         {/* RIGHT COL: Insights & Status */}
-        <div className="space-y-6">
+        <div className="space-y-3 sm:space-y-6">
 
             {/* ACTIONABLE INSIGHTS (New Feature) */}
-            <div className="bg-slate-900 rounded-2xl p-6 border border-slate-800 shadow-xl">
+            <div className="bg-slate-900 rounded-2xl p-3 sm:p-6 border border-slate-800 shadow-xl">
                 <h3 className="font-bold text-white mb-4 flex items-center gap-2">
                     <Lightbulb size={18} className="text-yellow-400"/> Actionable Insights
                 </h3>
@@ -295,7 +318,7 @@ const Dashboard = () => {
             </div>
 
             {/* Status Pie Chart */}
-            <div className="bg-slate-900 rounded-2xl p-6 border border-slate-800 shadow-xl flex flex-col h-[300px]">
+            <div className="bg-slate-900 rounded-2xl p-3 sm:p-6 border border-slate-800 shadow-xl flex flex-col h-[250px] sm:h-[300px]">
                 <div className="flex justify-between items-center mb-2">
                     <h3 className="font-bold text-white">Status Overview</h3>
                 </div>
