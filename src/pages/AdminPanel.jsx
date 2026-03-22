@@ -131,114 +131,184 @@ const AdminPanel = () => {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-slate-900/50 p-5 rounded-xl border border-slate-800">
-          <div className="flex items-center gap-2 text-slate-400 mb-2"><Users size={18} /> Team Members</div>
-          <p className="text-2xl font-bold text-slate-100">{profiles.filter(p => p.role !== 'restricted').length}</p>
+      <div className="grid grid-cols-3 gap-2 sm:gap-4">
+        <div className="bg-slate-900/50 p-3 sm:p-5 rounded-xl border border-slate-800">
+          <div className="flex items-center gap-1.5 sm:gap-2 text-slate-400 mb-1 sm:mb-2"><Users size={14} className="sm:w-[18px] sm:h-[18px]" /> <span className="text-[10px] sm:text-sm">Members</span></div>
+          <p className="text-lg sm:text-2xl font-bold text-slate-100">{profiles.filter(p => p.role !== 'restricted').length}</p>
         </div>
-        <div className="bg-slate-900/50 p-5 rounded-xl border border-slate-800">
-          <div className="flex items-center gap-2 text-red-400 mb-2"><Ban size={18} /> Restricted</div>
-          <p className="text-2xl font-bold text-red-400">{profiles.filter(p => p.role === 'restricted').length}</p>
+        <div className="bg-slate-900/50 p-3 sm:p-5 rounded-xl border border-slate-800">
+          <div className="flex items-center gap-1.5 sm:gap-2 text-red-400 mb-1 sm:mb-2"><Ban size={14} className="sm:w-[18px] sm:h-[18px]" /> <span className="text-[10px] sm:text-sm">Restricted</span></div>
+          <p className="text-lg sm:text-2xl font-bold text-red-400">{profiles.filter(p => p.role === 'restricted').length}</p>
         </div>
-        <div className="bg-slate-900/50 p-5 rounded-xl border border-slate-800">
-          <div className="flex items-center gap-2 text-emerald-400 mb-2"><Activity size={18} /> Recent Actions</div>
-          <p className="text-2xl font-bold text-emerald-400">{(activityLog || []).length}</p>
+        <div className="bg-slate-900/50 p-3 sm:p-5 rounded-xl border border-slate-800">
+          <div className="flex items-center gap-1.5 sm:gap-2 text-emerald-400 mb-1 sm:mb-2"><Activity size={14} className="sm:w-[18px] sm:h-[18px]" /> <span className="text-[10px] sm:text-sm">Actions</span></div>
+          <p className="text-lg sm:text-2xl font-bold text-emerald-400">{(activityLog || []).length}</p>
         </div>
       </div>
 
       {/* Tab Switcher */}
-      <div className="flex gap-2 bg-slate-900/50 p-1 rounded-lg border border-slate-800 w-full sm:w-fit overflow-x-auto">
+      <div className="grid grid-cols-3 sm:flex sm:w-fit gap-1 bg-slate-900/50 p-1 rounded-lg border border-slate-800">
         <button
           onClick={() => setTab('users')}
-          className={`px-4 py-2 rounded-lg text-sm font-bold transition flex items-center gap-2 ${tab === 'users' ? 'bg-sky-600 text-white shadow' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}
+          className={`px-2 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-bold transition flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap ${tab === 'users' ? 'bg-sky-600 text-white shadow' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}
         >
-          <Users size={16} /> User Management
+          <Users size={14} className="sm:w-4 sm:h-4" /> <span className="hidden xs:inline">Users</span><span className="xs:hidden">Users</span>
         </button>
         <button
           onClick={() => setTab('notifications')}
-          className={`px-4 py-2 rounded-lg text-sm font-bold transition flex items-center gap-2 relative ${tab === 'notifications' ? 'bg-sky-600 text-white shadow' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}
+          className={`px-2 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-bold transition flex items-center justify-center gap-1.5 sm:gap-2 relative whitespace-nowrap ${tab === 'notifications' ? 'bg-sky-600 text-white shadow' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}
         >
-          <Bell size={16} /> Notifications
+          <Bell size={14} className="sm:w-4 sm:h-4" /> <span className="hidden sm:inline">Notifications</span><span className="sm:hidden">Notifs</span>
           {(() => {
             const unread = (notifications || []).filter(n => !n.read && isNotificationForUser(n, user)).length;
-            return unread > 0 ? <span className="ml-1 px-1.5 py-0.5 bg-amber-500 text-white text-[10px] rounded-full font-bold">{unread}</span> : null;
+            return unread > 0 ? <span className="ml-0.5 sm:ml-1 px-1.5 py-0.5 bg-amber-500 text-white text-[10px] rounded-full font-bold">{unread}</span> : null;
           })()}
         </button>
         <button
           onClick={() => setTab('activity')}
-          className={`px-4 py-2 rounded-lg text-sm font-bold transition flex items-center gap-2 ${tab === 'activity' ? 'bg-sky-600 text-white shadow' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}
+          className={`px-2 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-bold transition flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap ${tab === 'activity' ? 'bg-sky-600 text-white shadow' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}
         >
-          <Activity size={16} /> Activity Log
+          <Activity size={14} className="sm:w-4 sm:h-4" /> Activity
         </button>
       </div>
 
       {/* USER MANAGEMENT TAB */}
       {tab === 'users' && (
-        <div className="bg-slate-900/50 rounded-xl border border-slate-800 overflow-x-auto">
-          <table className="w-full text-left min-w-[600px]">
-            <thead className="bg-slate-800/30 border-b border-slate-800 text-xs font-bold text-slate-500 uppercase">
-              <tr>
-                <th className="p-4">User</th>
-                <th className="p-4">Email</th>
-                <th className="p-4">Role</th>
-                <th className="p-4">Joined</th>
-                <th className="p-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800">
-              {loading ? (
-                <tr><td colSpan={5} className="p-8 text-center text-slate-500"><RefreshCw size={20} className="animate-spin mx-auto mb-2" />Loading...</td></tr>
-              ) : profiles.length === 0 ? (
-                <tr><td colSpan={5} className="p-8 text-center text-slate-500">No users found. Users will appear here after signing up.</td></tr>
-              ) : (
-                profiles.map(p => {
+        <>
+          {loading ? (
+            <div className="bg-slate-900/50 rounded-xl border border-slate-800 p-8 text-center text-slate-500">
+              <RefreshCw size={20} className="animate-spin mx-auto mb-2" />Loading...
+            </div>
+          ) : profiles.length === 0 ? (
+            <div className="bg-slate-900/50 rounded-xl border border-slate-800 p-8 text-center text-slate-500">
+              No users found. Users will appear here after signing up.
+            </div>
+          ) : (
+            <>
+              {/* Desktop table — hidden on small screens */}
+              <div className="hidden md:block bg-slate-900/50 rounded-xl border border-slate-800 overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead className="bg-slate-800/30 border-b border-slate-800 text-xs font-bold text-slate-500 uppercase">
+                    <tr>
+                      <th className="p-4">User</th>
+                      <th className="p-4">Email</th>
+                      <th className="p-4">Role</th>
+                      <th className="p-4">Joined</th>
+                      <th className="p-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800">
+                    {profiles.map(p => {
+                      const roleOpt = ROLE_OPTIONS.find(r => r.value === p.role);
+                      const isSelf = p.id === user?.id;
+                      return (
+                        <tr key={p.id} className={`hover:bg-slate-800/50 transition ${p.role === 'restricted' ? 'opacity-60' : ''}`}>
+                          <td className="p-4">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-sky-500 to-blue-600 flex items-center justify-center font-bold text-white text-xs uppercase shrink-0">
+                                {p.name?.charAt(0) || '?'}
+                              </div>
+                              <p className="font-bold text-slate-200 text-sm truncate max-w-[140px]">{p.name}{isSelf && <span className="text-sky-400 text-[10px] ml-1">(you)</span>}</p>
+                            </div>
+                          </td>
+                          <td className="p-4 text-slate-400 text-xs font-mono truncate max-w-[200px]">{p.email}</td>
+                          <td className="p-4">
+                            <span className={`text-xs px-2 py-1 rounded font-bold whitespace-nowrap ${roleOpt?.color || 'text-slate-400'} ${p.role === 'restricted' ? 'bg-red-500/15' : 'bg-slate-800'}`}>
+                              {roleOpt?.label || p.role}
+                            </span>
+                          </td>
+                          <td className="p-4 text-slate-500 text-xs whitespace-nowrap">{new Date(p.created_at).toLocaleDateString()}</td>
+                          <td className="p-4 text-right">
+                            {isSelf ? (
+                              <span className="text-xs text-slate-600">—</span>
+                            ) : actionLoading === p.id ? (
+                              <RefreshCw size={16} className="animate-spin text-slate-400 ml-auto" />
+                            ) : (
+                              <div className="flex gap-2 justify-end">
+                                {p.role === 'restricted' ? (
+                                  <button
+                                    onClick={() => setConfirmAction({ userId: p.id, name: p.name, newRole: 'guest', action: 'admit' })}
+                                    className="flex items-center gap-1 px-3 py-1.5 bg-emerald-600/15 text-emerald-400 rounded-lg text-xs font-bold hover:bg-emerald-600/25 transition whitespace-nowrap"
+                                  >
+                                    <CheckCircle size={14} /> Admit
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => setConfirmAction({ userId: p.id, name: p.name, newRole: 'restricted', action: 'restrict' })}
+                                    className="flex items-center gap-1 px-3 py-1.5 bg-red-500/10 text-red-400 rounded-lg text-xs font-bold hover:bg-red-500/20 transition whitespace-nowrap"
+                                  >
+                                    <Ban size={14} /> Restrict
+                                  </button>
+                                )}
+                                <select
+                                  value={p.role}
+                                  onChange={(e) => setConfirmAction({ userId: p.id, name: p.name, newRole: e.target.value, action: 'change role to ' + e.target.value })}
+                                  className="bg-slate-800 border border-slate-700 text-slate-300 text-xs rounded-lg px-2 py-1.5 outline-none cursor-pointer hover:border-slate-600 transition"
+                                >
+                                  {ROLE_OPTIONS.map(r => (
+                                    <option key={r.value} value={r.value} className="bg-slate-900">{r.label}</option>
+                                  ))}
+                                </select>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile card layout — visible on small screens */}
+              <div className="md:hidden space-y-3">
+                {profiles.map(p => {
                   const roleOpt = ROLE_OPTIONS.find(r => r.value === p.role);
                   const isSelf = p.id === user?.id;
                   return (
-                    <tr key={p.id} className={`hover:bg-slate-800/50 transition ${p.role === 'restricted' ? 'opacity-60' : ''}`}>
-                      <td className="p-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-sky-500 to-blue-600 flex items-center justify-center font-bold text-white text-xs uppercase">
-                            {p.name?.charAt(0) || '?'}
-                          </div>
-                          <div>
-                            <p className="font-bold text-slate-200 text-sm">{p.name}{isSelf && <span className="text-sky-400 text-[10px] ml-2">(you)</span>}</p>
-                          </div>
+                    <div key={p.id} className={`bg-slate-900/50 rounded-xl border border-slate-800 p-4 space-y-3 ${p.role === 'restricted' ? 'opacity-60' : ''}`}>
+                      {/* User header */}
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-sky-500 to-blue-600 flex items-center justify-center font-bold text-white text-sm uppercase shrink-0">
+                          {p.name?.charAt(0) || '?'}
                         </div>
-                      </td>
-                      <td className="p-4 text-slate-400 text-sm font-mono">{p.email}</td>
-                      <td className="p-4">
-                        <span className={`text-xs px-2 py-1 rounded font-bold ${roleOpt?.color || 'text-slate-400'} ${p.role === 'restricted' ? 'bg-red-500/15' : 'bg-slate-800'}`}>
+                        <div className="min-w-0 flex-1">
+                          <p className="font-bold text-slate-200 text-sm truncate">
+                            {p.name}{isSelf && <span className="text-sky-400 text-[10px] ml-1">(you)</span>}
+                          </p>
+                          <p className="text-slate-400 text-xs font-mono truncate">{p.email}</p>
+                        </div>
+                        <span className={`text-[10px] px-2 py-1 rounded font-bold whitespace-nowrap shrink-0 ${roleOpt?.color || 'text-slate-400'} ${p.role === 'restricted' ? 'bg-red-500/15' : 'bg-slate-800'}`}>
                           {roleOpt?.label || p.role}
                         </span>
-                      </td>
-                      <td className="p-4 text-slate-500 text-sm">{new Date(p.created_at).toLocaleDateString()}</td>
-                      <td className="p-4 text-right">
+                      </div>
+                      {/* Meta + actions */}
+                      <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-800/50">
+                        <span className="text-[10px] text-slate-500">Joined {new Date(p.created_at).toLocaleDateString()}</span>
                         {isSelf ? (
-                          <span className="text-xs text-slate-600">—</span>
+                          <span className="text-[10px] text-slate-600">—</span>
                         ) : actionLoading === p.id ? (
-                          <RefreshCw size={16} className="animate-spin text-slate-400 ml-auto" />
+                          <RefreshCw size={14} className="animate-spin text-slate-400" />
                         ) : (
-                          <div className="flex gap-2 justify-end">
+                          <div className="flex gap-2 items-center">
                             {p.role === 'restricted' ? (
                               <button
                                 onClick={() => setConfirmAction({ userId: p.id, name: p.name, newRole: 'guest', action: 'admit' })}
-                                className="flex items-center gap-1 px-3 py-1.5 bg-emerald-600/15 text-emerald-400 rounded-lg text-xs font-bold hover:bg-emerald-600/25 transition"
+                                className="flex items-center gap-1 px-2.5 py-1 bg-emerald-600/15 text-emerald-400 rounded-lg text-[10px] font-bold hover:bg-emerald-600/25 transition"
                               >
-                                <CheckCircle size={14} /> Admit
+                                <CheckCircle size={12} /> Admit
                               </button>
                             ) : (
                               <button
                                 onClick={() => setConfirmAction({ userId: p.id, name: p.name, newRole: 'restricted', action: 'restrict' })}
-                                className="flex items-center gap-1 px-3 py-1.5 bg-red-500/10 text-red-400 rounded-lg text-xs font-bold hover:bg-red-500/20 transition"
+                                className="flex items-center gap-1 px-2.5 py-1 bg-red-500/10 text-red-400 rounded-lg text-[10px] font-bold hover:bg-red-500/20 transition"
                               >
-                                <Ban size={14} /> Restrict
+                                <Ban size={12} /> Restrict
                               </button>
                             )}
                             <select
                               value={p.role}
                               onChange={(e) => setConfirmAction({ userId: p.id, name: p.name, newRole: e.target.value, action: 'change role to ' + e.target.value })}
-                              className="bg-slate-800 border border-slate-700 text-slate-300 text-xs rounded-lg px-2 py-1.5 outline-none cursor-pointer hover:border-slate-600 transition"
+                              className="bg-slate-800 border border-slate-700 text-slate-300 text-[10px] rounded-lg px-1.5 py-1 outline-none cursor-pointer hover:border-slate-600 transition max-w-[100px]"
                             >
                               {ROLE_OPTIONS.map(r => (
                                 <option key={r.value} value={r.value} className="bg-slate-900">{r.label}</option>
@@ -246,14 +316,14 @@ const AdminPanel = () => {
                             </select>
                           </div>
                         )}
-                      </td>
-                    </tr>
+                      </div>
+                    </div>
                   );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
+                })}
+              </div>
+            </>
+          )}
+        </>
       )}
 
       {/* NOTIFICATIONS TAB */}
@@ -350,18 +420,18 @@ const AdminPanel = () => {
       {tab === 'activity' && (
         <div className="space-y-4">
           {/* Filter */}
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2 overflow-x-auto pb-1 custom-scrollbar -mx-1 px-1">
             <button
               onClick={() => setActivityFilter('all')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${activityFilter === 'all' ? 'bg-sky-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700 border border-slate-700'}`}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap shrink-0 ${activityFilter === 'all' ? 'bg-sky-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700 border border-slate-700'}`}
             >
-              All Actions
+              All
             </button>
             {actionTypes.map(action => (
               <button
                 key={action}
                 onClick={() => setActivityFilter(action)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${activityFilter === action ? 'bg-sky-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700 border border-slate-700'}`}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap shrink-0 ${activityFilter === action ? 'bg-sky-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700 border border-slate-700'}`}
               >
                 {action}
               </button>
@@ -382,22 +452,23 @@ const AdminPanel = () => {
                   const config = ACTION_ICONS[entry.action] || { icon: Activity, color: 'text-slate-400', bg: 'bg-slate-500/10' };
                   const Icon = config.icon;
                   return (
-                    <div key={entry.id} className="p-4 flex items-center gap-4 hover:bg-slate-800/30 transition">
-                      <div className={`w-9 h-9 rounded-full ${config.bg} ${config.color} flex items-center justify-center shrink-0`}>
-                        <Icon size={18} />
+                    <div key={entry.id} className="p-3 sm:p-4 flex items-start sm:items-center gap-3 sm:gap-4 hover:bg-slate-800/30 transition">
+                      <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full ${config.bg} ${config.color} flex items-center justify-center shrink-0`}>
+                        <Icon size={16} className="sm:w-[18px] sm:h-[18px]" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-bold text-sm text-slate-200">{entry.user_name}</span>
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${config.color} ${config.bg}`}>
+                        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                          <span className="font-bold text-xs sm:text-sm text-slate-200 truncate max-w-[120px] sm:max-w-none">{entry.user_name}</span>
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold whitespace-nowrap ${config.color} ${config.bg}`}>
                             {entry.action}
                           </span>
+                          <span className="text-[10px] text-slate-500 sm:hidden">{timeAgo(entry.created_at)}</span>
                         </div>
                         {entry.details && (
-                          <p className="text-xs text-slate-500 mt-0.5 truncate">{entry.details}</p>
+                          <p className="text-[10px] sm:text-xs text-slate-500 mt-0.5 truncate">{entry.details}</p>
                         )}
                       </div>
-                      <div className="text-right shrink-0">
+                      <div className="text-right shrink-0 hidden sm:block">
                         <p className="text-xs text-slate-500">{timeAgo(entry.created_at)}</p>
                         <p className="text-[10px] text-slate-600">{entry.time || ''}</p>
                       </div>
