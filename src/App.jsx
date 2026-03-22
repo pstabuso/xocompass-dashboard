@@ -25,7 +25,7 @@ const Sidebar = ({ mobileOpen, setMobileOpen }) => {
     ? (notifications || []).filter(n => !n.read && isNotificationForUser(n, user)).length
     : 0;
 
-  const allowedRoutes = ROLE_ROUTES[user?.roleKey] || ROLE_ROUTES.guest;
+  const allowedRoutes = user?.roleKey in ROLE_ROUTES ? ROLE_ROUTES[user.roleKey] : ROLE_ROUTES.guest;
   const isLocked = (path) => allowedRoutes !== null && !allowedRoutes.includes(path);
 
   const allMenuItems = [
@@ -468,7 +468,7 @@ const PAGE_LABELS = {
 const GuardedRoute = ({ element, path }) => {
   const { user, requestAccess } = useAppContext();
   const [requested, setRequested] = useState(false);
-  const allowed = ROLE_ROUTES[user?.roleKey];
+  const allowed = user?.roleKey in ROLE_ROUTES ? ROLE_ROUTES[user.roleKey] : ROLE_ROUTES.guest;
   if (allowed !== null && !allowed.includes(path)) {
     const pageName = PAGE_LABELS[path] || path;
     return (
