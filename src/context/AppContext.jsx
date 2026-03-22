@@ -254,27 +254,29 @@ export const AppProvider = ({ children }) => {
   }, [logAction]);
 
   const updateTask = useCallback((id, updates) => {
-    setTasks(prev => {
-      const next = prev.map(t => t.id === id ? { ...t, ...updates } : t);
-      const updated = next.find(t => t.id === id);
-      if (updated) upsertRow(TABLES.tasks, updated);
-      return next;
+    setTasks(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
+    // Sync to Supabase after React commits the state update
+    queueMicrotask(() => {
+      setTasks(prev => {
+        const updated = prev.find(t => t.id === id);
+        if (updated) upsertRow(TABLES.tasks, updated);
+        return prev;
+      });
     });
   }, []);
 
   const updateTaskStatus = useCallback((id, newStatus) => {
-    let taskName = '';
-    setTasks(prev => {
-      const next = prev.map(t => t.id === id ? { ...t, status: newStatus } : t);
-      const updated = next.find(t => t.id === id);
-      if (updated) {
-        taskName = updated.task;
-        upsertRow(TABLES.tasks, updated);
-      }
-      return next;
+    setTasks(prev => prev.map(t => t.id === id ? { ...t, status: newStatus } : t));
+    queueMicrotask(() => {
+      setTasks(prev => {
+        const updated = prev.find(t => t.id === id);
+        if (updated) {
+          upsertRow(TABLES.tasks, updated);
+          logAction('Moved Task', `"${updated.task}" is now ${newStatus}`);
+        }
+        return prev;
+      });
     });
-    // logAction outside setState to avoid side effects in updater
-    setTimeout(() => { if (taskName) logAction('Moved Task', `"${taskName}" is now ${newStatus}`); }, 0);
   }, [logAction]);
 
   const deleteTask = useCallback((id) => {
@@ -283,38 +285,46 @@ export const AppProvider = ({ children }) => {
   }, []);
 
   const addTaskComment = useCallback((taskId, commentText) => {
-    setTasks(prev => {
-      const next = prev.map(t => t.id === taskId
-        ? { ...t, comments: [...(t.comments || []), { user: user?.name, text: commentText, time: new Date().toLocaleTimeString() }] }
-        : t
-      );
-      const updated = next.find(t => t.id === taskId);
-      if (updated) upsertRow(TABLES.tasks, updated);
-      return next;
+    const comment = { user: user?.name, text: commentText, time: new Date().toLocaleTimeString() };
+    setTasks(prev => prev.map(t => t.id === taskId
+      ? { ...t, comments: [...(t.comments || []), comment] }
+      : t
+    ));
+    queueMicrotask(() => {
+      setTasks(prev => {
+        const updated = prev.find(t => t.id === taskId);
+        if (updated) upsertRow(TABLES.tasks, updated);
+        return prev;
+      });
     });
   }, [user]);
 
   const subtasks = {
     add: (taskId, name) => {
-      setTasks(prev => {
-        const next = prev.map(t => t.id === taskId
-          ? { ...t, subtasks: [...(t.subtasks || []), { id: crypto.randomUUID(), name, done: false }] }
-          : t
-        );
-        const updated = next.find(t => t.id === taskId);
-        if (updated) upsertRow(TABLES.tasks, updated);
-        return next;
+      const newSub = { id: crypto.randomUUID(), name, done: false };
+      setTasks(prev => prev.map(t => t.id === taskId
+        ? { ...t, subtasks: [...(t.subtasks || []), newSub] }
+        : t
+      ));
+      queueMicrotask(() => {
+        setTasks(prev => {
+          const updated = prev.find(t => t.id === taskId);
+          if (updated) upsertRow(TABLES.tasks, updated);
+          return prev;
+        });
       });
     },
     toggle: (taskId, sId) => {
-      setTasks(prev => {
-        const next = prev.map(t => t.id === taskId
-          ? { ...t, subtasks: t.subtasks.map(s => s.id === sId ? { ...s, done: !s.done } : s) }
-          : t
-        );
-        const updated = next.find(t => t.id === taskId);
-        if (updated) upsertRow(TABLES.tasks, updated);
-        return next;
+      setTasks(prev => prev.map(t => t.id === taskId
+        ? { ...t, subtasks: t.subtasks.map(s => s.id === sId ? { ...s, done: !s.done } : s) }
+        : t
+      ));
+      queueMicrotask(() => {
+        setTasks(prev => {
+          const updated = prev.find(t => t.id === taskId);
+          if (updated) upsertRow(TABLES.tasks, updated);
+          return prev;
+        });
       });
     },
   };
@@ -327,11 +337,13 @@ export const AppProvider = ({ children }) => {
   }, []);
 
   const updateEvent = useCallback((id, updatedEvt) => {
-    setEvents(prev => {
-      const next = prev.map(e => e.id === id ? { ...e, ...updatedEvt } : e);
-      const updated = next.find(e => e.id === id);
-      if (updated) upsertRow(TABLES.events, updated);
-      return next;
+    setEvents(prev => prev.map(e => e.id === id ? { ...e, ...updatedEvt } : e));
+    queueMicrotask(() => {
+      setEvents(prev => {
+        const updated = prev.find(e => e.id === id);
+        if (updated) upsertRow(TABLES.events, updated);
+        return prev;
+      });
     });
   }, []);
 
@@ -348,12 +360,14 @@ export const AppProvider = ({ children }) => {
     logAction('Added Meeting', minute.topic || 'New meeting');
   }, [logAction]);
 
-  const updateMinute = useCallback((id, updated) => {
-    setMinutes(prev => {
-      const next = prev.map(m => m.id === id ? { ...m, ...updated } : m);
-      const row = next.find(m => m.id === id);
-      if (row) upsertRow(TABLES.minutes, row);
-      return next;
+  const updateMinute = useCallback((id, updates) => {
+    setMinutes(prev => prev.map(m => m.id === id ? { ...m, ...updates } : m));
+    queueMicrotask(() => {
+      setMinutes(prev => {
+        const row = prev.find(m => m.id === id);
+        if (row) upsertRow(TABLES.minutes, row);
+        return prev;
+      });
     });
   }, []);
 
@@ -370,12 +384,14 @@ export const AppProvider = ({ children }) => {
     logAction('Uploaded Dataset', dataset.name);
   }, [logAction]);
 
-  const updateDataset = useCallback((id, updated) => {
-    setDatasets(prev => {
-      const next = prev.map(d => d.id === id ? { ...d, ...updated } : d);
-      const row = next.find(d => d.id === id);
-      if (row) upsertRow(TABLES.datasets, row);
-      return next;
+  const updateDataset = useCallback((id, updates) => {
+    setDatasets(prev => prev.map(d => d.id === id ? { ...d, ...updates } : d));
+    queueMicrotask(() => {
+      setDatasets(prev => {
+        const row = prev.find(d => d.id === id);
+        if (row) upsertRow(TABLES.datasets, row);
+        return prev;
+      });
     });
   }, []);
 
