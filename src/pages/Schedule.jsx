@@ -183,7 +183,7 @@ const Schedule = () => {
 
       {/* DELETE CONFIRMATION MODAL */}
       {deleteConfirmId && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] animate-enter">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] animate-fade-in">
           <div className="bg-slate-900 p-6 rounded-2xl w-[calc(100%-2rem)] max-w-[400px] shadow-2xl text-center border border-slate-700 mx-4">
             <div className="w-16 h-16 bg-red-500/15 text-red-400 rounded-full flex items-center justify-center mx-auto mb-4"><AlertCircle size={32} /></div>
             <h3 className="text-xl font-bold text-slate-100 mb-2">Delete Event?</h3>
@@ -198,7 +198,7 @@ const Schedule = () => {
 
       {/* MAIN MODAL */}
       {isModalOpen && !deleteConfirmId && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-enter">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
           <div className="relative bg-slate-900 rounded-xl shadow-2xl w-[calc(100%-2rem)] max-w-[480px] overflow-hidden transform transition-all scale-100 border border-slate-700 mx-4">
              <button onClick={closeModal} className="absolute top-4 right-4 z-10 p-1.5 text-slate-400 hover:text-red-400 bg-slate-800/50 hover:bg-red-500/10 rounded-full transition-all"><X size={20} /></button>
 

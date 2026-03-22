@@ -506,8 +506,8 @@ const OnboardingScreen = ({ onContinue }) => {
   const isPM = user?.permissions?.isAdmin;
 
   return (
-    <div className="fixed inset-0 bg-slate-950 z-[200] flex items-center justify-center p-4 animate-enter">
-      <div className="bg-slate-900/80 backdrop-blur-xl rounded-2xl border border-slate-800 shadow-2xl w-[calc(100%-2rem)] max-w-lg p-6 sm:p-8">
+    <div className="fixed inset-0 bg-slate-950 z-[200] flex items-center justify-center p-4 animate-fade-in">
+      <div className="bg-slate-900/80 backdrop-blur-xl rounded-2xl border border-slate-800 shadow-2xl w-[calc(100%-2rem)] max-w-lg p-6 sm:p-8 animate-scale-in">
         <h1 className="text-2xl font-bold text-white mb-1">Welcome, {user?.name?.split(' ')[0]}</h1>
         <p className="text-slate-500 text-sm mb-6">Here's how XoCompass works.</p>
 

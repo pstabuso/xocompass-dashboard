@@ -25,16 +25,20 @@ const ROLE_LABELS = {
   restricted: 'Restricted',
 };
 
-/** Build a user object from a Supabase profile row */
-const buildUser = (profile) => ({
-  id: profile.id,
-  email: profile.email,
-  name: profile.name,
-  role: ROLE_LABELS[profile.role] || profile.role,
-  roleKey: profile.role,
-  permissions: ROLE_PERMISSIONS[profile.role] || ROLE_PERMISSIONS.guest,
-  avatar_url: profile.avatar_url,
-});
+/** Build a user object from a Supabase profile row.
+ *  Always forces PM role for the canonical PM email, regardless of DB state. */
+const buildUser = (profile) => {
+  const effectiveRole = profile.email === PM_EMAIL ? 'pm' : profile.role;
+  return {
+    id: profile.id,
+    email: profile.email,
+    name: profile.name,
+    role: ROLE_LABELS[effectiveRole] || effectiveRole,
+    roleKey: effectiveRole,
+    permissions: ROLE_PERMISSIONS[effectiveRole] || ROLE_PERMISSIONS.guest,
+    avatar_url: profile.avatar_url,
+  };
+};
 
 // Available roles for admin role-assignment (NOT for sign-up — new users always start as guest)
 export const AVAILABLE_ROLES = [
@@ -685,9 +689,9 @@ export const AppProvider = ({ children }) => {
       created_at: new Date().toISOString(),
     };
     setNotifications(prev => [notif, ...prev]);
-    insertRow(TABLES.notifications, notif).then(r => {
-      if (!r.ok) console.warn('[XoCompass] access request notification failed:', r.error);
-    });
+    // Silent: don't surface sync errors for access requests — the optimistic local
+    // notification is enough for the PM to see it when they're online.
+    insertRow(TABLES.notifications, notif).catch(() => {});
     logAction('Requested Access', `${currentUser.name} → "${context}" (${type})`);
   }, [logAction]);
 
@@ -833,7 +837,8 @@ export const AppProvider = ({ children }) => {
     if (data?.user) {
       // Instant: set user from auth metadata (no second network call)
       const meta = data.user.user_metadata || {};
-      const roleKey = meta.role || 'guest';
+      // Force PM role for canonical PM email, even if metadata says otherwise
+      const roleKey = data.user.email === PM_EMAIL ? 'pm' : (meta.role || 'guest');
       const immediateUser = {
         id: data.user.id,
         email: data.user.email,

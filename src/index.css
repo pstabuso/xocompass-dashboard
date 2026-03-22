@@ -4,25 +4,43 @@
 
 @layer utilities {
   .animate-enter {
-    animation: enter 0.4s ease-out forwards;
+    animation: enter 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }
   .animate-leave {
-    animation: leave 0.3s ease-in forwards;
+    animation: leave 0.25s ease-in forwards;
   }
-  
+
   @keyframes enter {
-    from { opacity: 0; transform: translateY(10px) scale(0.98); }
+    from { opacity: 0; transform: translateY(8px) scale(0.97); }
     to { opacity: 1; transform: translateY(0) scale(1); }
   }
-  
+
   @keyframes leave {
     from { opacity: 1; transform: scale(1); }
     to { opacity: 0; transform: scale(0.95); }
   }
-  
+
+  /* Fade-in for modals / overlays */
+  .animate-fade-in {
+    animation: fadeIn 0.2s ease-out forwards;
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  /* Scale-in for modal cards */
+  .animate-scale-in {
+    animation: scaleIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
+  @keyframes scaleIn {
+    from { opacity: 0; transform: scale(0.92); }
+    to { opacity: 1; transform: scale(1); }
+  }
+
   /* Mobile sidebar slide-in animation */
   .animate-slide-in-left {
-    animation: slideInLeft 0.2s ease-out forwards;
+    animation: slideInLeft 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   }
   @keyframes slideInLeft {
     from { transform: translateX(-100%); }
@@ -43,5 +61,12 @@
   }
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
     background: #94a3b8;
+  }
+}
+
+/* Global smooth transitions for interactive elements */
+@layer base {
+  button, a, input, select, textarea {
+    @apply transition-all duration-200 ease-out;
   }
 }

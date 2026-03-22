@@ -41,7 +41,7 @@ const Resources = () => {
 
       {/* THESIS-LEVEL COMPARISON MATRIX MODAL */}
       {isMatrixOpen && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-enter">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-fade-in">
           <div className="relative bg-slate-900 rounded-3xl shadow-2xl w-full max-w-6xl h-auto max-h-[90vh] flex flex-col overflow-hidden border border-slate-700">
 
             {/* Red X Button (Absolute Position) */}

@@ -414,7 +414,7 @@ const AdminPanel = () => {
 
       {/* CONFIRM ACTION MODAL */}
       {confirmAction && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] animate-enter">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] animate-fade-in">
           <div className="bg-slate-900 p-6 rounded-2xl w-[calc(100%-2rem)] max-w-[420px] shadow-2xl text-center border border-slate-700 mx-4">
             <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${confirmAction.newRole === 'restricted' ? 'bg-red-500/15 text-red-400' : 'bg-emerald-500/15 text-emerald-400'}`}>
               {confirmAction.newRole === 'restricted' ? <Ban size={32} /> : <CheckCircle size={32} />}
