@@ -94,42 +94,44 @@ const Schedule = () => {
   const selectedItems = selectedDate ? getItemsForDay(parseInt(selectedDate.split('-')[2])) : [];
 
   return (
-    <div className="flex h-[calc(100vh-100px)] gap-6 animate-enter">
-      <div className="flex-1 flex flex-col space-y-6">
-        <div className="flex justify-between items-center bg-slate-900/50 p-4 rounded-xl border border-slate-800 transition hover:shadow-md duration-300">
+    <div className="flex flex-col lg:flex-row h-auto lg:h-[calc(100vh-100px)] gap-4 sm:gap-6 animate-enter">
+      <div className="flex-1 flex flex-col space-y-4 sm:space-y-6 min-w-0">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-slate-900/50 p-3 sm:p-4 rounded-xl border border-slate-800 transition hover:shadow-md duration-300">
           <div className="flex items-center gap-3">
-             <div className="p-2 bg-sky-600/15 text-sky-400 rounded-lg"><CalIcon size={24}/></div>
-             <div><h2 className="text-xl font-bold text-slate-100">Team Calendar</h2><p className="text-slate-500 text-xs">Events & Deadlines</p></div>
+             <div className="p-2 bg-sky-600/15 text-sky-400 rounded-lg"><CalIcon size={20}/></div>
+             <div><h2 className="text-lg sm:text-xl font-bold text-slate-100">Team Calendar</h2><p className="text-slate-500 text-xs">Events & Deadlines</p></div>
           </div>
-          <div className="flex items-center space-x-4">
-             <button onClick={goToToday} className="text-xs font-bold text-slate-500 hover:text-sky-400 px-3 transition-colors">Jump to Today</button>
+          <div className="flex items-center gap-2 sm:gap-4">
+             <button onClick={goToToday} className="text-xs font-bold text-slate-500 hover:text-sky-400 px-2 transition-colors">Today</button>
              <div className="flex items-center bg-slate-800 rounded-lg p-1 border border-slate-700">
                 <button onClick={prevMonth} className="p-1 hover:bg-slate-700 rounded transition-all active:scale-95"><ChevronLeft size={18} className="text-slate-400"/></button>
-                <div className="px-4 font-bold text-slate-300 w-32 text-center text-sm">{monthNames[month]} {year}</div>
+                <div className="px-2 sm:px-4 font-bold text-slate-300 w-24 sm:w-32 text-center text-xs sm:text-sm">{monthNames[month]} {year}</div>
                 <button onClick={nextMonth} className="p-1 hover:bg-slate-700 rounded transition-all active:scale-95"><ChevronRight size={18} className="text-slate-400"/></button>
              </div>
           </div>
         </div>
         <div className="flex-1 bg-slate-900/50 rounded-xl border border-slate-800 overflow-hidden flex flex-col">
           <div className="grid grid-cols-7 border-b border-slate-800 bg-slate-800/30">
-             {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => (<div key={d} className="p-3 text-center text-xs font-bold text-slate-500 uppercase">{d}</div>))}
+             {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (<div key={i} className="p-1.5 sm:p-3 text-center text-[10px] sm:text-xs font-bold text-slate-500 uppercase">{d}</div>))}
           </div>
           <div className="grid grid-cols-7 flex-1 auto-rows-fr">
              {[...Array(firstDayOfMonth)].map((_, i) => <div key={`empty-${i}`} className="bg-slate-900/30 border-b border-r border-slate-800/50"></div>)}
              {[...Array(daysInMonth)].map((_, i) => {
                 const day = i + 1; const items = getItemsForDay(day); const isToday = new Date().toDateString() === new Date(year, month, day).toDateString();
                 return (
-                  <div key={day} onClick={() => handleDayClick(day)} className={`border-b border-r border-slate-800/50 p-2 relative group hover:bg-slate-800/50 transition duration-200 cursor-pointer min-h-[80px] ${isToday ? 'bg-sky-600/20 border-sky-500/30' : ''}`}>
-                     <span className={`text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full ${isToday ? 'bg-sky-600 text-white' : 'text-slate-500'}`}>{day}</span>
-                     <div className="mt-1 space-y-1">
-                       {items.slice(0, 3).map((item, idx) => (
-                         <div key={idx} className={`text-[10px] px-1.5 py-0.5 rounded border truncate font-medium ${
+                  <div key={day} onClick={() => handleDayClick(day)} className={`border-b border-r border-slate-800/50 p-1 sm:p-2 relative group hover:bg-slate-800/50 transition duration-200 cursor-pointer min-h-[48px] sm:min-h-[80px] ${isToday ? 'bg-sky-600/20 border-sky-500/30' : ''}`}>
+                     <span className={`text-[10px] sm:text-xs font-bold w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center rounded-full ${isToday ? 'bg-sky-600 text-white' : 'text-slate-500'}`}>{day}</span>
+                     <div className="mt-0.5 sm:mt-1 space-y-0.5 sm:space-y-1">
+                       {items.slice(0, 2).map((item, idx) => (
+                         <div key={idx} className={`text-[8px] sm:text-[10px] px-1 sm:px-1.5 py-0.5 rounded border truncate font-medium hidden sm:block ${
                              item.kind === 'event' ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20' : 'bg-amber-500/15 text-amber-400 border-amber-500/20'
                          }`}>
-                           {item.kind === 'task' && <AlertCircle size={8} className="inline mr-1"/>}{item.title}
+                           {item.title}
                          </div>
                        ))}
-                       {items.length > 3 && <div className="text-[9px] text-slate-500 pl-1">+{items.length - 3} more</div>}
+                       {/* Mobile: just show dots */}
+                       {items.length > 0 && <div className="flex gap-0.5 sm:hidden justify-center">{items.slice(0, 3).map((item, idx) => <div key={idx} className={`w-1.5 h-1.5 rounded-full ${item.kind === 'event' ? 'bg-emerald-400' : 'bg-amber-400'}`} />)}</div>}
+                       {items.length > 2 && <div className="text-[9px] text-slate-500 pl-1 hidden sm:block">+{items.length - 2} more</div>}
                      </div>
                   </div>
                 );
@@ -138,8 +140,8 @@ const Schedule = () => {
         </div>
       </div>
 
-      {/* RIGHT SIDEBAR: Upcoming Agenda */}
-      <div className="w-80 bg-slate-900/50 rounded-xl border border-slate-800 flex flex-col overflow-hidden">
+      {/* RIGHT SIDEBAR: Upcoming Agenda — below calendar on mobile, beside on desktop */}
+      <div className="w-full lg:w-80 bg-slate-900/50 rounded-xl border border-slate-800 flex flex-col overflow-hidden max-h-[400px] lg:max-h-none">
          <div className="p-4 border-b border-slate-800 bg-slate-800/30"><h3 className="font-bold text-slate-100">Upcoming Agenda</h3></div>
          <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
             {events.length > 0 && (
@@ -176,7 +178,7 @@ const Schedule = () => {
       {/* DELETE CONFIRMATION MODAL */}
       {deleteConfirmId && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] animate-enter">
-          <div className="bg-slate-900 p-6 rounded-2xl w-[400px] shadow-2xl text-center border border-slate-700">
+          <div className="bg-slate-900 p-6 rounded-2xl w-[calc(100%-2rem)] max-w-[400px] shadow-2xl text-center border border-slate-700 mx-4">
             <div className="w-16 h-16 bg-red-500/15 text-red-400 rounded-full flex items-center justify-center mx-auto mb-4"><AlertCircle size={32} /></div>
             <h3 className="text-xl font-bold text-slate-100 mb-2">Delete Event?</h3>
             <p className="text-slate-400 text-sm mb-6">This action cannot be undone.</p>
@@ -191,7 +193,7 @@ const Schedule = () => {
       {/* MAIN MODAL */}
       {isModalOpen && !deleteConfirmId && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-enter">
-          <div className="relative bg-slate-900 rounded-xl shadow-2xl w-[480px] overflow-hidden transform transition-all scale-100 border border-slate-700">
+          <div className="relative bg-slate-900 rounded-xl shadow-2xl w-[calc(100%-2rem)] max-w-[480px] overflow-hidden transform transition-all scale-100 border border-slate-700 mx-4">
              <button onClick={closeModal} className="absolute top-4 right-4 z-10 p-1.5 text-slate-400 hover:text-red-400 bg-slate-800/50 hover:bg-red-500/10 rounded-full transition-all"><X size={20} /></button>
 
              {/* SELECTION MODE — choose event or task */}

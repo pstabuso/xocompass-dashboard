@@ -61,15 +61,15 @@ const Minutes = () => {
 
   return (
     <div className="space-y-6 animate-enter">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div>
-           <h2 className="text-2xl font-bold text-slate-100">Minutes of Meeting</h2>
-           <p className="text-slate-500 text-sm">Centralized repository for Google Docs</p>
+           <h2 className="text-xl sm:text-2xl font-bold text-slate-100">Minutes of Meeting</h2>
+           <p className="text-slate-500 text-xs sm:text-sm">Centralized repository for Google Docs</p>
         </div>
         {user?.permissions?.canCreate && (
           <button
             onClick={() => setIsModalOpen(true)}
-            className="flex items-center space-x-2 bg-sky-600 text-white px-5 py-2.5 rounded-xl font-bold shadow-lg shadow-sky-900/20 transition-all duration-300 ease-in-out hover:bg-sky-500 hover:scale-105 active:scale-95"
+            className="flex items-center space-x-2 bg-sky-600 text-white px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl font-bold shadow-lg shadow-sky-900/20 transition-all duration-300 ease-in-out hover:bg-sky-500 hover:scale-105 active:scale-95"
           >
             <Plus size={18} /> <span>Log Meeting</span>
           </button>
@@ -84,36 +84,36 @@ const Minutes = () => {
             </div>
         ) : (
             sortedMinutes.map((meeting) => (
-            <div key={meeting.id} className="bg-slate-900/50 border border-slate-800 rounded-xl p-5 flex justify-between items-center hover:border-slate-700 transition-all duration-300 group">
-                <div className="flex items-start space-x-4">
-                    <div className="bg-sky-600/15 p-3 rounded-lg text-sky-400 group-hover:scale-110 transition-transform duration-300">
-                        <FileText size={24} />
+            <div key={meeting.id} className="bg-slate-900/50 border border-slate-800 rounded-xl p-4 sm:p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 hover:border-slate-700 transition-all duration-300 group">
+                <div className="flex items-start space-x-3 sm:space-x-4 min-w-0 flex-1">
+                    <div className="bg-sky-600/15 p-2 sm:p-3 rounded-lg text-sky-400 group-hover:scale-110 transition-transform duration-300 shrink-0">
+                        <FileText size={20} />
                     </div>
-                    <div>
-                        <h3 className="font-bold text-slate-100 text-lg group-hover:text-sky-400 transition-colors">{meeting.topic}</h3>
-                        <p className="text-slate-500 text-sm flex items-center gap-2">
+                    <div className="min-w-0">
+                        <h3 className="font-bold text-slate-100 text-base sm:text-lg group-hover:text-sky-400 transition-colors truncate">{meeting.topic}</h3>
+                        <p className="text-slate-500 text-xs sm:text-sm flex items-center gap-2">
                             <span>{meeting.date}</span>
-                            <span className="w-1 h-1 rounded-full bg-slate-600"></span>
-                            <span>Logged by {user?.name || 'Admin'}</span>
+                            <span className="w-1 h-1 rounded-full bg-slate-600 hidden sm:block"></span>
+                            <span className="hidden sm:inline">Logged by {user?.name || 'Admin'}</span>
                         </p>
                     </div>
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto shrink-0">
                     <a
                       href={safeUrl(meeting.link)}
                       target="_blank"
                       rel="noreferrer"
-                      className="flex items-center space-x-2 bg-slate-800/50 text-slate-300 px-4 py-2 rounded-lg font-bold border border-slate-700 transition-all duration-200 hover:bg-emerald-500/10 hover:text-emerald-400 hover:border-emerald-500/30 active:scale-95"
+                      className="flex items-center space-x-1.5 sm:space-x-2 bg-slate-800/50 text-slate-300 px-3 sm:px-4 py-2 rounded-lg font-bold border border-slate-700 transition-all duration-200 hover:bg-emerald-500/10 hover:text-emerald-400 hover:border-emerald-500/30 active:scale-95 text-sm"
                     >
-                        <span>Open Doc</span>
-                        <ExternalLink size={16} />
+                        <span>Open</span>
+                        <ExternalLink size={14} />
                     </a>
                     {user?.permissions?.canCreate && (
-                      <button onClick={() => handleEdit(meeting)} className="p-2 text-slate-600 hover:text-sky-400 hover:bg-sky-500/10 rounded-lg transition-all"><Edit2 size={18}/></button>
+                      <button onClick={() => handleEdit(meeting)} className="p-2 text-slate-600 hover:text-sky-400 hover:bg-sky-500/10 rounded-lg transition-all"><Edit2 size={16}/></button>
                     )}
                     {user?.permissions?.canDelete && (
-                      <button onClick={() => handleDeleteClick(meeting.id)} className="p-2 text-slate-600 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all"><Trash2 size={18}/></button>
+                      <button onClick={() => handleDeleteClick(meeting.id)} className="p-2 text-slate-600 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all"><Trash2 size={16}/></button>
                     )}
                 </div>
             </div>
@@ -124,7 +124,7 @@ const Minutes = () => {
       {/* DELETE CONFIRMATION MODAL */}
       {isDeleteConfirmOpen && (
          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] animate-enter">
-            <div className="bg-slate-900 p-6 rounded-2xl w-[400px] shadow-2xl text-center border border-slate-700">
+            <div className="bg-slate-900 p-6 rounded-2xl w-[calc(100%-2rem)] max-w-[400px] shadow-2xl text-center border border-slate-700 mx-4">
                 <div className="w-16 h-16 bg-red-500/15 text-red-400 rounded-full flex items-center justify-center mx-auto mb-4">
                     <AlertTriangle size={32} />
                 </div>
@@ -141,7 +141,7 @@ const Minutes = () => {
       {/* EDIT/CREATE MODAL */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-enter">
-          <div className="relative bg-slate-900 p-6 rounded-2xl w-[500px] shadow-2xl transform transition-all scale-100 border border-slate-700">
+          <div className="relative bg-slate-900 p-5 sm:p-6 rounded-2xl w-[calc(100%-2rem)] max-w-[500px] shadow-2xl transform transition-all scale-100 border border-slate-700 mx-4">
              <button onClick={closeModal} className="absolute top-4 right-4 p-1 rounded-full hover:bg-slate-800 transition"><X size={20} className="text-slate-400" /></button>
              <div className="flex justify-between items-center mb-6">
                 <h3 className="text-xl font-bold text-slate-100">{editingId ? 'Edit Meeting Log' : 'Log New Meeting'}</h3>

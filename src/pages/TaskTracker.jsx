@@ -109,7 +109,7 @@ const TaskTracker = () => {
 
   // --- Renderers ---
   const renderKanbanColumn = (title, status, bgClass, headerColorClass, items) => (
-    <div className="flex-1 min-w-[300px] bg-slate-900/50 rounded-xl border border-slate-800 flex flex-col h-full max-h-[600px] animate-enter">
+    <div className="flex-1 min-w-[260px] sm:min-w-[300px] bg-slate-900/50 rounded-xl border border-slate-800 flex flex-col h-full max-h-[500px] sm:max-h-[600px] animate-enter">
         <div className={`p-4 border-b border-slate-800 font-bold flex justify-between items-center`}>
             <span className={status === 'Not Started' ? 'text-red-400' : status === 'On-going' ? 'text-amber-400' : 'text-emerald-400'}>{title}</span>
             <span className="bg-slate-800 px-2 py-0.5 rounded-full text-xs border border-slate-700 text-slate-400">{items.length}</span>
@@ -132,18 +132,18 @@ const TaskTracker = () => {
   );
 
   return (
-    <div className="space-y-6 h-[calc(100vh-140px)] flex flex-col animate-enter">
+    <div className="space-y-4 sm:space-y-6 h-[calc(100vh-140px)] lg:h-[calc(100vh-140px)] flex flex-col animate-enter">
       {/* Controls */}
-      <div className="flex justify-between items-center shrink-0">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 shrink-0">
         <div>
-           <h2 className="text-2xl font-bold text-slate-100">Task Tracker</h2>
-           <p className="text-sm text-slate-500">View: <span className="font-bold capitalize text-sky-400">{viewMode}</span></p>
+           <h2 className="text-xl sm:text-2xl font-bold text-slate-100">Task Tracker</h2>
+           <p className="text-xs sm:text-sm text-slate-500">View: <span className="font-bold capitalize text-sky-400">{viewMode}</span></p>
         </div>
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
             <select
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
-              className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-slate-300 font-medium outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition"
+              className="bg-slate-800 border border-slate-700 rounded-lg px-2 sm:px-3 py-1.5 text-sm text-slate-300 font-medium outline-none focus:ring-2 focus:ring-sky-500 focus:border-sky-500 transition"
             >
               {ownerOptions.map(opt => (
                 <option key={opt} value={opt} className="bg-slate-900">{opt === 'All' ? 'All Owners' : opt}</option>
@@ -155,8 +155,8 @@ const TaskTracker = () => {
                 <button onClick={() => setViewMode('gantt')} className={`p-1.5 rounded-md transition-all duration-200 ${viewMode === 'gantt' ? 'bg-slate-700 shadow text-slate-100 scale-105' : 'text-slate-500 hover:text-slate-300'}`}><GanttIcon size={18}/></button>
             </div>
             {canCreate && (
-              <button onClick={() => setIsModalOpen(true)} className="flex items-center space-x-2 bg-sky-600 text-white px-4 py-2 rounded-lg hover:bg-sky-500 hover:scale-105 active:scale-95 transition-all duration-200 shadow-md">
-                  <Plus size={16} /> <span>Add Task</span>
+              <button onClick={() => setIsModalOpen(true)} className="flex items-center space-x-2 bg-sky-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-sky-500 hover:scale-105 active:scale-95 transition-all duration-200 shadow-md">
+                  <Plus size={16} /> <span className="hidden sm:inline">Add Task</span>
               </button>
             )}
         </div>
@@ -198,7 +198,7 @@ const TaskTracker = () => {
       {/* DELETE CONFIRMATION MODAL */}
       {deleteConfirmId && (
          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[110] animate-enter">
-            <div className="bg-slate-900 p-6 rounded-2xl w-[400px] shadow-2xl text-center border border-slate-700">
+            <div className="bg-slate-900 p-6 rounded-2xl w-[calc(100%-2rem)] max-w-[400px] shadow-2xl text-center border border-slate-700 mx-4">
                 <div className="w-16 h-16 bg-red-500/15 text-red-400 rounded-full flex items-center justify-center mx-auto mb-4">
                     <AlertTriangle size={32} />
                 </div>
@@ -217,44 +217,43 @@ const TaskTracker = () => {
         <div className="fixed inset-0 bg-slate-950 z-[100] animate-in slide-in-from-bottom duration-300 overflow-y-auto">
 
             {/* Header */}
-            <div className="max-w-4xl mx-auto pt-10 pb-6 px-6 flex justify-between items-center border-b border-slate-800">
-                <div>
-                    <h2 className="text-3xl font-bold text-slate-100">
+            <div className="max-w-4xl mx-auto pt-4 sm:pt-10 pb-4 sm:pb-6 px-4 sm:px-6 flex justify-between items-start sm:items-center border-b border-slate-800">
+                <div className="min-w-0 flex-1">
+                    <h2 className="text-xl sm:text-3xl font-bold text-slate-100">
                         {isModalOpen ? 'Create New Task' : isEditing ? 'Edit Task' : 'Task Details'}
                     </h2>
-                    <p className="text-slate-500 mt-1">
-                        {isModalOpen ? 'Fill in the details below to track progress.' : isEditing ? 'Modify the fields below and save.' : `Managing task ID: ${expandedTask?.id?.slice(0, 8)}...`}
+                    <p className="text-slate-500 mt-1 text-xs sm:text-base truncate">
+                        {isModalOpen ? 'Fill in the details below.' : isEditing ? 'Modify and save.' : `ID: ${expandedTask?.id?.slice(0, 8)}...`}
                     </p>
                 </div>
-                <div className="flex items-center gap-3">
-                    {/* Edit / Save / Cancel buttons in expanded view */}
+                <div className="flex items-center gap-2 sm:gap-3 shrink-0 ml-2">
                     {expandedTask && !isEditing && canCreate && (
                       <button
                         onClick={startEditing}
-                        className="flex items-center gap-2 px-4 py-2 bg-sky-600 text-white rounded-lg font-bold hover:bg-sky-500 transition-all active:scale-95 shadow-md"
+                        className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 bg-sky-600 text-white rounded-lg font-bold hover:bg-sky-500 transition-all active:scale-95 shadow-md text-sm"
                       >
-                        <Edit2 size={16} /> Edit
+                        <Edit2 size={14} /> <span className="hidden sm:inline">Edit</span>
                       </button>
                     )}
                     {isEditing && (
                       <>
-                        <button onClick={cancelEdit} className="px-4 py-2 text-slate-400 hover:bg-slate-800 rounded-lg font-bold transition">Cancel</button>
-                        <button onClick={saveEdit} className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg font-bold hover:bg-emerald-500 transition-all active:scale-95 shadow-md">
-                          <Save size={16} /> Save
+                        <button onClick={cancelEdit} className="px-3 py-2 text-slate-400 hover:bg-slate-800 rounded-lg font-bold transition text-sm">Cancel</button>
+                        <button onClick={saveEdit} className="flex items-center gap-1 px-3 sm:px-4 py-2 bg-emerald-600 text-white rounded-lg font-bold hover:bg-emerald-500 transition-all active:scale-95 shadow-md text-sm">
+                          <Save size={14} /> <span className="hidden sm:inline">Save</span>
                         </button>
                       </>
                     )}
                     <button
                         onClick={() => { setIsModalOpen(false); setExpandedTask(null); setIsEditing(false); }}
-                        className="p-3 bg-slate-800 text-slate-400 rounded-full hover:bg-red-500 hover:text-white transition-all duration-200 shadow-sm"
+                        className="p-2 sm:p-3 bg-slate-800 text-slate-400 rounded-full hover:bg-red-500 hover:text-white transition-all duration-200 shadow-sm"
                     >
-                        <X size={24} />
+                        <X size={20} />
                     </button>
                 </div>
             </div>
 
             {/* Content Container */}
-            <div className="max-w-4xl mx-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-12">
+            <div className="max-w-4xl mx-auto p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-12">
 
                 {/* LEFT COLUMN: FORM */}
                 <div className="lg:col-span-2 space-y-8">
@@ -266,7 +265,7 @@ const TaskTracker = () => {
                                 <input required type="text" className="w-full text-xl font-bold border-b-2 border-slate-700 py-2 outline-none focus:border-sky-500 transition-colors bg-transparent text-white" placeholder="e.g. Data Cleaning Phase 1" value={newTask.task} onChange={e => setNewTask({...newTask, task: e.target.value})} />
                             </div>
 
-                            <div className="grid grid-cols-2 gap-8">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-8">
                                 <div className="space-y-2">
                                     <label className="text-sm font-bold text-slate-400 uppercase tracking-wider">Start Date</label>
                                     <input type="date" className="w-full bg-slate-800 p-3 rounded-lg border border-slate-700 outline-none focus:ring-2 focus:ring-sky-500 transition-all text-white" value={newTask.start} onChange={e => setNewTask({...newTask, start: e.target.value})} />
@@ -339,7 +338,7 @@ const TaskTracker = () => {
                                   />
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                   <div className="space-y-2">
                                     <label className="text-xs font-bold text-slate-400 uppercase">Status</label>
                                     <select
@@ -372,7 +371,7 @@ const TaskTracker = () => {
                                   </div>
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                   <div className="space-y-2">
                                     <label className="text-xs font-bold text-slate-400 uppercase">Start Date</label>
                                     <input type="date" className="w-full bg-slate-800 p-3 rounded-lg border border-slate-700 outline-none focus:ring-2 focus:ring-sky-500 text-white" value={editForm.start} onChange={e => setEditForm({...editForm, start: e.target.value})} />
@@ -401,7 +400,7 @@ const TaskTracker = () => {
                             ) : (
                               /* VIEW MODE: Read-only display */
                               <>
-                                <div className="grid grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div className="p-4 bg-slate-800/30 rounded-xl border border-slate-800">
                                         <p className="text-xs font-bold text-slate-500 uppercase">Status</p>
                                         {canCreate ? (
@@ -424,7 +423,7 @@ const TaskTracker = () => {
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div className="p-4 bg-slate-800/30 rounded-xl border border-slate-800">
                                         <p className="text-xs font-bold text-slate-500 uppercase">Priority</p>
                                         <span className={`inline-block mt-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${
@@ -511,8 +510,8 @@ const TaskTracker = () => {
                     )}
                 </div>
 
-                {/* RIGHT COLUMN: PREVIEW / META */}
-                <div className="lg:col-span-1 border-l border-slate-800 pl-12 space-y-8">
+                {/* RIGHT COLUMN: PREVIEW / META — hidden on mobile */}
+                <div className="hidden lg:block lg:col-span-1 border-l border-slate-800 pl-12 space-y-8">
                     <div className="p-6 bg-amber-500/10 rounded-2xl border border-amber-500/20">
                         <h4 className="font-bold text-amber-400 mb-2">Pro Tip</h4>
                         <p className="text-sm text-amber-300/70 leading-relaxed">Breaking down tasks into subtasks increases completion rates by 40%. Don't just write "Chapter 1", write "Draft Intro", "Review RRL", etc.</p>

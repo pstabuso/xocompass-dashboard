@@ -112,17 +112,17 @@ const AdminPanel = () => {
   return (
     <div className="space-y-6 animate-enter">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div>
-          <h2 className="text-2xl font-bold text-slate-100 flex items-center gap-3">
-            <Shield className="text-sky-400" size={28} /> Admin Panel
+          <h2 className="text-xl sm:text-2xl font-bold text-slate-100 flex items-center gap-2 sm:gap-3">
+            <Shield className="text-sky-400" size={24} /> Admin Panel
           </h2>
-          <p className="text-slate-500 text-sm">Manage team members and view workspace activity</p>
+          <p className="text-slate-500 text-xs sm:text-sm">Manage team members and view activity</p>
         </div>
         <button
           onClick={loadData}
           disabled={loading}
-          className="flex items-center gap-2 px-4 py-2 bg-slate-800 border border-slate-700 text-slate-300 rounded-lg font-bold hover:bg-slate-700 transition active:scale-95 disabled:opacity-50"
+          className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-slate-800 border border-slate-700 text-slate-300 rounded-lg font-bold hover:bg-slate-700 transition active:scale-95 disabled:opacity-50 text-sm"
         >
           <RefreshCw size={16} className={loading ? 'animate-spin' : ''} /> Refresh
         </button>
@@ -145,7 +145,7 @@ const AdminPanel = () => {
       </div>
 
       {/* Tab Switcher */}
-      <div className="flex gap-2 bg-slate-900/50 p-1 rounded-lg border border-slate-800 w-fit">
+      <div className="flex gap-2 bg-slate-900/50 p-1 rounded-lg border border-slate-800 w-full sm:w-fit overflow-x-auto">
         <button
           onClick={() => setTab('users')}
           className={`px-4 py-2 rounded-lg text-sm font-bold transition flex items-center gap-2 ${tab === 'users' ? 'bg-sky-600 text-white shadow' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}
@@ -162,8 +162,8 @@ const AdminPanel = () => {
 
       {/* USER MANAGEMENT TAB */}
       {tab === 'users' && (
-        <div className="bg-slate-900/50 rounded-xl border border-slate-800 overflow-hidden">
-          <table className="w-full text-left">
+        <div className="bg-slate-900/50 rounded-xl border border-slate-800 overflow-x-auto">
+          <table className="w-full text-left min-w-[600px]">
             <thead className="bg-slate-800/30 border-b border-slate-800 text-xs font-bold text-slate-500 uppercase">
               <tr>
                 <th className="p-4">User</th>
@@ -311,7 +311,7 @@ const AdminPanel = () => {
       {/* CONFIRM ACTION MODAL */}
       {confirmAction && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] animate-enter">
-          <div className="bg-slate-900 p-6 rounded-2xl w-[420px] shadow-2xl text-center border border-slate-700">
+          <div className="bg-slate-900 p-6 rounded-2xl w-[calc(100%-2rem)] max-w-[420px] shadow-2xl text-center border border-slate-700 mx-4">
             <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${confirmAction.newRole === 'restricted' ? 'bg-red-500/15 text-red-400' : 'bg-emerald-500/15 text-emerald-400'}`}>
               {confirmAction.newRole === 'restricted' ? <Ban size={32} /> : <CheckCircle size={32} />}
             </div>

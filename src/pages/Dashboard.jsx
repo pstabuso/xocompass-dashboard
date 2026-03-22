@@ -133,7 +133,7 @@ const Dashboard = () => {
       {/* 1. HEADER: Welcome & Context */}
       <div className="flex flex-col md:flex-row justify-between items-end mb-8 border-b border-slate-800 pb-6">
         <div>
-          <h1 className="text-4xl font-bold text-white tracking-tight mb-2">
+          <h1 className="text-2xl sm:text-4xl font-bold text-white tracking-tight mb-2">
             Welcome, <span className="text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-blue-500">{user.name.split(' ')[0]}</span>
           </h1>
           <p className="text-slate-400 flex items-center gap-2 font-medium">

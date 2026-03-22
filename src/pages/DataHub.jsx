@@ -110,10 +110,10 @@ const DataHub = () => {
 
   return (
     <div className="space-y-6 animate-enter">
-      <header className="flex justify-between items-center">
+      <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div>
-           <h2 className="text-2xl font-bold text-slate-100">Data Hub</h2>
-           <p className="text-slate-500 text-sm">Manage datasets for SARIMAX Training</p>
+           <h2 className="text-xl sm:text-2xl font-bold text-slate-100">Data Hub</h2>
+           <p className="text-slate-500 text-xs sm:text-sm">Manage datasets for SARIMAX Training</p>
         </div>
         {canCreate && (
           <button onClick={() => setIsModalOpen(true)} className="flex items-center space-x-2 bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-emerald-500 transition hover:scale-105 active:scale-95 duration-200 shadow-lg shadow-emerald-900/20">
@@ -147,8 +147,8 @@ const DataHub = () => {
           <p className="text-slate-500 text-sm">Upload your first CSV to get started.</p>
         </div>
       ) : (
-      <div className="bg-slate-900/50 rounded-xl border border-slate-800 overflow-hidden">
-         <table className="w-full text-left">
+      <div className="bg-slate-900/50 rounded-xl border border-slate-800 overflow-x-auto">
+         <table className="w-full text-left min-w-[600px]">
             <thead className="bg-slate-800/30 border-b border-slate-800 text-xs font-bold text-slate-500 uppercase">
                 <tr>
                     <th className="p-4">Filename</th>
@@ -187,7 +187,7 @@ const DataHub = () => {
       {/* Delete Modal */}
       {deleteConfirmId && (
          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[110] animate-enter">
-            <div className="bg-slate-900 p-6 rounded-2xl w-[400px] shadow-2xl text-center border border-slate-700">
+            <div className="bg-slate-900 p-6 rounded-2xl w-[calc(100%-2rem)] max-w-[400px] shadow-2xl text-center border border-slate-700 mx-4">
                 <div className="w-16 h-16 bg-red-500/15 text-red-400 rounded-full flex items-center justify-center mx-auto mb-4">
                     <AlertTriangle size={32} />
                 </div>

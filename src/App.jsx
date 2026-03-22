@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, CheckSquare, Calendar, Book, FolderOpen, LogOut, User, Database, Shield, BrainCircuit, Users, Cloud, CloudOff, Loader2, Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { LayoutDashboard, CheckSquare, Calendar, Book, FolderOpen, LogOut, User, Database, Shield, BrainCircuit, Users, Cloud, CloudOff, Loader2, Mail, Lock, Eye, EyeOff, Menu, X } from 'lucide-react';
 import { AppProvider, useAppContext, AVAILABLE_ROLES } from './context/AppContext';
 import { isCloudEnabled } from './lib/supabase';
 
@@ -15,8 +15,8 @@ import Defense from './pages/Defense';
 import ModelLab from './pages/ModelLab';
 import AdminPanel from './pages/AdminPanel';
 
-// Sidebar (Dark Mode)
-const Sidebar = () => {
+// Sidebar (Dark Mode — responsive: collapsible on mobile)
+const Sidebar = ({ mobileOpen, setMobileOpen }) => {
   const location = useLocation();
   const { user, signOut, syncStatus } = useAppContext();
 
@@ -32,39 +32,46 @@ const Sidebar = () => {
     ...(user?.permissions?.isAdmin ? [{ path: '/admin', icon: Users, label: 'Admin Panel' }] : []),
   ];
 
-  return (
-    <div className="w-64 h-screen bg-slate-900 border-r border-slate-800 text-slate-300 fixed left-0 top-0 flex flex-col z-50">
-      <div className="p-6 border-b border-slate-800">
-        <h1 className="text-2xl font-bold text-sky-400 tracking-tight">XoCompass</h1>
-        <div className="flex items-center space-x-2 mt-1">
-          <p className="text-xs text-slate-500">LEAP Thesis 2 Manager</p>
-          {syncStatus === 'synced' && <span title="Cloud synced — real-time"><Cloud size={12} className="text-emerald-400" /></span>}
-          {syncStatus === 'connecting' && <span title="Connecting to cloud..."><Loader2 size={12} className="text-amber-400 animate-spin" /></span>}
-          {syncStatus === 'error' && <span title="Cloud error — using local storage"><CloudOff size={12} className="text-red-400" /></span>}
-          {syncStatus === 'local' && <span title="Local storage only"><CloudOff size={12} className="text-slate-600" /></span>}
+  const sidebarContent = (
+    <>
+      <div className="p-4 sm:p-6 border-b border-slate-800 flex items-center justify-between">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold text-sky-400 tracking-tight">XoCompass</h1>
+          <div className="flex items-center space-x-2 mt-1">
+            <p className="text-xs text-slate-500">LEAP Thesis 2 Manager</p>
+            {syncStatus === 'synced' && <span title="Cloud synced — real-time"><Cloud size={12} className="text-emerald-400" /></span>}
+            {syncStatus === 'connecting' && <span title="Connecting to cloud..."><Loader2 size={12} className="text-amber-400 animate-spin" /></span>}
+            {syncStatus === 'error' && <span title="Cloud error — using local storage"><CloudOff size={12} className="text-red-400" /></span>}
+            {syncStatus === 'local' && <span title="Local storage only"><CloudOff size={12} className="text-slate-600" /></span>}
+          </div>
         </div>
+        {/* Close button — mobile only */}
+        <button onClick={() => setMobileOpen(false)} className="lg:hidden p-1 text-slate-400 hover:text-white">
+          <X size={22} />
+        </button>
       </div>
 
-      <nav className="flex-1 p-4 space-y-2">
+      <nav className="flex-1 p-3 sm:p-4 space-y-1 sm:space-y-2 overflow-y-auto">
         {menuItems.map((item) => (
           <Link
             key={item.path}
             to={item.path}
-            className={`flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 ease-in-out group ${
+            onClick={() => setMobileOpen(false)}
+            className={`flex items-center space-x-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl transition-all duration-200 ease-in-out group ${
               location.pathname === item.path
                 ? 'bg-sky-600/10 text-sky-400 border border-sky-500/20 shadow-[0_0_15px_rgba(56,189,248,0.1)]'
                 : 'hover:bg-slate-800 hover:text-white'
             }`}
           >
             <item.icon size={20} className={location.pathname === item.path ? 'text-sky-400' : 'group-hover:scale-110 transition-transform'} />
-            <span className="font-medium">{item.label}</span>
+            <span className="font-medium text-sm sm:text-base">{item.label}</span>
           </Link>
         ))}
       </nav>
 
-      <div className="p-4 border-t border-slate-800">
-        <div className="flex items-center space-x-3 px-4 mb-3">
-            <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-sky-500 to-blue-600 flex items-center justify-center font-bold text-white uppercase shadow-lg text-sm shrink-0">
+      <div className="p-3 sm:p-4 border-t border-slate-800">
+        <div className="flex items-center space-x-3 px-3 sm:px-4 mb-3">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gradient-to-tr from-sky-500 to-blue-600 flex items-center justify-center font-bold text-white uppercase shadow-lg text-sm shrink-0">
                 {user?.name?.charAt(0) || '?'}
             </div>
             <div className="overflow-hidden">
@@ -78,7 +85,26 @@ const Sidebar = () => {
           <span className="text-sm font-medium">Sign Out</span>
         </button>
       </div>
-    </div>
+    </>
+  );
+
+  return (
+    <>
+      {/* Desktop sidebar — always visible */}
+      <div className="hidden lg:flex w-64 h-screen bg-slate-900 border-r border-slate-800 text-slate-300 fixed left-0 top-0 flex-col z-50">
+        {sidebarContent}
+      </div>
+
+      {/* Mobile overlay + drawer */}
+      {mobileOpen && (
+        <div className="lg:hidden fixed inset-0 z-50">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
+          <div className="absolute left-0 top-0 w-72 h-full bg-slate-900 border-r border-slate-800 text-slate-300 flex flex-col animate-slide-in-left">
+            {sidebarContent}
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 
@@ -178,7 +204,7 @@ const WelcomeScreen = () => {
   return (
     <div className="h-screen flex items-center justify-center bg-slate-950 relative overflow-hidden">
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-900/20 via-slate-950 to-slate-950 pointer-events-none"></div>
-      <div className="bg-slate-900/50 backdrop-blur-xl p-8 rounded-2xl shadow-2xl w-[480px] border border-slate-800 relative z-10">
+      <div className="bg-slate-900/50 backdrop-blur-xl p-5 sm:p-8 rounded-2xl shadow-2xl w-[calc(100%-2rem)] max-w-[480px] border border-slate-800 relative z-10">
         <div className="text-center mb-6">
           <h1 className="text-3xl font-bold text-white">XoCompass</h1>
           <p className="text-slate-400 text-sm mt-1">
@@ -420,13 +446,31 @@ const SyncErrorToast = () => {
 };
 
 const AppContent = () => {
-  const { user } = useAppContext();
+  const { user, syncStatus } = useAppContext();
+  const [mobileOpen, setMobileOpen] = useState(false);
   if (!user) return <WelcomeScreen />;
   return (
     <Router>
       <div className="flex bg-slate-950 min-h-screen font-sans text-slate-200 selection:bg-sky-500/30">
-        <Sidebar />
-        <main className="flex-1 ml-64 p-8 overflow-y-auto">
+        <Sidebar mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
+
+        {/* Mobile top bar — visible only on small screens */}
+        <div className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-sm border-b border-slate-800 px-4 py-3 flex items-center justify-between">
+          <button onClick={() => setMobileOpen(true)} className="p-1 text-slate-300 hover:text-white">
+            <Menu size={24} />
+          </button>
+          <h1 className="text-lg font-bold text-sky-400">XoCompass</h1>
+          <div className="flex items-center gap-2">
+            {syncStatus === 'synced' && <Cloud size={14} className="text-emerald-400" />}
+            {syncStatus === 'connecting' && <Loader2 size={14} className="text-amber-400 animate-spin" />}
+            {syncStatus === 'error' && <CloudOff size={14} className="text-red-400" />}
+            <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-sky-500 to-blue-600 flex items-center justify-center font-bold text-white uppercase text-xs">
+              {user?.name?.charAt(0) || '?'}
+            </div>
+          </div>
+        </div>
+
+        <main className="flex-1 lg:ml-64 pt-14 lg:pt-0 p-4 sm:p-6 lg:p-8 overflow-y-auto min-h-screen">
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/model" element={<ModelLab />} />

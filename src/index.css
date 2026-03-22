@@ -20,6 +20,15 @@
     to { opacity: 0; transform: scale(0.95); }
   }
   
+  /* Mobile sidebar slide-in animation */
+  .animate-slide-in-left {
+    animation: slideInLeft 0.2s ease-out forwards;
+  }
+  @keyframes slideInLeft {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(0); }
+  }
+
   /* Smooth scrollbar for tables/lists */
   .custom-scrollbar::-webkit-scrollbar {
     width: 6px;
