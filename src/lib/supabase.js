@@ -23,3 +23,22 @@ export const supabase = (supabaseUrl && supabaseAnonKey)
   : null;
 
 export const isCloudEnabled = !!supabase;
+
+/**
+ * Fetch a user's profile from the profiles table.
+ * @param {string} userId - The auth.users UUID
+ * @returns {Promise<{id,email,name,role,avatar_url,created_at}|null>}
+ */
+export async function fetchProfile(userId) {
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', userId)
+    .single();
+  if (error) {
+    console.error('[XoCompass] fetchProfile:', error.message);
+    return null;
+  }
+  return data;
+}

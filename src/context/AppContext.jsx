@@ -1,17 +1,42 @@
 import React, { createContext, useState, useEffect, useContext, useCallback, useRef } from 'react';
-import { supabase, isCloudEnabled } from '../lib/supabase';
+import { supabase, isCloudEnabled, fetchProfile } from '../lib/supabase';
 
 const AppContext = createContext();
 
-// ─── ROLE DEFINITIONS ─────────────────────────────────────────────
-const TEAM_ROLES = [
-  { id: 'pm', name: 'Project Manager', role: 'Project Manager & Backend', permissions: { canCreate: true, canDelete: true, canNudge: true, viewAll: true } },
-  { id: 'fe', name: 'Frontend Developer', role: 'Frontend Developer', permissions: { canCreate: true, canDelete: false, canNudge: false, viewAll: false } },
-  { id: 'doc', name: 'Documentation Lead', role: 'Documentation Lead', permissions: { canCreate: true, canDelete: false, canNudge: false, viewAll: false } },
-  { id: 'guest', name: 'Guest Viewer', role: 'Guest', permissions: { canCreate: false, canDelete: false, canNudge: false, viewAll: true } },
-];
+// ─── ROLE → PERMISSIONS MAP (non-hardcoded users, roles from DB) ──
+// Roles are stored in the `profiles` table; permissions derived here.
+const ROLE_PERMISSIONS = {
+  pm:       { canCreate: true, canDelete: true, canNudge: true, viewAll: true },
+  backend:  { canCreate: true, canDelete: true, canNudge: true, viewAll: true },
+  frontend: { canCreate: true, canDelete: false, canNudge: false, viewAll: false },
+  guest:    { canCreate: false, canDelete: false, canNudge: false, viewAll: true },
+};
 
-export const TEAM_ROLES_LIST = TEAM_ROLES;
+const ROLE_LABELS = {
+  pm:       'Project Manager & Documentations Head',
+  backend:  'Backend Developer',
+  frontend: 'Frontend Developer',
+  guest:    'Guest Viewer',
+};
+
+/** Build a user object from a Supabase profile row */
+const buildUser = (profile) => ({
+  id: profile.id,
+  email: profile.email,
+  name: profile.name,
+  role: ROLE_LABELS[profile.role] || profile.role,
+  roleKey: profile.role,
+  permissions: ROLE_PERMISSIONS[profile.role] || ROLE_PERMISSIONS.guest,
+  avatar_url: profile.avatar_url,
+});
+
+// Available roles for sign-up (exported for the login screen)
+export const AVAILABLE_ROLES = [
+  { id: 'pm', label: 'Project Manager & Docs Head' },
+  { id: 'backend', label: 'Backend Developer' },
+  { id: 'frontend', label: 'Frontend Developer' },
+  { id: 'guest', label: 'Guest Viewer' },
+];
 
 // ─── SUPABASE TABLE NAMES ─────────────────────────────────────────
 const TABLES = {
@@ -72,12 +97,15 @@ export const AppProvider = ({ children }) => {
   const [syncStatus, setSyncStatus] = useState(isCloudEnabled ? 'connecting' : 'local'); // 'local' | 'connecting' | 'synced' | 'error'
   const subscriptionsRef = useRef([]);
 
+  const [authLoading, setAuthLoading] = useState(isCloudEnabled); // true while checking session
+
   // ── State: initialised from localStorage (instant), then overwritten by Supabase ──
   const [user, setUser] = useState(() => {
     const parsed = readLocal('xo_user', null);
     if (!parsed) return null;
-    const roleDefaults = TEAM_ROLES.find(r => r.role === parsed.role);
-    if (roleDefaults) parsed.permissions = { ...roleDefaults.permissions };
+    // Re-derive permissions from roleKey (stored in localStorage)
+    const key = parsed.roleKey || 'guest';
+    parsed.permissions = ROLE_PERMISSIONS[key] || ROLE_PERMISSIONS.guest;
     return parsed;
   });
 
@@ -367,16 +395,82 @@ export const AppProvider = ({ children }) => {
     });
   }, [user]);
 
-  // ── AUTH ──
-  const selectRole = useCallback((roleId, displayName) => {
-    const found = TEAM_ROLES.find(r => r.id === roleId);
-    if (!found) return;
-    setUser({ name: displayName || found.name, role: found.role, permissions: found.permissions });
+  // ── AUTH: Supabase session listener ──
+  useEffect(() => {
+    if (!isCloudEnabled) { setAuthLoading(false); return; }
+
+    // Check existing session on mount
+    const initSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          const profile = await fetchProfile(session.user.id);
+          if (profile) setUser(buildUser(profile));
+        }
+      } catch (err) {
+        console.error('[XoCompass] session init:', err);
+      } finally {
+        setAuthLoading(false);
+      }
+    };
+    initSession();
+
+    // Listen for auth changes (login, logout, token refresh)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session?.user) {
+        const profile = await fetchProfile(session.user.id);
+        if (profile) setUser(buildUser(profile));
+      }
+      if (event === 'SIGNED_OUT') {
+        setUser(null);
+        localStorage.removeItem('xo_user');
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
-  const logout = useCallback(() => {
+  // ── AUTH: sign in with email/password ──
+  const signIn = useCallback(async (email, password) => {
+    if (!isCloudEnabled) throw new Error('Cloud not configured');
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    // onAuthStateChange will handle setting the user
+  }, []);
+
+  // ── AUTH: sign up with email/password + profile metadata ──
+  const signUp = useCallback(async (email, password, name, roleKey) => {
+    if (!isCloudEnabled) throw new Error('Cloud not configured');
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { data: { name, role: roleKey } },
+    });
+    if (error) throw error;
+    // The DB trigger creates the profile; onAuthStateChange handles the rest
+  }, []);
+
+  // ── AUTH: sign out ──
+  const signOut = useCallback(async () => {
+    if (isCloudEnabled) {
+      await supabase.auth.signOut();
+    }
     setUser(null);
     localStorage.removeItem('xo_user');
+  }, []);
+
+  // ── AUTH: local-only mode (when Supabase is not configured) ──
+  const localSignIn = useCallback((name, roleKey) => {
+    const u = {
+      id: crypto.randomUUID(),
+      email: null,
+      name,
+      role: ROLE_LABELS[roleKey] || roleKey,
+      roleKey,
+      permissions: ROLE_PERMISSIONS[roleKey] || ROLE_PERMISSIONS.guest,
+      avatar_url: null,
+    };
+    setUser(u);
   }, []);
 
   // ── EXPORT / IMPORT ──
@@ -416,7 +510,7 @@ export const AppProvider = ({ children }) => {
 
   return (
     <AppContext.Provider value={{
-      user, selectRole, logout,
+      user, signIn, signUp, signOut, localSignIn, authLoading,
       tasks, addTask, updateTask, updateTaskStatus, deleteTask, addTaskComment, subtasks,
       events, addEvent, updateEvent, deleteEvent,
       activityLog, getStats,

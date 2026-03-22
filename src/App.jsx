@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, CheckSquare, Calendar, Book, FolderOpen, LogOut, User, Database, Shield, BrainCircuit, Users, Cloud, CloudOff, Loader2 } from 'lucide-react';
-import { AppProvider, useAppContext, TEAM_ROLES_LIST } from './context/AppContext';
+import { LayoutDashboard, CheckSquare, Calendar, Book, FolderOpen, LogOut, User, Database, Shield, BrainCircuit, Users, Cloud, CloudOff, Loader2, Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { AppProvider, useAppContext, AVAILABLE_ROLES } from './context/AppContext';
+import { isCloudEnabled } from './lib/supabase';
 
 // Pages
 import Dashboard from './pages/Dashboard';
@@ -16,7 +17,7 @@ import ModelLab from './pages/ModelLab';
 // Sidebar (Dark Mode)
 const Sidebar = () => {
   const location = useLocation();
-  const { user, logout, syncStatus } = useAppContext();
+  const { user, signOut, syncStatus } = useAppContext();
 
   const menuItems = [
     { path: '/', icon: LayoutDashboard, label: 'Overview' },
@@ -69,142 +70,311 @@ const Sidebar = () => {
                 <p className="text-xs text-slate-500 truncate">{user?.role}</p>
             </div>
         </div>
-        <button onClick={logout} className="w-full flex items-center space-x-3 px-4 py-2 text-red-400 hover:bg-red-500/10 rounded-lg cursor-pointer transition-all duration-200 hover:pl-6">
+        <button onClick={signOut} className="w-full flex items-center space-x-3 px-4 py-2 text-red-400 hover:bg-red-500/10 rounded-lg cursor-pointer transition-all duration-200 hover:pl-6">
           <LogOut size={18} />
-          <span className="text-sm font-medium">Switch Role</span>
+          <span className="text-sm font-medium">Sign Out</span>
         </button>
       </div>
     </div>
   );
 };
 
-// ── Phase 3: Input validation constants ─────────────────────────────────
+// ── Input validation constants ─────────────────────────────────
 const MAX_NAME_LENGTH = 20;
 const NAME_REGEX = /^[a-zA-Z\s'-]+$/;
 
+const roleIcons = {
+  pm: <Shield size={24} className="text-sky-400" />,
+  backend: <BrainCircuit size={24} className="text-emerald-400" />,
+  frontend: <Book size={24} className="text-amber-400" />,
+  guest: <Users size={24} className="text-slate-400" />,
+};
+
 const WelcomeScreen = () => {
-  const { selectRole } = useAppContext();
+  const { signIn, signUp, localSignIn, authLoading } = useAppContext();
+
+  const [mode, setMode] = useState('login'); // 'login' | 'signup' | 'local'
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [selectedRole, setSelectedRole] = useState(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  // For local-only fallback mode
   const [nameError, setNameError] = useState('');
 
-  // Phase 3: strict validation before entering workspace
-  const validateAndEnter = () => {
-    if (!selectedRole) return;
+  const handleLogin = async () => {
+    if (!email || !password) { setError('Email and password are required'); return; }
+    setError('');
+    setLoading(true);
+    try {
+      await signIn(email, password);
+    } catch (err) {
+      setError(err.message || 'Login failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSignUp = async () => {
+    if (!email || !password) { setError('Email and password are required'); return; }
+    if (password.length < 6) { setError('Password must be at least 6 characters'); return; }
+    if (!displayName.trim()) { setError('Name is required'); return; }
+    if (!selectedRole) { setError('Please select your role'); return; }
 
     const trimmed = displayName.trim();
+    if (trimmed.length > MAX_NAME_LENGTH) { setError(`Name cannot exceed ${MAX_NAME_LENGTH} characters`); return; }
+    if (!NAME_REGEX.test(trimmed)) { setError('Name can only contain letters, spaces, hyphens, and apostrophes'); return; }
 
-    // Name is required (no blank names)
-    if (!trimmed) {
-      setNameError('Please enter your name');
-      return;
+    setError('');
+    setLoading(true);
+    try {
+      await signUp(email, password, trimmed, selectedRole);
+    } catch (err) {
+      setError(err.message || 'Sign up failed');
+    } finally {
+      setLoading(false);
     }
+  };
 
-    // Length cap
-    if (trimmed.length > MAX_NAME_LENGTH) {
-      setNameError(`Name cannot exceed ${MAX_NAME_LENGTH} characters`);
-      return;
-    }
-
-    // Character whitelist: letters, spaces, hyphens, apostrophes only
-    if (!NAME_REGEX.test(trimmed)) {
-      setNameError('Name can only contain letters, spaces, hyphens, and apostrophes');
-      return;
-    }
-
+  const handleLocalEnter = () => {
+    const trimmed = displayName.trim();
+    if (!trimmed) { setNameError('Please enter your name'); return; }
+    if (trimmed.length > MAX_NAME_LENGTH) { setNameError(`Name cannot exceed ${MAX_NAME_LENGTH} characters`); return; }
+    if (!NAME_REGEX.test(trimmed)) { setNameError('Name can only contain letters, spaces, hyphens, and apostrophes'); return; }
+    if (!selectedRole) { setNameError('Please select your role'); return; }
     setNameError('');
-    selectRole(selectedRole, trimmed);
+    localSignIn(trimmed, selectedRole);
   };
 
-  // Live validation feedback on keystroke
-  const handleNameChange = (e) => {
-    const raw = e.target.value;
-    // Hard-block input beyond max + 5 buffer (allows seeing the error before clip)
-    if (raw.length > MAX_NAME_LENGTH + 5) return;
-    setDisplayName(raw);
+  // Show loading spinner while checking existing session
+  if (authLoading) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-slate-950">
+        <div className="text-center">
+          <Loader2 size={40} className="text-sky-400 animate-spin mx-auto mb-4" />
+          <p className="text-slate-400 text-sm">Restoring session...</p>
+        </div>
+      </div>
+    );
+  }
 
-    // Clear error as user types valid input
-    if (nameError && raw.trim().length > 0 && raw.trim().length <= MAX_NAME_LENGTH) {
-      setNameError('');
-    }
-  };
-
-  const roleIcons = {
-    pm: <Shield size={24} className="text-sky-400" />,
-    fe: <BrainCircuit size={24} className="text-emerald-400" />,
-    doc: <Book size={24} className="text-amber-400" />,
-    guest: <Users size={24} className="text-slate-400" />,
-  };
-
-  const charCount = displayName.trim().length;
-  const isOverLimit = charCount > MAX_NAME_LENGTH;
+  // If cloud is not configured, show local-only mode
+  const isLocal = !isCloudEnabled;
 
   return (
     <div className="h-screen flex items-center justify-center bg-slate-950 relative overflow-hidden">
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-900/20 via-slate-950 to-slate-950 pointer-events-none"></div>
       <div className="bg-slate-900/50 backdrop-blur-xl p-8 rounded-2xl shadow-2xl w-[480px] border border-slate-800 relative z-10">
-        <div className="text-center mb-8">
+        <div className="text-center mb-6">
           <h1 className="text-3xl font-bold text-white">XoCompass</h1>
-          <p className="text-slate-400 text-sm mt-1">Select your role to enter the workspace</p>
+          <p className="text-slate-400 text-sm mt-1">
+            {isLocal ? 'Local mode — enter your name to start' : mode === 'login' ? 'Sign in to your workspace' : 'Create your team account'}
+          </p>
         </div>
 
-        {/* Name input — Phase 3 hardened */}
-        <div className="mb-6">
-          <div className="flex justify-between items-center mb-1 ml-1">
-            <label className="text-sm font-bold text-slate-400">Your Name</label>
-            <span className={`text-[10px] font-mono ${isOverLimit ? 'text-red-400' : 'text-slate-600'}`}>
-              {charCount}/{MAX_NAME_LENGTH}
-            </span>
-          </div>
-          <div className="relative">
-            <User className="absolute left-3 top-2.5 text-slate-500" size={18} />
-            <input
-              type="text"
-              className={`w-full pl-10 pr-4 py-2 bg-slate-800 border text-white rounded-lg outline-none transition ${
-                nameError ? 'border-red-500 focus:ring-2 focus:ring-red-500/50' : 'border-slate-700 focus:ring-2 focus:ring-sky-500'
-              }`}
-              placeholder="Enter your name"
-              value={displayName}
-              onChange={handleNameChange}
-              onKeyDown={e => e.key === 'Enter' && validateAndEnter()}
-              autoFocus
-            />
-          </div>
-          {/* Phase 3: error state display */}
-          {nameError && (
-            <p className="text-xs text-red-400 mt-1.5 ml-1 flex items-center gap-1 animate-in fade-in slide-in-from-top-1 duration-200">
-              <span className="w-1 h-1 rounded-full bg-red-400 shrink-0"></span>
-              {nameError}
+        {/* Error display */}
+        {(error || nameError) && (
+          <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
+            <p className="text-xs text-red-400 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0"></span>
+              {error || nameError}
             </p>
-          )}
-        </div>
+          </div>
+        )}
 
-        {/* Role selection grid */}
-        <div className="grid grid-cols-2 gap-3 mb-6">
-          {TEAM_ROLES_LIST.map((r) => (
+        {isLocal ? (
+          /* ── LOCAL-ONLY MODE ── */
+          <>
+            <div className="mb-4">
+              <label className="text-sm font-bold text-slate-400 mb-1 block">Your Name</label>
+              <div className="relative">
+                <User className="absolute left-3 top-2.5 text-slate-500" size={18} />
+                <input
+                  type="text"
+                  className="w-full pl-10 pr-4 py-2 bg-slate-800 border border-slate-700 text-white rounded-lg outline-none transition focus:ring-2 focus:ring-sky-500"
+                  placeholder="Enter your name"
+                  value={displayName}
+                  onChange={e => { if (e.target.value.length <= MAX_NAME_LENGTH + 5) setDisplayName(e.target.value); }}
+                  onKeyDown={e => e.key === 'Enter' && handleLocalEnter()}
+                  autoFocus
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 mb-6">
+              {AVAILABLE_ROLES.map((r) => (
+                <button
+                  key={r.id}
+                  onClick={() => setSelectedRole(r.id)}
+                  className={`p-4 rounded-xl border transition-all duration-200 text-left group ${
+                    selectedRole === r.id
+                      ? 'bg-sky-600/15 border-sky-500/40 shadow-[0_0_20px_rgba(56,189,248,0.1)]'
+                      : 'bg-slate-800/50 border-slate-700 hover:border-slate-600 hover:bg-slate-800'
+                  }`}
+                >
+                  <div className="mb-2">{roleIcons[r.id]}</div>
+                  <p className={`text-sm font-bold ${selectedRole === r.id ? 'text-sky-300' : 'text-slate-200'}`}>{r.label}</p>
+                </button>
+              ))}
+            </div>
+
             <button
-              key={r.id}
-              onClick={() => setSelectedRole(r.id)}
-              className={`p-4 rounded-xl border transition-all duration-200 text-left group ${
-                selectedRole === r.id
-                  ? 'bg-sky-600/15 border-sky-500/40 shadow-[0_0_20px_rgba(56,189,248,0.1)]'
-                  : 'bg-slate-800/50 border-slate-700 hover:border-slate-600 hover:bg-slate-800'
-              }`}
+              onClick={handleLocalEnter}
+              disabled={!selectedRole}
+              className="w-full bg-sky-600 text-white py-3 rounded-lg font-bold hover:bg-sky-500 transition shadow-lg shadow-sky-900/20 active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
             >
-              <div className="mb-2">{roleIcons[r.id]}</div>
-              <p className={`text-sm font-bold ${selectedRole === r.id ? 'text-sky-300' : 'text-slate-200'}`}>{r.name}</p>
-              <p className="text-xs text-slate-500 mt-0.5">{r.role}</p>
+              Enter Workspace
             </button>
-          ))}
-        </div>
+          </>
+        ) : mode === 'login' ? (
+          /* ── LOGIN MODE ── */
+          <>
+            <div className="space-y-4 mb-6">
+              <div>
+                <label className="text-sm font-bold text-slate-400 mb-1 block">Email</label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-2.5 text-slate-500" size={18} />
+                  <input
+                    type="email"
+                    className="w-full pl-10 pr-4 py-2 bg-slate-800 border border-slate-700 text-white rounded-lg outline-none transition focus:ring-2 focus:ring-sky-500"
+                    placeholder="you@example.com"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleLogin()}
+                    autoFocus
+                  />
+                </div>
+              </div>
 
-        <button
-          onClick={validateAndEnter}
-          disabled={!selectedRole}
-          className="w-full bg-sky-600 text-white py-3 rounded-lg font-bold hover:bg-sky-500 transition shadow-lg shadow-sky-900/20 active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
-        >
-          Enter Workspace
-        </button>
+              <div>
+                <label className="text-sm font-bold text-slate-400 mb-1 block">Password</label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-2.5 text-slate-500" size={18} />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    className="w-full pl-10 pr-10 py-2 bg-slate-800 border border-slate-700 text-white rounded-lg outline-none transition focus:ring-2 focus:ring-sky-500"
+                    placeholder="Your password"
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleLogin()}
+                  />
+                  <button onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-2.5 text-slate-500 hover:text-slate-300 transition">
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={handleLogin}
+              disabled={loading}
+              className="w-full bg-sky-600 text-white py-3 rounded-lg font-bold hover:bg-sky-500 transition shadow-lg shadow-sky-900/20 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {loading && <Loader2 size={18} className="animate-spin" />}
+              Sign In
+            </button>
+
+            <p className="text-center text-sm text-slate-500 mt-4">
+              Don't have an account?{' '}
+              <button onClick={() => { setMode('signup'); setError(''); }} className="text-sky-400 hover:text-sky-300 font-bold transition">
+                Sign Up
+              </button>
+            </p>
+          </>
+        ) : (
+          /* ── SIGN UP MODE ── */
+          <>
+            <div className="space-y-4 mb-4">
+              <div>
+                <label className="text-sm font-bold text-slate-400 mb-1 block">Email</label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-2.5 text-slate-500" size={18} />
+                  <input
+                    type="email"
+                    className="w-full pl-10 pr-4 py-2 bg-slate-800 border border-slate-700 text-white rounded-lg outline-none transition focus:ring-2 focus:ring-sky-500"
+                    placeholder="you@example.com"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    autoFocus
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-sm font-bold text-slate-400 mb-1 block">Password</label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-2.5 text-slate-500" size={18} />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    className="w-full pl-10 pr-10 py-2 bg-slate-800 border border-slate-700 text-white rounded-lg outline-none transition focus:ring-2 focus:ring-sky-500"
+                    placeholder="Min. 6 characters"
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                  />
+                  <button onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-2.5 text-slate-500 hover:text-slate-300 transition">
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-sm font-bold text-slate-400">Your Name</label>
+                  <span className={`text-[10px] font-mono ${displayName.trim().length > MAX_NAME_LENGTH ? 'text-red-400' : 'text-slate-600'}`}>
+                    {displayName.trim().length}/{MAX_NAME_LENGTH}
+                  </span>
+                </div>
+                <div className="relative">
+                  <User className="absolute left-3 top-2.5 text-slate-500" size={18} />
+                  <input
+                    type="text"
+                    className="w-full pl-10 pr-4 py-2 bg-slate-800 border border-slate-700 text-white rounded-lg outline-none transition focus:ring-2 focus:ring-sky-500"
+                    placeholder="Your display name"
+                    value={displayName}
+                    onChange={e => { if (e.target.value.length <= MAX_NAME_LENGTH + 5) setDisplayName(e.target.value); }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Role selection grid */}
+            <div className="grid grid-cols-2 gap-3 mb-6">
+              {AVAILABLE_ROLES.map((r) => (
+                <button
+                  key={r.id}
+                  onClick={() => setSelectedRole(r.id)}
+                  className={`p-3 rounded-xl border transition-all duration-200 text-left group ${
+                    selectedRole === r.id
+                      ? 'bg-sky-600/15 border-sky-500/40 shadow-[0_0_20px_rgba(56,189,248,0.1)]'
+                      : 'bg-slate-800/50 border-slate-700 hover:border-slate-600 hover:bg-slate-800'
+                  }`}
+                >
+                  <div className="mb-1">{roleIcons[r.id]}</div>
+                  <p className={`text-xs font-bold ${selectedRole === r.id ? 'text-sky-300' : 'text-slate-200'}`}>{r.label}</p>
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={handleSignUp}
+              disabled={loading}
+              className="w-full bg-sky-600 text-white py-3 rounded-lg font-bold hover:bg-sky-500 transition shadow-lg shadow-sky-900/20 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {loading && <Loader2 size={18} className="animate-spin" />}
+              Create Account
+            </button>
+
+            <p className="text-center text-sm text-slate-500 mt-4">
+              Already have an account?{' '}
+              <button onClick={() => { setMode('login'); setError(''); }} className="text-sky-400 hover:text-sky-300 font-bold transition">
+                Sign In
+              </button>
+            </p>
+          </>
+        )}
       </div>
     </div>
   );
