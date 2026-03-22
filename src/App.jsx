@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, CheckSquare, Calendar, Book, FolderOpen, LogOut, User, Database, Shield, BrainCircuit, Users, Cloud, CloudOff, Loader2, Mail, Lock, Eye, EyeOff, Menu, X, Bell, LockKeyhole, Send, ArrowRight } from 'lucide-react';
+import { LayoutDashboard, CheckSquare, Calendar, Book, FolderOpen, LogOut, User, Database, Shield, BrainCircuit, Users, Cloud, CloudOff, Loader2, Mail, Lock, Eye, EyeOff, Menu, X, Bell, LockKeyhole, Send, ArrowRight, Sun, Moon } from 'lucide-react';
 import { AppProvider, useAppContext, ROLE_ROUTES, isNotificationForUser } from './context/AppContext';
+import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { isCloudEnabled } from './lib/supabase';
 
 // Pages
@@ -15,7 +16,23 @@ import Defense from './pages/Defense';
 import ModelLab from './pages/ModelLab';
 import AdminPanel from './pages/AdminPanel';
 
-// Sidebar (Dark Mode — responsive: collapsible on mobile)
+// Theme toggle pill — persists to localStorage
+const ThemeToggle = () => {
+  const { theme, toggleTheme } = useTheme();
+  const isLight = theme === 'light';
+  return (
+    <button
+      onClick={toggleTheme}
+      className="w-full flex items-center justify-center gap-2 px-4 py-2 mb-2 rounded-lg border border-slate-700 hover:border-sky-500/30 transition-all duration-200 group"
+      title={isLight ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
+    >
+      {isLight ? <Moon size={15} className="text-sky-400" /> : <Sun size={15} className="text-amber-400" />}
+      <span className="text-xs font-medium text-slate-400 group-hover:text-slate-200">{isLight ? 'Dark Mode' : 'Light Mode'}</span>
+    </button>
+  );
+};
+
+// Sidebar — responsive: collapsible on mobile
 const Sidebar = ({ mobileOpen, setMobileOpen }) => {
   const location = useLocation();
   const { user, signOut, syncStatus, notifications, requestAccess } = useAppContext();
@@ -131,6 +148,7 @@ const Sidebar = ({ mobileOpen, setMobileOpen }) => {
                 {user?.email && <p className="text-[10px] text-slate-600 truncate">{user.email}</p>}
             </div>
         </div>
+        <ThemeToggle />
         <button onClick={signOut} className="w-full flex items-center justify-center space-x-2 px-4 py-2 text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 rounded-lg cursor-pointer transition-all duration-200">
           <LogOut size={16} />
           <span className="text-sm font-medium">Sign Out</span>
@@ -638,5 +656,5 @@ class ErrorBoundary extends React.Component {
   }
 }
 
-const App = () => <ErrorBoundary><AppProvider><AppContent /></AppProvider></ErrorBoundary>;
+const App = () => <ErrorBoundary><ThemeProvider><AppProvider><AppContent /></AppProvider></ThemeProvider></ErrorBoundary>;
 export default App;

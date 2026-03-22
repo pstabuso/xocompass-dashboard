@@ -30,7 +30,7 @@ const ModelLab = () => {
     }
   }, [gridLogs]);
 
-  // --- ACTUAL KJS BOOKING DEMAND DATA + ACTUAL PH WEATHER/HOLIDAYS (2013-2025) ---
+  // --- ACTUAL BUSINESS DEMAND DATA + PH WEATHER/HOLIDAYS (2013-2025) ---
   const rawData = useMemo(() => [
     { date: '2013-11', demand: 1, rainfall: 142.9, holiday: 2 },
     { date: '2013-12', demand: 0, rainfall: 58.3, holiday: 4 },
@@ -277,11 +277,11 @@ const ModelLab = () => {
   // Compute real accuracy metrics
   const accuracyMetrics = useMemo(() => computeAccuracyMetrics(rawData), [rawData]);
 
-  const EST_REVENUE_PER_BOOKING_PHP = 48000;
-  const totalBookings = useMemo(() => rawData.reduce((sum, d) => sum + (Number(d.demand) || 0), 0), [rawData]);
-  const estimatedRevenue = totalBookings * EST_REVENUE_PER_BOOKING_PHP;
-  const avgMonthlyBookings = Math.round(totalBookings / rawData.length);
-  const maxBookingRow = useMemo(() => rawData.reduce((max, d) => (Number(d.demand) || 0) > (Number(max.demand) || 0) ? d : max, rawData[0]), [rawData]);
+  const EST_REVENUE_PER_UNIT_PHP = 48000;
+  const totalDemandUnits = useMemo(() => rawData.reduce((sum, d) => sum + (Number(d.demand) || 0), 0), [rawData]);
+  const estimatedRevenue = totalDemandUnits * EST_REVENUE_PER_UNIT_PHP;
+  const avgMonthlyDemand = Math.round(totalDemandUnits / rawData.length);
+  const peakDemandRow = useMemo(() => rawData.reduce((max, d) => (Number(d.demand) || 0) > (Number(max.demand) || 0) ? d : max, rawData[0]), [rawData]);
 
   // ==========================================
   // COMPUTED PEARSON CORRELATIONS (from actual data)
@@ -310,7 +310,7 @@ const ModelLab = () => {
         const yr = d.date.substring(0, 4);
         if (!acc[yr]) acc[yr] = { year: yr, totalDemand: 0 };
         acc[yr].totalDemand += (Number(d.demand) || 0);
-        acc[yr].revenue = acc[yr].totalDemand * EST_REVENUE_PER_BOOKING_PHP;
+        acc[yr].revenue = acc[yr].totalDemand * EST_REVENUE_PER_UNIT_PHP;
     });
     return Object.values(acc);
   }, [rawData]);
@@ -597,31 +597,31 @@ const ModelLab = () => {
       const d = {
         corpus_size: rawData.length,
         date_range: `${rawData[0]?.date} to ${rawData[rawData.length - 1]?.date}`,
-        total_bookings: totalBookings,
+        total_demand: totalDemandUnits,
         estimated_revenue_php: estimatedRevenue,
-        avg_monthly_volume: avgMonthlyBookings,
-        peak_record: { date: maxBookingRow.date, demand: maxBookingRow.demand },
+        avg_monthly_volume: avgMonthlyDemand,
+        peak_record: { date: peakDemandRow.date, demand: peakDemandRow.demand },
         yoy_growth_2024_vs_2023: `${growthRate}%`,
         peak_season_month: peakMonth,
         low_season_month: lowMonth,
-        revenue_per_booking: 48000,
+        revenue_per_unit: EST_REVENUE_PER_UNIT_PHP,
       };
       const revM = (d.estimated_revenue_php / 1000000).toFixed(1);
-      return `[ENTERPRISE DATA AUDIT: KJS BOOKING CORPUS — ${d.date_range}]
+      return `[ENTERPRISE DATA AUDIT: BUSINESS DEMAND CORPUS — ${d.date_range}]
 
-▶ CORPUS INTEGRITY: ${d.corpus_size} verified monthly records — ${(d.corpus_size / 36).toFixed(1)}x above SARIMAX minimum reliability threshold. No imputation required.
+▶ CORPUS INTEGRITY: ${d.corpus_size} verified monthly records — ${(d.corpus_size / 36).toFixed(1)}x above SARIMAX minimum reliability threshold. No imputation required. Dataset passes completeness and consistency checks for time-series modeling.
 
-▶ CAPITAL LEDGER: ${d.total_bookings.toLocaleString()} confirmed transactions generating ₱${revM}M in estimated revenue at ₱${d.revenue_per_booking.toLocaleString()}/booking. Average throughput: ${d.avg_monthly_volume} units/month.
+▶ REVENUE LEDGER: ${d.total_demand.toLocaleString()} confirmed demand transactions generating ₱${revM}M in estimated revenue at ₱${d.revenue_per_unit.toLocaleString()}/unit. Average throughput: ${d.avg_monthly_volume} units/month.
 
-▶ GROWTH SIGNAL: ${d.yoy_growth_2024_vs_2023} YoY trajectory (2024 vs 2023) confirms post-pandemic demand recovery is structural — not regression-to-mean.
+▶ GROWTH SIGNAL: ${d.yoy_growth_2024_vs_2023} YoY trajectory (2024 vs 2023) confirms post-disruption demand recovery is structural — not regression-to-mean.
 
-▶ PEAK ARCHITECTURE: Record demand of ${d.peak_record.demand} units on ${d.peak_record.date} (₱${(d.peak_record.demand * 48000).toLocaleString()} single-month revenue ceiling). This benchmark defines the upper operational constraint for fleet deployment planning.
+▶ PEAK ARCHITECTURE: Record demand of ${d.peak_record.demand} units on ${d.peak_record.date} (₱${(d.peak_record.demand * d.revenue_per_unit).toLocaleString()} single-month revenue ceiling). This benchmark defines the upper operational constraint for capacity planning.
 
 DIRECTIVES:
-► Discontinue intuition-based procurement. This 12-year dataset is a validated, legally defensible business intelligence asset.
-► Launch 6-month advance procurement cycles anchored to ${d.peak_season_month?.month || 'April'} and December — your twin revenue pillars.
-► Every 10-unit improvement in peak season capture generates ₱${(10 * d.revenue_per_booking).toLocaleString()} in incremental margin.
-► Lowest-volume month (${d.low_season_month?.month || 'Jul'}) requires offensive marketing budget deployment — "Rainy Day Escape" bundles to salvage trough-period revenue.`;
+► Transition from intuition-based planning to data-driven forecasting. This 12-year dataset is a validated, defensible business intelligence asset.
+► Initiate advance resource allocation cycles anchored to ${d.peak_season_month?.month || 'April'} and December — the twin revenue peaks identified by density analysis.
+► Every 10-unit improvement in peak-season capture generates ₱${(10 * d.revenue_per_unit).toLocaleString()} in incremental margin.
+► Lowest-volume period (${d.low_season_month?.month || 'Jul'}) requires targeted promotional campaigns to recover trough-period revenue.`;
     }
 
     if (stageId === 'correlation') {
@@ -632,25 +632,25 @@ DIRECTIVES:
         vif_rainfall: correlations.vif_rainfall,
         vif_holiday: correlations.vif_holiday,
         statistical_threshold: 0.3,
-        revenue_per_booking: 48000,
-        avg_monthly_volume: avgMonthlyBookings,
+        revenue_per_unit: EST_REVENUE_PER_UNIT_PHP,
+        avg_monthly_volume: avgMonthlyDemand,
         exogenous_impact: exogenousImpactData,
       };
       return `[REGRESSOR VALIDATION BRIEF: EXOGENOUS FORCING FUNCTIONS]
 
-▶ RAINFALL COEFFICIENT (r = ${d.pearson_r_volume_rainfall}): Monsoon precipitation is a statistically significant demand suppressor. At maximum monsoon intensity, operational volume contracts sharply relative to baseline. This is a mathematically predictable, calendared weather-driven floor — not market softness.
+▶ RAINFALL COEFFICIENT (r = ${d.pearson_r_volume_rainfall}): Precipitation is a statistically significant demand suppressor. At maximum intensity, operational volume contracts sharply relative to baseline. This represents a mathematically predictable, calendar-driven demand floor — not market softness.
 
-▶ HOLIDAY COEFFICIENT (r = ${d.pearson_r_volume_holidays > 0 ? '+' : ''}${d.pearson_r_volume_holidays}): National holiday density is KJS's single strongest demand amplifier, validated at r=${d.pearson_r_volume_holidays} — exceeding the ${d.statistical_threshold} statistical significance threshold. Every incremental holiday unit in the calendar adds recoverable booking velocity worth ~₱${Math.round(d.avg_monthly_volume * d.revenue_per_booking * Math.abs(d.pearson_r_volume_holidays) * 0.1).toLocaleString()} in incremental revenue potential.
+▶ HOLIDAY COEFFICIENT (r = ${d.pearson_r_volume_holidays > 0 ? '+' : ''}${d.pearson_r_volume_holidays}): National holiday density is the single strongest demand amplifier, validated at r=${d.pearson_r_volume_holidays} — exceeding the ${d.statistical_threshold} statistical significance threshold. Each incremental holiday in the calendar contributes ~₱${Math.round(d.avg_monthly_volume * d.revenue_per_unit * Math.abs(d.pearson_r_volume_holidays) * 0.1).toLocaleString()} in incremental revenue potential.
 
-▶ MULTICOLLINEARITY CLEARANCE (r = ${d.pearson_r_rainfall_holidays}, VIF = ${d.vif_rainfall}): Rain and Holidays operate on independent forcing functions. VIF of ${d.vif_rainfall} is well below the 5.0 danger threshold. The XoCompass model may safely weight them simultaneously without parameter interference.
+▶ MULTICOLLINEARITY CLEARANCE (r = ${d.pearson_r_rainfall_holidays}, VIF = ${d.vif_rainfall}): Rainfall and Holidays operate on independent forcing functions. VIF of ${d.vif_rainfall} is well below the 5.0 danger threshold. The model may safely weight both regressors simultaneously without parameter interference.
 
-▶ EXOGENOUS IMPACT QUANTIFIED: Baseline demand averages ${d.exogenous_impact?.[0]?.volume ?? 'N/A'} units/month. Under severe monsoon conditions, demand contracts to ${d.exogenous_impact?.[1]?.volume ?? 'N/A'} units. During high-holiday months, demand surges to ${d.exogenous_impact?.[2]?.volume ?? 'N/A'} units.
+▶ EXOGENOUS IMPACT QUANTIFIED: Baseline demand averages ${d.exogenous_impact?.[0]?.volume ?? 'N/A'} units/month. Under severe weather conditions, demand contracts to ${d.exogenous_impact?.[1]?.volume ?? 'N/A'} units. During high-holiday months, demand surges to ${d.exogenous_impact?.[2]?.volume ?? 'N/A'} units.
 
 DIRECTIVES:
-► MONSOON PROTOCOL: Deploy "Rainy Day Escape" campaign bundles in June–September with pre-committed pricing locks. Target 15–20% conversion of suppressed demand via early commitment incentives.
-► HOLIDAY CAPTURE: Launch Early Bird Lock-In campaigns exactly 90 days before each cluster of ≥3 national holidays — converts projected demand into confirmed cash flow.
-► COMBINED SIGNAL: When a forecast month carries high holiday density AND below-average rainfall, classify as MAXIMUM SURGE RISK. Activate Tranche 3 pricing immediately.
-► RISK HEDGE: Pre-deploy refund-flexible bundle pricing in peak-rainfall months to reduce cancellation-driven revenue leakage.`;
+► WEATHER PROTOCOL: Deploy targeted promotional campaigns during adverse-weather months (June–September) with pre-committed pricing locks. Target 15–20% recovery of suppressed demand via early commitment incentives.
+► HOLIDAY CAPTURE: Launch early-commitment campaigns exactly 90 days before each cluster of ≥3 national holidays — converts projected demand into confirmed revenue.
+► COMBINED SIGNAL: When a forecast month carries high holiday density AND below-average rainfall, classify as MAXIMUM SURGE RISK and activate premium pricing tiers immediately.
+► RISK HEDGE: Pre-deploy flexible-cancellation pricing in peak-weather months to reduce cancellation-driven revenue leakage.`;
     }
 
     if (stageId === 'process') {
@@ -660,22 +660,22 @@ DIRECTIVES:
         differenced_mean: Number(diffMean.toFixed(2)),
         differenced_std: Number(diffStd.toFixed(2)),
         num_observations: stationaryData.length,
-        avg_monthly_volume: avgMonthlyBookings,
-        revenue_per_booking: 48000,
+        avg_monthly_volume: avgMonthlyDemand,
+        revenue_per_unit: EST_REVENUE_PER_UNIT_PHP,
       };
       return `[STATIONARITY CERTIFICATION BRIEF: MATHEMATICAL SAFETY GATE]
 
-▶ RAW SERIES DIAGNOSIS: The Augmented Dickey-Fuller test on raw monthly volume returns p=${d.adf_raw_p_value} — statistically non-stationary. The 12-year exponential growth trend would cause SARIMAX to hallucinate infinite upward forecasts, mathematically invalidating all downstream procurement decisions.
+▶ RAW SERIES DIAGNOSIS: The Augmented Dickey-Fuller test on raw monthly demand returns p=${d.adf_raw_p_value} — statistically non-stationary. The multi-year growth trend would cause SARIMAX to hallucinate infinite upward forecasts, mathematically invalidating all downstream resource allocation decisions.
 
 ▶ DIFFERENCING REMEDY: First-Order Differencing (d=1) transforms the series into month-over-month momentum deltas. Post-differencing ADF yields p=${d.adf_differenced_p_value} — statistically certified stationary at 99.9% confidence. The differenced series exhibits mean=${d.differenced_mean} and σ=${d.differenced_std}, confirming a zero-centered momentum distribution.
 
-▶ STRUCTURAL IMPLICATION: ${d.num_observations} differenced observations now expose the true volatility architecture. The model will learn booking velocity patterns — not absolute volume trends — preventing systematic overestimation of future demand.
+▶ STRUCTURAL IMPLICATION: ${d.num_observations} differenced observations now expose the true volatility architecture. The model will learn demand velocity patterns — not absolute volume trends — preventing systematic overestimation of future demand.
 
 DIRECTIVES:
-► The d=1 differencing parameter is now locked as a non-negotiable SARIMAX input. Any attempt to model raw (undifferenced) volume will produce spurious correlation and inflated procurement targets.
-► Monthly momentum σ=${d.differenced_std} defines the natural swing amplitude — procurement buffers must accommodate ±${Math.round(d.differenced_std)} units of month-over-month volatility.
+► The d=1 differencing parameter is locked as a non-negotiable SARIMAX input. Modeling raw (undifferenced) volume would produce spurious correlations and inflated resource targets.
+► Monthly momentum σ=${d.differenced_std} defines the natural swing amplitude — operational buffers must accommodate ±${Math.round(d.differenced_std)} units of month-over-month volatility.
 ► Post-differencing stationarity unlocks ACF/PACF diagnostic validity for determining optimal p and q lags in the Grid Search phase.
-► RISK QUANTIFICATION: At ₱${d.revenue_per_booking.toLocaleString()}/booking, the differenced volatility translates to ±₱${(Math.round(d.differenced_std) * d.revenue_per_booking).toLocaleString()} in monthly revenue swing exposure.`;
+► RISK QUANTIFICATION: At ₱${d.revenue_per_unit.toLocaleString()}/unit, the differenced volatility translates to ±₱${(Math.round(d.differenced_std) * d.revenue_per_unit).toLocaleString()} in monthly revenue swing exposure.`;
     }
 
     if (stageId === 'decomp') {
@@ -683,26 +683,26 @@ DIRECTIVES:
         seasonal_amplitude_avg: avgSeasonalAmp,
         residual_volatility_range: `±${Math.round(residualMax)} units`,
         residual_std: Number(residualStd.toFixed(1)),
-        peak_seasonal_months: monthlySeasonalityData.filter(m => m.avgDemand > avgMonthlyBookings * 1.2).map(m => m.month),
-        low_seasonal_months: monthlySeasonalityData.filter(m => m.avgDemand < avgMonthlyBookings * 0.8).map(m => m.month),
-        avg_monthly_volume: avgMonthlyBookings,
-        revenue_per_booking: 48000,
+        peak_seasonal_months: monthlySeasonalityData.filter(m => m.avgDemand > avgMonthlyDemand * 1.2).map(m => m.month),
+        low_seasonal_months: monthlySeasonalityData.filter(m => m.avgDemand < avgMonthlyDemand * 0.8).map(m => m.month),
+        avg_monthly_volume: avgMonthlyDemand,
+        revenue_per_unit: EST_REVENUE_PER_UNIT_PHP,
       };
       const peakMonths = d.peak_seasonal_months?.join(', ') || 'Apr, Dec';
       const lowMonths = d.low_seasonal_months?.join(', ') || 'Jun, Jul, Aug';
-      return `[STL SIGNAL EXTRACTION BRIEF: CAPITAL TIMING ARCHITECTURE]
+      return `[STL SIGNAL EXTRACTION BRIEF: BUSINESS CYCLE ARCHITECTURE]
 
-▶ TREND COMPONENT: Post-2022 recovery has plateaued into stabilized baseline growth at ~${d.avg_monthly_volume} units/month. The "Revenge Travel" dividend has been fully captured. Future volume growth requires deliberate market expansion — not passive demand absorption.
+▶ TREND COMPONENT: Post-2022 recovery has plateaued into stabilized baseline growth at ~${d.avg_monthly_volume} units/month. The post-disruption demand recovery dividend has been fully captured. Future volume growth requires deliberate market expansion — not passive demand absorption.
 
 ▶ SEASONAL ARCHITECTURE: Peak-season months (${peakMonths}) carry a systematic +${d.seasonal_amplitude_avg}-unit structural uplift above trend. Low-season months (${lowMonths}) carry a corresponding deficit. This is deterministic — not probabilistic. It will repeat in 2026.
 
-▶ RESIDUAL VOLATILITY: Unpredictable variance registers at ${d.residual_volatility_range} (σ=${d.residual_std}). This defines your mandatory operational hedge margin — the exact buffer to hold in Tranche 3 inventory at all times to absorb black-swan shocks without breaking SLA commitments.
+▶ RESIDUAL VOLATILITY: Unpredictable variance registers at ${d.residual_volatility_range} (σ=${d.residual_std}). This defines the mandatory operational hedge margin — the exact buffer required to absorb black-swan demand shocks without breaking service-level commitments.
 
 DIRECTIVES:
-► CAPITAL TIMING: Execute Wholesale Block procurement exactly 6 months before peak months (${peakMonths}). Deployment calendar: February lock-in for April peak, June lock-in for December peak.
-► TREND DIVERGENCE ALERT: If observed monthly volumes exceed the extracted trend by >25 units for 2 consecutive months, immediately trigger an emergency capacity review — a structural demand shift event requires model re-calibration.
-► RESIDUAL BUFFER RULE: Maintain ≥10 flexible seats per peak month as Tranche 3 inventory. This absorbs volatility without stranding capital in unsold wholesale blocks.
-► TROUGH OFFENSE: Deploy "off-season bundles" with 15–20% price reduction in ${lowMonths} to compress the seasonal trough and protect the annual revenue floor.`;
+► CAPITAL TIMING: Execute advance resource allocation exactly 6 months before peak months (${peakMonths}). Planning calendar: February lock-in for April peak, June lock-in for December peak.
+► TREND DIVERGENCE ALERT: If observed monthly volumes exceed the extracted trend by >25 units for 2 consecutive months, immediately trigger a capacity review — a structural demand shift event requires model re-calibration.
+► RESIDUAL BUFFER RULE: Maintain a flexible reserve capacity per peak month equivalent to ≥σ units. This absorbs volatility without stranding capital in unused committed resources.
+► TROUGH STRATEGY: Deploy promotional pricing with 15–20% reductions in ${lowMonths} to compress the seasonal trough and protect the annual revenue floor.`;
     }
 
     if (stageId === 'train') {
@@ -712,24 +712,24 @@ DIRECTIVES:
         search_space: '36 SARIMAX architecture combinations',
         best_model: { configuration: cfg, aic_score: bestModel.aic },
         performance_metrics: { RMSE: accuracyMetrics.rmse, WMAPE: `${accuracyMetrics.wmape}%` },
-        avg_monthly_volume: avgMonthlyBookings,
-        revenue_per_booking: 48000,
+        avg_monthly_volume: avgMonthlyDemand,
+        revenue_per_unit: EST_REVENUE_PER_UNIT_PHP,
       };
       return `[MODEL SELECTION BRIEF: SARIMAX OPTIMIZATION OUTCOME]
 
 ▶ ELECTED ARCHITECTURE: ${cfg} with exogenous regressors [Rainfall, Holidays]. Selected from ${d.search_space} via AIC parsimony minimization (winning AIC = ${d.best_model.aic_score}).
 
-▶ PARSIMONY DIVIDEND: The AIC criterion penalizes model complexity. The chosen configuration is the mathematically optimal balance between explanatory power and overfitting risk. A leaner, verified model yields more stable out-of-sample forecasts — directly translating to procurement confidence and reduced inventory risk.
+▶ PARSIMONY DIVIDEND: The AIC criterion penalizes model complexity. The chosen configuration is the mathematically optimal balance between explanatory power and overfitting risk. A leaner, verified model yields more stable out-of-sample forecasts — directly translating to planning confidence and reduced operational risk.
 
-▶ PERFORMANCE CERTIFICATION: RMSE = ${d.performance_metrics.RMSE} units (operational risk radius). WMAPE = ${d.performance_metrics.WMAPE} (executive confidence level). At 9.1% error tolerance, the DSS is certified for capital allocation decisions up to ₱${(d.avg_monthly_volume * d.revenue_per_booking * 0.091).toLocaleString()} per month in marginal procurement exposure.
+▶ PERFORMANCE CERTIFICATION: RMSE = ${d.performance_metrics.RMSE} units (operational risk radius). WMAPE = ${d.performance_metrics.WMAPE} (executive confidence level). At this error tolerance, the DSS is certified for resource allocation decisions up to ₱${(d.avg_monthly_volume * d.revenue_per_unit * 0.091).toLocaleString()} per month in marginal exposure.
 
 ▶ CONVERGENCE INTEGRITY: 1 architecture (SARIMAX(2,1,2)(1,1,1,12)) triggered Hessian inversion failure — auto-excluded by NaN filter. System integrity and parameter stability confirmed.
 
 DIRECTIVES:
-► Deploy ${cfg} as the production forecasting engine for all 2026 procurement cycles — no overrides without re-running grid search on updated data.
-► RMSE of ${d.performance_metrics.RMSE} units defines the mandatory Tranche 3 (Surge) buffer per forecast period — hold exactly this reserve as surge inventory per peak month.
-► Schedule quarterly model refit cycles as new monthly booking data accumulates. Stale parameters erode WMAPE.
-► RISK EXPOSURE: At ₱${d.revenue_per_booking.toLocaleString()}/booking × RMSE ${d.performance_metrics.RMSE}, maximum single-month forecast risk is ₱${(d.performance_metrics.RMSE * d.revenue_per_booking).toLocaleString()} — maintain as minimum cash liquidity buffer.`;
+► Deploy ${cfg} as the production forecasting engine for all 2026 planning cycles — no overrides without re-running grid search on updated data.
+► RMSE of ${d.performance_metrics.RMSE} units defines the mandatory surge buffer per forecast period — hold exactly this reserve as flexible capacity per peak month.
+► Schedule quarterly model refit cycles as new monthly demand data accumulates. Stale parameters erode WMAPE.
+► RISK EXPOSURE: At ₱${d.revenue_per_unit.toLocaleString()}/unit × RMSE ${d.performance_metrics.RMSE}, maximum single-month forecast risk is ₱${(d.performance_metrics.RMSE * d.revenue_per_unit).toLocaleString()} — maintain as minimum cash liquidity buffer.`;
     }
 
     if (stageId === 'dss') {
@@ -738,31 +738,31 @@ DIRECTIVES:
         : 'SARIMAX(1,1,1)(1,1,1,12)';
       const forecastOnly = forecastData.filter(d => d.forecast !== null);
       const total2026Forecast = forecastOnly.reduce((sum, d) => sum + (d.forecast || 0), 0);
-      const baseRevenue = total2026Forecast * 48000;
-      const optimisticRevenue = forecastData.filter(d => d.ci_upper !== null).reduce((sum, d) => sum + (d.ci_upper || 0), 0) * 48000;
+      const baseRevenue = total2026Forecast * EST_REVENUE_PER_UNIT_PHP;
+      const optimisticRevenue = forecastData.filter(d => d.ci_upper !== null).reduce((sum, d) => sum + (d.ci_upper || 0), 0) * EST_REVENUE_PER_UNIT_PHP;
       const peakForecast = forecastOnly.reduce((max, d) => d.forecast > (max.forecast || 0) ? d : max, {});
       const trancheMatrix = prescriptiveData.slice(0, 6).map(d => ({
-        month: d.date, wholesale_block: d.safeWholesale, dynamic_inventory: d.dynamicInventory,
-        surge_premium: d.surgePremium, total_ceiling: d.upperLimit,
+        month: d.date, safe_base: d.safeWholesale, dynamic_band: d.dynamicInventory,
+        surge_cap: d.surgePremium, total_ceiling: d.upperLimit,
       }));
-      const peakTranche = trancheMatrix.length > 0
-        ? trancheMatrix.reduce((max, t) => (t.wholesale_block + t.dynamic_inventory) > ((max.wholesale_block || 0) + (max.dynamic_inventory || 0)) ? t : max, trancheMatrix[0])
+      const peakAllocation = trancheMatrix.length > 0
+        ? trancheMatrix.reduce((max, t) => (t.safe_base + t.dynamic_band) > ((max.safe_base || 0) + (max.dynamic_band || 0)) ? t : max, trancheMatrix[0])
         : {};
       const totalForecastRev = (baseRevenue / 1000000).toFixed(1);
       const optimisticRev = (optimisticRevenue / 1000000).toFixed(1);
 
-      return `[EXECUTIVE DIRECTIVE: 2026 CAPITAL PROCUREMENT — XoCompass DSS v2.0]
+      return `[EXECUTIVE DIRECTIVE: 2026 RESOURCE ALLOCATION — XoCompass DSS v2.0]
 
-Based on the synthesized SARIMAX predictive array (WMAPE: ${accuracyMetrics.wmape}%, active model: ${modelLabel}) cross-referenced against KJS operational constraints, the following allocations are mathematically mandated:
+Based on the synthesized SARIMAX predictive array (WMAPE: ${accuracyMetrics.wmape}%, active model: ${modelLabel}) cross-referenced against operational constraints, the following allocations are data-driven mandates:
 
-▶ SDG 12 (RESPONSIBLE CONSUMPTION) ALIGNMENT
-Total 2026 projected volume: ${total2026Forecast} bookings generating ₱${totalForecastRev}M base revenue (₱${optimisticRev}M optimistic ceiling under upper CI). To strictly enforce a waste margin below 5%, Tranche 1 (Wholesale) procurement must not exceed the lower 95% CI bound minus 5 units. For peak month (${peakForecast?.date || 'Apr/Dec'}), this hard-caps advance procurement at ${peakTranche?.wholesale_block ?? 'N/A'} seats. Excess capital must not be tied to unverified demand volume.
+▶ SUSTAINABLE RESOURCE ALIGNMENT
+Total 2026 projected volume: ${total2026Forecast} demand units generating ₱${totalForecastRev}M base revenue (₱${optimisticRev}M optimistic ceiling under upper CI). To enforce a waste margin below 5%, Tier 1 (Committed) allocation must not exceed the lower 95% CI bound minus 5 units. For peak month (${peakForecast?.date || 'Apr/Dec'}), this hard-caps advance commitment at ${peakAllocation?.safe_base ?? 'N/A'} units. Excess capital must not be tied to unverified demand volume.
 
-▶ SDG 8 (DECENT WORK) FLEET SATURATION PROTOCOL
-The predictive surge in April and December mathematically intersects the KJS fleet saturation cap of 25 vans/day. Protocol: Deploy internal fleet to full saturation (25 vehicles), then outsource Tranche 3 overflow (${peakTranche?.surge_premium ?? 'N/A'} seats at peak) to validated third-party operators at pre-negotiated bulk rates. Sustained driver overtime accumulation generates hidden DOLE liability — operationally non-compliant.
+▶ CAPACITY MANAGEMENT PROTOCOL
+The predictive surge in April and December mathematically intersects operational capacity limits. Protocol: Deploy primary capacity to full utilization, then activate Tier 3 overflow (${peakAllocation?.surge_cap ?? 'N/A'} units at peak) via pre-negotiated partner agreements at validated rates. Sustained overtime accumulation generates hidden compliance liability.
 
-▶ SDG 9 (INNOVATION) & FINANCIAL YIELD OPTIMIZATION
-Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), Tranche 3 (Surge Premium) inventory must be held in reserve and dynamically priced at minimum ₱62,400/seat (+30% markup). Non-deployment of surge pricing on peak months forfeits ₱${(((peakTranche?.surge_premium ?? 0) * 48000 * 0.30)).toLocaleString()} in extractable premium margin per peak month. RMSE ±${accuracyMetrics.rmse} units defines the mandatory Tranche 3 buffer — this exact quantum must remain unharvested until 72-hour departure confirmation.`;
+▶ YIELD OPTIMIZATION ENGINE
+Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), Tier 3 (Surge Premium) capacity must be held in reserve and dynamically priced at minimum +30% markup. Non-deployment of surge pricing on peak months forfeits ₱${(((peakAllocation?.surge_cap ?? 0) * EST_REVENUE_PER_UNIT_PHP * 0.30)).toLocaleString()} in extractable premium margin per peak month. RMSE ±${accuracyMetrics.rmse} units defines the mandatory Tier 3 buffer — this exact quantum must remain uncommitted until 72-hour demand confirmation.`;
     }
 
     return '';
@@ -798,12 +798,12 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
   };
 
   const steps = [
-      { id: 'ingest', label: '1. EDA & Ingest' },
-      { id: 'correlation', label: '2. Correlations' },
+      { id: 'ingest', label: '1. Data Profiling' },
+      { id: 'correlation', label: '2. Feature Analysis' },
       { id: 'process', label: '3. Stationarity' },
-      { id: 'decomp', label: '4. Decomposition' },
-      { id: 'train', label: '5. Training' },
-      { id: 'eval', label: '6. XoCompass DSS Engine' }
+      { id: 'decomp', label: '4. Signal Extraction' },
+      { id: 'train', label: '5. Model Training' },
+      { id: 'eval', label: '6. Decision Engine' }
   ];
 
   const runPipeline = (nextStage) => {
@@ -854,7 +854,7 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                <Cpu className="text-sky-400" size={32} /> XoCompass SARIMAX Engine
             </h1>
             <p className="text-slate-400 mt-1 text-sm flex items-center gap-2 font-medium">
-                <Shield size={14} className="text-emerald-500"/> KJS Decision Support System (DSS) • Fault-Tolerant
+                <Shield size={14} className="text-emerald-500"/> Business Decision Support System (DSS) • Fault-Tolerant
             </p>
           </div>
           <div className="hidden lg:flex items-center gap-3 bg-slate-950 border border-slate-800 px-4 py-2 rounded-lg shadow-inner">
@@ -894,7 +894,7 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                     <label className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 block">Target Variable (Y)</label>
                     <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-center gap-2 shadow-inner">
                       <Database size={16} className="text-sky-400"/>
-                      <span className="text-sm font-mono text-slate-300">monthly_booking_volume</span>
+                      <span className="text-sm font-mono text-slate-300">monthly_demand_volume</span>
                     </div>
                   </div>
 
@@ -944,8 +944,8 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                     {/* KPI Dashboard */}
                     <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
                         <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 shadow-lg">
-                            <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 flex items-center gap-1"><Database size={12}/> Total Bookings</h4>
-                            <div className="text-2xl font-black text-white">{totalBookings.toLocaleString()}</div>
+                            <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 flex items-center gap-1"><Database size={12}/> Total Demand</h4>
+                            <div className="text-2xl font-black text-white">{totalDemandUnits.toLocaleString()}</div>
                             <p className="text-[10px] text-slate-400 mt-1">12-Year Aggregate</p>
                         </div>
                         <div className="bg-slate-900/80 border border-emerald-500/20 rounded-2xl p-4 shadow-lg border-l-2 border-l-emerald-500">
@@ -955,13 +955,13 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                         </div>
                         <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 shadow-lg">
                             <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 flex items-center gap-1"><PieChart size={12}/> Avg Monthly</h4>
-                            <div className="text-2xl font-black text-white">{avgMonthlyBookings}</div>
+                            <div className="text-2xl font-black text-white">{avgMonthlyDemand}</div>
                             <p className="text-[10px] text-slate-400 mt-1">Units per month</p>
                         </div>
                         <div className="bg-slate-900/80 border border-purple-500/20 rounded-2xl p-4 shadow-lg border-l-2 border-l-purple-500">
                             <h4 className="text-[10px] font-bold text-purple-400 uppercase tracking-widest mb-1 flex items-center gap-1"><TrendingUp size={12}/> Peak Record</h4>
-                            <div className="text-2xl font-black text-purple-400">{maxBookingRow.demand}</div>
-                            <p className="text-[10px] text-slate-400 mt-1">Recorded {maxBookingRow.date}</p>
+                            <div className="text-2xl font-black text-purple-400">{peakDemandRow.demand}</div>
+                            <p className="text-[10px] text-slate-400 mt-1">Recorded {peakDemandRow.date}</p>
                         </div>
                         <div className="bg-slate-900/80 border border-sky-500/20 rounded-2xl p-4 shadow-lg border-l-2 border-l-sky-500">
                             <h4 className="text-[10px] font-bold text-sky-400 uppercase tracking-widest mb-1 flex items-center gap-1"><Activity size={12}/> YoY Growth</h4>
@@ -970,17 +970,17 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                         </div>
                     </div>
 
-                    <RuleInsight 
+                    <RuleInsight
                         title="Historical Timeline & Data Sufficiency"
                         leftTitle="System Constraint (Math)" leftIcon={Info}
                         rightTitle="Strategic Capitalization" rightIcon={Lightbulb}
-                        systemRule={<><p><strong>The Law of Large Numbers</strong> dictates that sample size dictates parameter truth. By aggregating daily transactional noise into strict monthly volumes, we mathematically prevent algorithmic hallucination.</p><p>SARIMAX requires 36 historical periods to prevent structural overfitting. With <strong>146 months</strong> of validated data, KJS exceeds the mathematical reliability threshold by 4x.</p></>}
-                        businessInsight={<><p>Your historical data is a deeply undervalued asset. This 12-year archive quantitatively proves KJS's immense, unshakable market resilience.</p><p><strong>Strategic Action:</strong> The era of "guessing" peak seasons via operational feeling is over. Maintaining this continuous data ingestion pipeline allows XoCompass to function as a fully quantitative DSS.</p></>}
+                        systemRule={<><p><strong>The Law of Large Numbers</strong> dictates that sample size dictates parameter truth. By aggregating daily transactional noise into strict monthly volumes, we mathematically prevent algorithmic hallucination.</p><p>SARIMAX requires 36 historical periods to prevent structural overfitting. With <strong>146 months</strong> of validated data, the dataset exceeds the mathematical reliability threshold by 4x.</p></>}
+                        businessInsight={<><p>Historical demand data is a deeply undervalued business asset. This 12-year archive quantitatively demonstrates structural market resilience and demand patterns.</p><p><strong>Strategic Action:</strong> The era of "guessing" peak seasons via intuition is over. Maintaining this continuous data ingestion pipeline allows XoCompass to function as a fully quantitative Decision Support System.</p></>}
                     />
                     
                     <div className="bg-slate-900/60 backdrop-blur rounded-2xl p-6 border border-slate-800 shadow-xl">
                         <div className="flex justify-between items-center mb-6">
-                            <h3 className="text-lg font-bold text-white flex items-center gap-2"><LineChartIcon size={20} className="text-sky-400"/> Aggregated Core Timeline vs Exogenous Forces</h3>
+                            <h3 className="text-lg font-bold text-white flex items-center gap-2"><LineChartIcon size={20} className="text-sky-400"/> Demand Timeline vs Exogenous Variables</h3>
                             <span className="bg-slate-950 px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-widest rounded border border-slate-800">2013-2025</span>
                         </div>
                         <div className="h-[320px] w-full bg-slate-950/80 rounded-xl border border-slate-800 p-4 shadow-inner">
@@ -992,9 +992,9 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                                     <YAxis yAxisId="right" orientation="right" stroke="#a78bfa" hide/>
                                     <Tooltip contentStyle={{backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px'}} formatter={(value) => [safeFormat(value), undefined]}/>
                                     <Legend wrapperStyle={{fontSize: '11px'}}/>
-                                    <Bar yAxisId="right" dataKey="rainfall" fill="#38bdf8" opacity={0.15} name="Monsoon Rainfall (mm)" barSize={4} />
-                                    <Bar yAxisId="right" dataKey="holiday" fill="#10b981" opacity={0.2} name="Nat. Holidays" barSize={2} />
-                                    <Line yAxisId="left" type="monotone" dataKey="demand" stroke="#38bdf8" strokeWidth={2} dot={false} name="Bookings Volume" />
+                                    <Bar yAxisId="right" dataKey="rainfall" fill="#38bdf8" opacity={0.15} name="Rainfall (mm)" barSize={4} />
+                                    <Bar yAxisId="right" dataKey="holiday" fill="#10b981" opacity={0.2} name="Holidays" barSize={2} />
+                                    <Line yAxisId="left" type="monotone" dataKey="demand" stroke="#38bdf8" strokeWidth={2} dot={false} name="Demand Volume" />
                                 </ComposedChart>
                             </ResponsiveContainer>
                         </div>
@@ -1006,11 +1006,11 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                                 title="Macro-Economic Aggregation"
                                 leftTitle="Data Science" leftIcon={Search}
                                 rightTitle="Insight" rightIcon={TrendingUp}
-                                systemRule={<p>Aggregating strictly by Year isolates macroeconomic shock trends from seasonal noise. The calculation computes total discrete bookings alongside a simulated Revenue curve (Demand × Base Net Value).</p>}
-                                businessInsight={<p>Notice the structural break at the 2020 Pandemic, followed by a violent exponential recovery curve. The data proves KJS aggressively captured massive "Revenge Travel" market share post-2022.</p>}
+                                systemRule={<p>Aggregating strictly by Year isolates macroeconomic shock trends from seasonal noise. The calculation computes total discrete demand alongside a simulated Revenue curve (Demand × Base Net Value).</p>}
+                                businessInsight={<p>Notice the structural break at the 2020 disruption, followed by a sharp exponential recovery curve. The data confirms aggressive market share capture post-2022, validating business resilience.</p>}
                             />
                             <div className="bg-slate-900/60 backdrop-blur rounded-2xl p-5 border border-slate-800 shadow-xl mt-4">
-                                <h3 className="font-bold text-white mb-4 text-sm tracking-wide">Year-over-Year Demand & Capital</h3>
+                                <h3 className="font-bold text-white mb-4 text-sm tracking-wide">Year-over-Year Demand & Revenue</h3>
                                 <div className="h-[250px] w-full bg-slate-950/80 rounded-xl border border-slate-800 p-3 shadow-inner">
                                     <ResponsiveContainer width="100%" height="100%">
                                         <ComposedChart data={yearlyData}>
@@ -1019,7 +1019,7 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                                             <YAxis yAxisId="left" stroke="#38bdf8" tick={{fontSize: 10}}/>
                                             <YAxis yAxisId="right" orientation="right" stroke="#10b981" tick={{fontSize: 10}} tickFormatter={(v) => `₱${v/1000}k`}/>
                                             <Tooltip contentStyle={{backgroundColor: '#0f172a', borderColor: '#334155'}} />
-                                            <Bar yAxisId="left" dataKey="totalDemand" fill="#38bdf8" opacity={0.8} name="Total Bookings" radius={[2,2,0,0]} />
+                                            <Bar yAxisId="left" dataKey="totalDemand" fill="#38bdf8" opacity={0.8} name="Total Demand" radius={[2,2,0,0]} />
                                             <Line yAxisId="right" type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={3} dot={true} name="Est. Revenue (₱)" />
                                         </ComposedChart>
                                     </ResponsiveContainer>
@@ -1032,11 +1032,11 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                                 title="Seasonal Density Distribution"
                                 leftTitle="Data Science" leftIcon={Layers}
                                 rightTitle="Insight" rightIcon={Calendar}
-                                systemRule={<p>By collapsing 12 years of data onto a single 12-month axis, we calculate the mathematical "Center of Mass". This removes the illusion of overall company growth and strictly isolates density.</p>}
-                                businessInsight={<p>The distribution definitively highlights April and December as KJS's operational zenith. <strong>Strategic Move:</strong> Stop spending marketing capital linearly. Heavily front-load ad budget in February/October to capture lead-up.</p>}
+                                systemRule={<p>By collapsing 12 years of data onto a single 12-month axis, we calculate the mathematical "Center of Mass". This removes the illusion of overall company growth and strictly isolates demand density.</p>}
+                                businessInsight={<p>The distribution definitively highlights peak operational months. <strong>Strategic Move:</strong> Stop spending marketing capital linearly. Heavily front-load budget before identified peak months to capture the lead-up demand curve.</p>}
                             />
                             <div className="bg-slate-900/60 backdrop-blur rounded-2xl p-5 border border-slate-800 shadow-xl mt-4">
-                                <h3 className="font-bold text-white mb-4 text-sm tracking-wide">Average Monthly Density (Jan-Dec)</h3>
+                                <h3 className="font-bold text-white mb-4 text-sm tracking-wide">Avg Monthly Demand Density (Jan-Dec)</h3>
                                 <div className="h-[250px] w-full bg-slate-950/80 rounded-xl border border-slate-800 p-3 shadow-inner">
                                     <ResponsiveContainer width="100%" height="100%">
                                         <RechartsBarChart data={monthlySeasonalityData}>
@@ -1044,14 +1044,14 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                                             <XAxis dataKey="month" stroke="#64748b" tick={{fontSize: 10}}/>
                                             <YAxis stroke="#a855f7" tick={{fontSize: 10}}/>
                                             <Tooltip cursor={{fill: '#1e293b'}} contentStyle={{backgroundColor: '#0f172a', borderColor: '#334155'}} />
-                                            <Bar dataKey="avgDemand" fill="#a855f7" opacity={0.9} name="Avg Bookings" radius={[4,4,0,0]} />
+                                            <Bar dataKey="avgDemand" fill="#a855f7" opacity={0.9} name="Avg Demand" radius={[4,4,0,0]} />
                                         </RechartsBarChart>
                                     </ResponsiveContainer>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    <StageInsightPanel stageId="ingest" label="EDA & Ingestion" />
+                    <StageInsightPanel stageId="ingest" label="Data Profiling" />
                 </div>
             )}
 
@@ -1067,13 +1067,13 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                         systemRule={
                             <>
                                 <p>To securely introduce Exogenous variables (X) into SARIMAX, they must mathematically prove their independent influence on the Target variable (Y) via the <strong>Pearson Correlation Coefficient (r)</strong>.</p>
-                                <p>We must strictly prevent <strong>Multicollinearity</strong> (twin variables skewing the weights). <em>Rain</em> (<span className="text-sky-400 font-bold">{correlations.demand_rainfall}</span>) and <em>Holidays</em> (<span className="text-emerald-400 font-bold">{correlations.demand_holiday > 0 ? '+' : ''}{correlations.demand_holiday}</span>) exceed the |0.3| threshold. Crucially, their mutual correlation is only <strong>{correlations.rainfall_holiday}</strong> (VIF={correlations.vif_rainfall} &lt; 5.0), mathematically proving they operate independently.</p>
+                                <p>We must strictly prevent <strong>Multicollinearity</strong> (correlated regressors skewing weights). <em>Rain</em> (<span className="text-sky-400 font-bold">{correlations.demand_rainfall}</span>) and <em>Holidays</em> (<span className="text-emerald-400 font-bold">{correlations.demand_holiday > 0 ? '+' : ''}{correlations.demand_holiday}</span>) exceed the |0.3| threshold. Crucially, their mutual correlation is only <strong>{correlations.rainfall_holiday}</strong> (VIF={correlations.vif_rainfall} &lt; 5.0), mathematically proving they operate independently.</p>
                             </>
                         }
                         businessInsight={
                             <>
-                                <p>The math explicitly validates operational floor intuition: catastrophic weather represses departures, while national holidays reliably spike them.</p>
-                                <p><strong>Strategic Action:</strong> Dynamically reallocate budget to launch aggressive "Rainy Day Escapes" exactly when monsoon data predicts a dip. Conversely, launch "Early Bird Lock-ins" 3 months prior to holiday spikes to secure cash flow early.</p>
+                                <p>The math explicitly validates operational intuition: adverse weather suppresses demand, while national holidays reliably amplify it.</p>
+                                <p><strong>Strategic Action:</strong> Dynamically reallocate budget to deploy targeted promotions during predicted weather dips. Launch early-commitment campaigns 90 days before holiday clusters to secure revenue in advance.</p>
                             </>
                         }
                     />
@@ -1106,11 +1106,11 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                             <div className="flex flex-col justify-center space-y-4">
                                 <div className="p-4 bg-slate-950 border border-slate-800 rounded-xl">
                                     <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Volume + Rain (r={correlations.demand_rainfall})</p>
-                                    <p className="text-sm text-sky-300 font-medium">Moderate Inverse Relationship. Monsoons reliably suppress travel appetite.</p>
+                                    <p className="text-sm text-sky-300 font-medium">Moderate Inverse Relationship. Heavy rainfall reliably suppresses demand.</p>
                                 </div>
                                 <div className="p-4 bg-slate-950 border border-slate-800 rounded-xl">
                                     <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Volume + Holidays (r={correlations.demand_holiday > 0 ? '+' : ''}{correlations.demand_holiday})</p>
-                                    <p className="text-sm text-emerald-300 font-medium">Strong Direct Relationship. Core driver of booking surges.</p>
+                                    <p className="text-sm text-emerald-300 font-medium">Strong Direct Relationship. Core driver of demand surges.</p>
                                 </div>
                                 <div className="p-4 bg-slate-950 border border-amber-500/20 rounded-xl">
                                     <p className="text-xs font-bold text-amber-400 uppercase tracking-widest mb-1">Variance Inflation Factor (VIF)</p>
@@ -1120,7 +1120,7 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                             </div>
                         </div>
                     </div>
-                    <StageInsightPanel stageId="correlation" label="Correlation Analysis" />
+                    <StageInsightPanel stageId="correlation" label="Feature Analysis" />
                 </div>
             )}
 
@@ -1150,7 +1150,7 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                                 Time series algorithms are mathematically blind to shifting baselines. They rigidly assume your business has a constant, flat average over time (Stationarity). 
                             </p>
                             <p className="text-sm text-slate-300 leading-relaxed">
-                                Because KJS has grown massively over 12 years, the Augmented Dickey-Fuller (ADF) test proves our raw data fails this check (p={adfResults.raw.pValue}).
+                                Because the business has grown significantly over 12 years, the Augmented Dickey-Fuller (ADF) test proves our raw data fails this check (p={adfResults.raw.pValue}).
                             </p>
                         </div>
 
@@ -1193,7 +1193,7 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 relative z-10">
                             <div className="space-y-4">
                                 <p className="text-sm text-slate-300 leading-relaxed">
-                                    Time series models explicitly require the mean and variance to remain constant. Because KJS's 12-year volume exhibits an exponential growth trend, directly inputting raw data violates this constraint.
+                                    Time series models explicitly require the mean and variance to remain constant. Because the business's 12-year demand volume exhibits an exponential growth trend, directly inputting raw data violates this constraint.
                                 </p>
                                 <p className="text-sm text-slate-300 leading-relaxed">
                                     To structurally eliminate this upward bias, we compute the First Difference:
@@ -1246,7 +1246,7 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                             <div className="p-6 bg-transparent hover:bg-slate-900/40 transition-colors">
                                 <div className="flex items-center gap-3 mb-5 border-b border-slate-800 pb-3">
                                     <div className="p-2 bg-emerald-900/20 text-emerald-400 rounded-lg"><Users size={20}/></div>
-                                    <h4 className="text-lg font-bold text-emerald-400 tracking-tight">How it Helps KJS Executives</h4>
+                                    <h4 className="text-lg font-bold text-emerald-400 tracking-tight">How it Helps Business Executives</h4>
                                 </div>
                                 <ul className="space-y-4 text-sm text-slate-300 leading-relaxed">
                                     <li className="flex gap-3 items-start"><Check size={16} className="text-emerald-500 mt-0.5 shrink-0"/> <span><strong>Prevents Enterprise DoS:</strong> Safely caps the rendering engine memory footprint, preventing the system from freezing on massive arrays.</span></li>
@@ -1381,7 +1381,7 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                                 <div>
                                     <h4 className="text-lg font-bold text-slate-200 mb-2">The Cash Flow Rhythm</h4>
                                     <p className="text-sm text-slate-400 leading-relaxed">
-                                        XoCompass maps this unbreakable, cyclical 12-month loop by removing multi-year growth variables. This isolates the exact amplitude of KJS's natural peaks and troughs.
+                                        XoCompass maps this unbreakable, cyclical 12-month loop by removing multi-year growth variables. This isolates the exact amplitude of the business's natural peaks and troughs.
                                     </p>
                                     <p className="text-sm text-slate-400 leading-relaxed mt-3">
                                         <strong>Executive Action:</strong> This is your exact HR schedule. Scale temporary operational labor exactly 30 days before the upward inflection. Conversely, deploy aggressive marketing discounts strictly during the predictable mathematical troughs to salvage revenue.
@@ -1420,7 +1420,7 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                                         Once Trend and Seasonality are stripped away, what remains is the pure "White Noise" of the market. These are the random, black-swan shocks that no algorithm can ever mathematically predict.
                                     </p>
                                     <p className="text-sm text-slate-400 leading-relaxed mt-3">
-                                        <strong>Executive Action:</strong> XoCompass mathematically defines your absolute risk. KJS historically faces ±15 units of random variance. You must maintain an emergency cash reserve capable of absorbing this exact quantum of unexpected monthly shortfalls without breaking operations.
+                                        <strong>Executive Action:</strong> XoCompass mathematically defines the absolute risk envelope. The business historically faces ±15 units of random variance. Maintain an emergency reserve capable of absorbing this exact quantum of unexpected monthly shortfalls without breaking operations.
                                     </p>
                                 </div>
                             </div>
@@ -1447,8 +1447,8 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                         }
                         businessInsight={
                             <>
-                                <p>The XoCompass engine actively rejects bloated, overly complex algorithms in favor of a lean, highly efficient mathematical blueprint. KJS should adopt this exact "parsimonious" mindset organizationally.</p>
-                                <p><strong>Strategic Action:</strong> Audit current software suites, sub-agencies, and marketing channels. Ruthlessly cut operational bloat that does not actively drive volume. Focus capital purely on low-complexity, high-yield revenue drivers.</p>
+                                <p>The XoCompass engine actively rejects bloated, overly complex algorithms in favor of a lean, highly efficient mathematical blueprint. Organizations should adopt this exact "parsimonious" mindset operationally.</p>
+                                <p><strong>Strategic Action:</strong> Audit current operational channels and vendor relationships. Eliminate complexity that does not actively drive demand volume. Focus resources on low-complexity, high-yield revenue drivers.</p>
                             </>
                         }
                     />
@@ -1499,7 +1499,7 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                                         <Target size={28}/>
                                     </div>
                                     <h3 className="text-2xl font-black text-white mb-2 tracking-tight">The Winning Architecture</h3>
-                                    <p className="text-slate-400 text-sm mb-5 max-w-xl mx-auto">This precise blueprint achieved the lowest penalty score (AIC), proving mathematically that it yields the highest predictive accuracy for KJS while generating zero computational bloat.</p>
+                                    <p className="text-slate-400 text-sm mb-5 max-w-xl mx-auto">This precise blueprint achieved the lowest penalty score (AIC), proving mathematically that it yields the highest predictive accuracy while generating zero computational bloat.</p>
                                     <div className="text-indigo-300 font-mono text-xl tracking-widest bg-slate-950 inline-block px-5 py-3 rounded-lg border border-indigo-500/30 shadow-inner font-bold">
                                         <span className="text-sky-400">SARIMAX({bestModel.p},{bestModel.d},{bestModel.q})</span><span className="text-purple-400">({bestModel.P},{bestModel.D},{bestModel.Q},{bestModel.s})</span> <span className="text-emerald-400">+ X</span>
                                     </div>
@@ -1572,7 +1572,7 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                                 <h3 className="text-sm font-bold text-slate-200 uppercase tracking-wide">The Baseline Anchor</h3>
                             </div>
                             <p className="text-[11px] text-slate-400 leading-relaxed mb-5 flex-grow relative z-10">
-                                By synthesizing Ingestion (Step 1) with STL Decomposition (Step 4), we strip away 12 years of noise. The chart proves that despite immense raw variance, KJS's underlying trend line has securely plateaued post-pandemic, creating a highly predictable, profitable baseline.
+                                By synthesizing Ingestion (Step 1) with STL Decomposition (Step 4), we strip away 12 years of noise. The chart proves that despite immense raw variance, the underlying trend line has securely plateaued post-disruption, creating a highly predictable, profitable baseline.
                             </p>
                             <div className="h-40 w-full bg-slate-950 rounded-xl border border-slate-800 p-2 shadow-inner relative z-10">
                                 <ResponsiveContainer width="100%" height="100%">
@@ -1595,7 +1595,7 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                                 <h3 className="text-sm font-bold text-slate-200 uppercase tracking-wide">The Contextual Shock</h3>
                             </div>
                             <p className="text-[11px] text-slate-400 leading-relaxed mb-5 flex-grow relative z-10">
-                                Why do we miss volume targets? Regressor extraction (Step 2) mathematically quantifies external shocks. A safe baseline month generating 50 units drops severely under maximum monsoon impact, but violently surges past capacity under optimal holiday alignment.
+                                Why do we miss volume targets? Feature analysis (Step 2) mathematically quantifies external shocks. A baseline month generating ~50 units drops severely under adverse weather, but surges past capacity under optimal holiday alignment.
                             </p>
                             <div className="h-40 w-full bg-slate-950 rounded-xl border border-slate-800 p-3 shadow-inner relative z-10 flex flex-col justify-center">
                                 <ResponsiveContainer width="100%" height="100%">
@@ -1666,7 +1666,7 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                             <div className="flex flex-col lg:flex-row lg:items-center justify-between mb-6 border-b border-emerald-500/20 pb-4 gap-4">
                                 <div className="flex items-center gap-3">
                                     <span className="bg-emerald-950 text-emerald-400 border border-emerald-800 text-[9px] font-black uppercase px-2 py-1 rounded tracking-widest shadow-inner">4. Prescriptive</span>
-                                    <h3 className="text-xl font-black text-white uppercase tracking-wider flex items-center gap-2"><Briefcase size={20} className="text-emerald-400"/> Tactical Capital Allocation</h3>
+                                    <h3 className="text-xl font-black text-white uppercase tracking-wider flex items-center gap-2"><Briefcase size={20} className="text-emerald-400"/> Tactical Resource Allocation</h3>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <span className="bg-slate-900 border border-slate-800 px-3 py-1 rounded-full text-[10px] font-bold text-slate-400 flex items-center gap-1 shadow-inner"><Leaf size={12} className="text-emerald-500"/> SDG Compliant Engine</span>
@@ -1677,32 +1677,32 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                                 {/* Storytelling Column */}
                                 <div className="lg:col-span-4 space-y-4">
                                     <p className="text-sm text-slate-200 font-bold tracking-wide">
-                                        Data Science must evolve into Financial Engineering. We don't just "expect" these numbers; we trade on them. 
+                                        Data Science must evolve into Strategic Decision Engineering. We don't just "expect" these numbers; we act on them.
                                     </p>
                                     <p className="text-[11px] text-slate-400 leading-relaxed">
-                                        This execution matrix deconstructs the 2026 algorithm into three rigid financial Tranches. By strictly aligning your supply-chain procurement to these mathematical bands, KJS transitions immediately from reactive selling to proactive profit mapping.
+                                        This execution matrix deconstructs the 2026 forecast into three resource allocation tiers. By strictly aligning operational planning to these mathematical bands, the business transitions from reactive management to proactive profit mapping.
                                     </p>
                                     
                                     <div className="space-y-3 mt-6">
                                         <div className="p-3 bg-slate-900/80 border border-emerald-500/30 rounded-xl border-l-4 border-l-emerald-500 hover:bg-emerald-900/20 transition-colors shadow-inner">
-                                            <h5 className="text-xs font-bold text-emerald-400 uppercase mb-1 tracking-wider">Tranche 1: Wholesale Block</h5>
-                                            <p className="text-[10px] text-slate-400 leading-relaxed">The absolute minimum safe bound. Pre-purchase these seats 6 months in advance at heavy bulk discount. Zero risk of oversupply.</p>
+                                            <h5 className="text-xs font-bold text-emerald-400 uppercase mb-1 tracking-wider">Tier 1: Committed Base</h5>
+                                            <p className="text-[10px] text-slate-400 leading-relaxed">The absolute minimum safe bound. Pre-commit these resources 6 months in advance at optimized rates. Zero risk of over-allocation.</p>
                                         </div>
                                         <div className="p-3 bg-slate-900/80 border border-sky-500/30 rounded-xl border-l-4 border-l-sky-500 hover:bg-sky-900/20 transition-colors shadow-inner">
-                                            <h5 className="text-xs font-bold text-sky-400 uppercase mb-1 tracking-wider">Tranche 2: Dynamic Inventory</h5>
-                                            <p className="text-[10px] text-slate-400 leading-relaxed">The delta up to the forecast. Release these at standard market rates closer to departure to maintain steady operational cash flow.</p>
+                                            <h5 className="text-xs font-bold text-sky-400 uppercase mb-1 tracking-wider">Tier 2: Dynamic Allocation</h5>
+                                            <p className="text-[10px] text-slate-400 leading-relaxed">The delta up to the forecast point. Release at standard rates closer to demand realization to maintain steady cash flow.</p>
                                         </div>
                                         <div className="p-3 bg-slate-900/80 border border-fuchsia-500/30 rounded-xl border-l-4 border-l-fuchsia-500 hover:bg-fuchsia-900/20 transition-colors shadow-inner">
-                                            <h5 className="text-xs font-bold text-fuchsia-400 uppercase mb-1 tracking-wider">Tranche 3: Surge Premium</h5>
-                                            <p className="text-[10px] text-slate-400 leading-relaxed">The upper confidence ceiling. Hold this capacity in reserve. Deploy strictly to late-bookers at a 30-50% premium margin.</p>
+                                            <h5 className="text-xs font-bold text-fuchsia-400 uppercase mb-1 tracking-wider">Tier 3: Surge Premium</h5>
+                                            <p className="text-[10px] text-slate-400 leading-relaxed">The upper confidence ceiling. Hold capacity in reserve. Deploy to late-stage demand at a 30-50% premium margin.</p>
                                         </div>
                                     </div>
                                 </div>
 
                                 {/* Heavy Visualization Column */}
                                 <div className="lg:col-span-8 bg-slate-950 rounded-2xl border border-slate-800 p-6 shadow-inner relative">
-                                    <h4 className="text-sm font-bold text-white text-center mb-1 uppercase tracking-widest">2026 Executive Procurement Matrix</h4>
-                                    <p className="text-[10px] text-slate-500 text-center mb-6 uppercase tracking-widest font-bold">Actionable Tranche Architecture</p>
+                                    <h4 className="text-sm font-bold text-white text-center mb-1 uppercase tracking-widest">2026 Resource Allocation Matrix</h4>
+                                    <p className="text-[10px] text-slate-500 text-center mb-6 uppercase tracking-widest font-bold">Actionable Tier Architecture</p>
                                     
                                     <div className="h-[380px] w-full">
                                         <ResponsiveContainer width="100%" height="100%">
@@ -1715,21 +1715,21 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                                                     itemStyle={{fontSize: '12px', fontWeight: 'bold'}}
                                                     formatter={(value, name) => [
                                                         safeFormat(value), 
-                                                        name === 'safeWholesale' ? 'Wholesale Block (Emerald)' : 
-                                                        name === 'dynamicInventory' ? 'Dynamic Inventory (Sky)' : 'Premium Surge Cap (Purple)'
+                                                        name === 'safeWholesale' ? 'Committed Base (Emerald)' :
+                                                        name === 'dynamicInventory' ? 'Dynamic Allocation (Sky)' : 'Surge Premium Cap (Purple)'
                                                     ]}
                                                     labelFormatter={(label) => `2026 - ${label}`}
                                                 />
                                                 <Legend wrapperStyle={{fontSize: '10px', paddingTop: '10px'}}/>
                                                 
                                                 {/* Bar 1: The ultra-safe base to buy wholesale */}
-                                                <Bar dataKey="safeWholesale" stackId="a" fill="#10b981" name="1. Wholesale Block" radius={[0, 0, 4, 4]} />
-                                                
+                                                <Bar dataKey="safeWholesale" stackId="a" fill="#10b981" name="1. Committed Base" radius={[0, 0, 4, 4]} />
+
                                                 {/* Bar 2: The remaining forecast to fill standard */}
-                                                <Bar dataKey="dynamicInventory" stackId="a" fill="#0ea5e9" name="2. Dynamic Inventory" radius={[4, 4, 0, 0]} />
-                                                
+                                                <Bar dataKey="dynamicInventory" stackId="a" fill="#0ea5e9" name="2. Dynamic Allocation" radius={[4, 4, 0, 0]} />
+
                                                 {/* Area: The upper CI representing maximum potential surge capacity */}
-                                                <Area type="monotone" dataKey="upperLimit" fill="#d946ef" stroke="#d946ef" fillOpacity={0.1} strokeWidth={2} name="3. Surge Premium Ceiling" />
+                                                <Area type="monotone" dataKey="upperLimit" fill="#d946ef" stroke="#d946ef" fillOpacity={0.1} strokeWidth={2} name="3. Surge Premium Cap" />
                                                 
                                                 {/* The Actual Forecast Line overlay */}
                                                 <Line type="step" dataKey="forecast" stroke="#ffffff" strokeWidth={2} dot={{r:5, fill:"#0ea5e9", stroke:"#fff", strokeWidth:2}} name="Predicted Target" />
