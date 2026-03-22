@@ -130,17 +130,6 @@ const Dashboard = () => {
   return (
     <div className="min-h-screen text-slate-200 pb-10 animate-enter bg-slate-950">
 
-      {/* Guest role banner */}
-      {user?.roleKey === 'guest' && (
-        <div className="mb-6 p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center gap-3">
-          <AlertCircle size={20} className="text-amber-400 shrink-0" />
-          <div>
-            <p className="text-sm font-bold text-amber-300">You're currently a Guest</p>
-            <p className="text-xs text-amber-400/70">Some features are restricted. The Project Manager will assign your role to unlock full access.</p>
-          </div>
-        </div>
-      )}
-
       {/* 1. HEADER: Welcome & Context */}
       <div className="flex flex-col md:flex-row justify-between items-end mb-8 border-b border-slate-800 pb-6">
         <div>
@@ -159,9 +148,11 @@ const Dashboard = () => {
             {timeRange}
             <ChevronDown size={14} className="text-slate-500"/>
           </button>
-          <button onClick={exportReport} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-bold shadow-lg shadow-blue-900/20 transition">
-            <Download size={16}/> Export Report
-          </button>
+          {user?.permissions?.canDownload && (
+            <button onClick={exportReport} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-bold shadow-lg shadow-blue-900/20 transition">
+              <Download size={16}/> Export Report
+            </button>
+          )}
         </div>
       </div>
 

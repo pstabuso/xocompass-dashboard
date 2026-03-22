@@ -8,12 +8,13 @@ const PM_EMAIL = 'pstabuso@fit.edu.ph';
 
 // ─── ROLE → PERMISSIONS MAP (non-hardcoded users, roles from DB) ──
 // Roles are stored in the `profiles` table; permissions derived here.
+// Only PM can create/edit/delete/download. Everyone else is strictly view-only.
 const ROLE_PERMISSIONS = {
-  pm:         { canCreate: true, canDelete: true, canNudge: true, viewAll: true, isAdmin: true },
-  backend:    { canCreate: true, canDelete: true, canNudge: true, viewAll: true, isAdmin: false },
-  frontend:   { canCreate: true, canDelete: false, canNudge: false, viewAll: false, isAdmin: false },
-  guest:      { canCreate: false, canDelete: false, canNudge: false, viewAll: true, isAdmin: false },
-  restricted: { canCreate: false, canDelete: false, canNudge: false, viewAll: false, isAdmin: false },
+  pm:         { canCreate: true, canDelete: true, canNudge: true, canDownload: true, viewAll: true, isAdmin: true },
+  backend:    { canCreate: false, canDelete: false, canNudge: false, canDownload: false, viewAll: true, isAdmin: false },
+  frontend:   { canCreate: false, canDelete: false, canNudge: false, canDownload: false, viewAll: true, isAdmin: false },
+  guest:      { canCreate: false, canDelete: false, canNudge: false, canDownload: false, viewAll: true, isAdmin: false },
+  restricted: { canCreate: false, canDelete: false, canNudge: false, canDownload: false, viewAll: false, isAdmin: false },
 };
 
 const ROLE_LABELS = {
@@ -43,14 +44,13 @@ export const AVAILABLE_ROLES = [
   { id: 'guest', label: 'Guest Viewer' },
 ];
 
-// Pages each role can access (by route path).
-// Guests and restricted only get the basics; others get everything.
+// All authenticated users can see all pages. Admin Panel is gated separately (isAdmin).
 export const ROLE_ROUTES = {
-  pm:         null, // null = all routes
+  pm:         null,
   backend:    null,
   frontend:   null,
-  guest:      ['/', '/defense', '/resources'],
-  restricted: ['/', '/defense', '/resources'],
+  guest:      null,
+  restricted: null,
 };
 
 // ─── SUPABASE TABLE NAMES ─────────────────────────────────────────
@@ -658,23 +658,6 @@ export const AppProvider = ({ children }) => {
     logAction('Nudged Member', `Alerted ${targetUser} about "${taskName}"`);
   }, [logAction, showWriteError]);
 
-  // ── ACCESS REQUEST: guest sends request to PM ──
-  const requestAccess = useCallback((pageName) => {
-    const currentUser = userRef.current;
-    if (!currentUser) return;
-    const notif = {
-      id: crypto.randomUUID(),
-      to_user: 'Pao',  // PM name — notifications are matched by first name
-      type: 'access_request',
-      message: `${currentUser.name} (${currentUser.email || 'local user'}) is requesting access to "${pageName}". Go to Admin Panel → change their role to grant access.`,
-      read: false,
-      created_at: new Date().toISOString(),
-    };
-    setNotifications(prev => [notif, ...prev]);
-    insertRow(TABLES.notifications, notif).then(r => showWriteError('access request', r));
-    logAction('Requested Access', `${currentUser.name} requested access to "${pageName}"`);
-  }, [logAction, showWriteError]);
-
   const clearNotifications = useCallback(() => {
     const currentUser = userRef.current;
     if (!currentUser) return;
@@ -990,7 +973,7 @@ export const AppProvider = ({ children }) => {
       activityLog, getStats,
       minutes, addMinute, updateMinute, deleteMinute,
       datasets, addDataset, updateDataset, deleteDataset,
-      notifications, nudgeUser, clearNotifications, requestAccess,
+      notifications, nudgeUser, clearNotifications,
       exportAllData, importAllData,
       syncStatus, syncError, isCloudEnabled, cloudReady,
     }}>

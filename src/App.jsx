@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, CheckSquare, Calendar, Book, FolderOpen, LogOut, User, Database, Shield, BrainCircuit, Users, Cloud, CloudOff, Loader2, Mail, Lock, Eye, EyeOff, Menu, X, LockKeyhole, Send, Bell } from 'lucide-react';
-import { AppProvider, useAppContext, ROLE_ROUTES } from './context/AppContext';
+import { LayoutDashboard, CheckSquare, Calendar, Book, FolderOpen, LogOut, User, Database, Shield, BrainCircuit, Users, Cloud, CloudOff, Loader2, Mail, Lock, Eye, EyeOff, Menu, X, Bell } from 'lucide-react';
+import { AppProvider, useAppContext } from './context/AppContext';
 import { isCloudEnabled } from './lib/supabase';
 
 // Pages
@@ -18,21 +18,16 @@ import AdminPanel from './pages/AdminPanel';
 // Sidebar (Dark Mode — responsive: collapsible on mobile)
 const Sidebar = ({ mobileOpen, setMobileOpen }) => {
   const location = useLocation();
-  const { user, signOut, syncStatus, requestAccess, notifications } = useAppContext();
-  const [requestedPages, setRequestedPages] = useState({});
+  const { user, signOut, syncStatus, notifications } = useAppContext();
 
-  // Count unread notifications for the current user (PM sees access requests)
-  const myUnread = (notifications || []).filter(n => {
+  // Count unread notifications for the PM
+  const myUnread = user?.permissions?.isAdmin ? (notifications || []).filter(n => {
     if (n.read) return false;
     const firstName = (user?.name || '').split(' ')[0].toLowerCase();
     return (n.to_user || '').toLowerCase().includes(firstName);
-  }).length;
+  }).length : 0;
 
-  // Role-based route filtering
-  const allowedRoutes = ROLE_ROUTES[user?.roleKey] || ROLE_ROUTES.guest;
-  const isRestricted = (path) => allowedRoutes !== null && !allowedRoutes.includes(path);
-
-  const allMenuItems = [
+  const menuItems = [
     { path: '/', icon: LayoutDashboard, label: 'Overview' },
     { path: '/model', icon: BrainCircuit, label: 'SARIMAX Lab' },
     { path: '/tasks', icon: CheckSquare, label: 'Task Tracker' },
@@ -41,15 +36,8 @@ const Sidebar = ({ mobileOpen, setMobileOpen }) => {
     { path: '/data', icon: Database, label: 'Data Hub' },
     { path: '/defense', icon: Shield, label: 'Defense Prep' },
     { path: '/resources', icon: FolderOpen, label: 'Resources' },
-    // Admin Panel — only visible to admins, never shown locked to guests
     ...(user?.permissions?.isAdmin ? [{ path: '/admin', icon: Users, label: 'Admin Panel' }] : []),
   ];
-
-  const handleLockedClick = (item) => {
-    if (requestedPages[item.path]) return; // already requested
-    requestAccess(item.label);
-    setRequestedPages(prev => ({ ...prev, [item.path]: true }));
-  };
 
   const sidebarContent = (
     <>
@@ -71,48 +59,21 @@ const Sidebar = ({ mobileOpen, setMobileOpen }) => {
       </div>
 
       <nav className="flex-1 p-3 sm:p-4 space-y-1 sm:space-y-2 overflow-y-auto">
-        {allMenuItems.map((item) => {
-          const locked = isRestricted(item.path);
-          const alreadyRequested = requestedPages[item.path];
-
-          if (locked) {
-            return (
-              <button
-                key={item.path}
-                onClick={() => handleLockedClick(item)}
-                className={`w-full flex items-center space-x-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl transition-all duration-200 ease-in-out group ${
-                  alreadyRequested
-                    ? 'opacity-50 cursor-default'
-                    : 'opacity-60 hover:opacity-80 hover:bg-slate-800/50 cursor-pointer'
-                }`}
-                title={alreadyRequested ? 'Access requested — waiting for PM approval' : `Request access to ${item.label}`}
-              >
-                <item.icon size={20} className="text-slate-600" />
-                <span className="font-medium text-sm sm:text-base text-slate-500 flex-1 text-left">{item.label}</span>
-                {alreadyRequested
-                  ? <span className="text-[9px] px-1.5 py-0.5 bg-amber-500/15 text-amber-400 rounded font-bold shrink-0">Requested</span>
-                  : <LockKeyhole size={14} className="text-slate-600 shrink-0" />
-                }
-              </button>
-            );
-          }
-
-          return (
-            <Link
-              key={item.path}
-              to={item.path}
-              onClick={() => setMobileOpen(false)}
-              className={`flex items-center space-x-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl transition-all duration-200 ease-in-out group ${
-                location.pathname === item.path
-                  ? 'bg-sky-600/10 text-sky-400 border border-sky-500/20 shadow-[0_0_15px_rgba(56,189,248,0.1)]'
-                  : 'hover:bg-slate-800 hover:text-white'
-              }`}
-            >
-              <item.icon size={20} className={location.pathname === item.path ? 'text-sky-400' : 'group-hover:scale-110 transition-transform'} />
-              <span className="font-medium text-sm sm:text-base">{item.label}</span>
-            </Link>
-          );
-        })}
+        {menuItems.map((item) => (
+          <Link
+            key={item.path}
+            to={item.path}
+            onClick={() => setMobileOpen(false)}
+            className={`flex items-center space-x-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl transition-all duration-200 ease-in-out group ${
+              location.pathname === item.path
+                ? 'bg-sky-600/10 text-sky-400 border border-sky-500/20 shadow-[0_0_15px_rgba(56,189,248,0.1)]'
+                : 'hover:bg-slate-800 hover:text-white'
+            }`}
+          >
+            <item.icon size={20} className={location.pathname === item.path ? 'text-sky-400' : 'group-hover:scale-110 transition-transform'} />
+            <span className="font-medium text-sm sm:text-base">{item.label}</span>
+          </Link>
+        ))}
       </nav>
 
       <div className="p-3 sm:p-4 border-t border-slate-800">
@@ -466,50 +427,6 @@ const SyncErrorToast = () => {
   );
 };
 
-// Route guard — shows "Request Access" UI if user doesn't have access
-const PAGE_LABELS = {
-  '/model': 'SARIMAX Lab',
-  '/tasks': 'Task Tracker',
-  '/schedule': 'Calendar & Schedule',
-  '/minutes': 'Minutes of Meeting',
-  '/data': 'Data Hub',
-  '/admin': 'Admin Panel',
-};
-
-const GuardedRoute = ({ element, path }) => {
-  const { user, requestAccess } = useAppContext();
-  const [requested, setRequested] = useState(false);
-  const allowedRoutes = ROLE_ROUTES[user?.roleKey] || ROLE_ROUTES.guest;
-
-  if (allowedRoutes !== null && !allowedRoutes.includes(path)) {
-    const pageName = PAGE_LABELS[path] || path;
-    return (
-      <div className="flex items-center justify-center h-[calc(100vh-140px)]">
-        <div className="text-center max-w-sm">
-          <LockKeyhole size={48} className="text-amber-400 mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-slate-100 mb-2">Access Restricted</h2>
-          <p className="text-slate-500 text-sm mb-1">Your current role (<span className="font-bold text-slate-300">{user?.role}</span>) doesn't have access to <span className="font-bold text-slate-300">{pageName}</span>.</p>
-          <p className="text-slate-600 text-xs mb-6">The Project Manager can grant you access.</p>
-          {requested ? (
-            <div className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
-              <Send size={16} className="text-emerald-400" />
-              <span className="text-sm font-bold text-emerald-400">Request Sent</span>
-            </div>
-          ) : (
-            <button
-              onClick={() => { requestAccess(pageName); setRequested(true); }}
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-sky-600 text-white rounded-xl font-bold hover:bg-sky-500 transition-all active:scale-95 shadow-lg shadow-sky-900/30"
-            >
-              <Send size={16} /> Request Access
-            </button>
-          )}
-        </div>
-      </div>
-    );
-  }
-  return element;
-};
-
 const AppContent = () => {
   const { user, syncStatus } = useAppContext();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -538,14 +455,14 @@ const AppContent = () => {
         <main className="flex-1 lg:ml-64 pt-14 lg:pt-0 p-4 sm:p-6 lg:p-8 overflow-y-auto min-h-screen">
           <Routes>
             <Route path="/" element={<Dashboard />} />
-            <Route path="/model" element={<GuardedRoute path="/model" element={<ModelLab />} />} />
-            <Route path="/tasks" element={<GuardedRoute path="/tasks" element={<TaskTracker />} />} />
-            <Route path="/schedule" element={<GuardedRoute path="/schedule" element={<Schedule />} />} />
-            <Route path="/minutes" element={<GuardedRoute path="/minutes" element={<Minutes />} />} />
+            <Route path="/model" element={<ModelLab />} />
+            <Route path="/tasks" element={<TaskTracker />} />
+            <Route path="/schedule" element={<Schedule />} />
+            <Route path="/minutes" element={<Minutes />} />
             <Route path="/resources" element={<Resources />} />
-            <Route path="/data" element={<GuardedRoute path="/data" element={<DataHub />} />} />
+            <Route path="/data" element={<DataHub />} />
             <Route path="/defense" element={<Defense />} />
-            <Route path="/admin" element={<GuardedRoute path="/admin" element={<AdminPanel />} />} />
+            <Route path="/admin" element={<AdminPanel />} />
           </Routes>
         </main>
         <SyncErrorToast />
