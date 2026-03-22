@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { ChevronLeft, ChevronRight, Calendar as CalIcon, Edit2, Plus, X, CheckSquare, AlertCircle, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalIcon, Edit2, Plus, X, CheckSquare, AlertCircle, Trash2, Save } from 'lucide-react';
 
 const Schedule = () => {
   const { user, events, addEvent, updateEvent, deleteEvent, tasks, addTask } = useAppContext();
@@ -9,8 +9,12 @@ const Schedule = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState('selection');
   const [editMode, setEditMode] = useState(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState(null);
   const [eventForm, setEventForm] = useState({ title: '', description: '', time: '09:00', status: 'Not Started', date: '' });
-  const [taskForm, setTaskForm] = useState({ task: '', remarks: '', deadline: '', status: 'Not Started', owner: '' });
+  const [taskForm, setTaskForm] = useState({ task: '', remarks: '', deadline: '', status: 'Not Started', owner: '', priority: 'Medium' });
+
+  const canCreate = user?.permissions?.canCreate;
+  const canDelete = user?.permissions?.canDelete;
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -26,15 +30,58 @@ const Schedule = () => {
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     setSelectedDate(dateStr);
     setEventForm({ title: '', description: '', time: '09:00', status: 'Not Started', date: dateStr });
-    setTaskForm({ task: '', remarks: '', deadline: dateStr, status: 'Not Started', owner: user?.name || '', start: dateStr });
-    setModalMode('selection');
+    setTaskForm({ task: '', remarks: '', deadline: dateStr, status: 'Not Started', owner: user?.name || '', start: dateStr, priority: 'Medium' });
+    setModalMode(canCreate ? 'selection' : 'view');
     setEditMode(null);
     setIsModalOpen(true);
   };
-  const handleEditEvent = (evt) => { setEventForm(evt); setEditMode(evt.id); setModalMode('event'); setSelectedDate(evt.date); setIsModalOpen(true); };
-  const submitEvent = (e) => { e.preventDefault(); if (editMode) { updateEvent(editMode, eventForm); } else { addEvent({ ...eventForm, date: selectedDate, type: 'event' }); } closeModal(); };
-  const submitTask = (e) => { e.preventDefault(); addTask({ ...taskForm, deadline: selectedDate }); closeModal(); };
-  const closeModal = () => { setIsModalOpen(false); setEventForm({ title: '', description: '', time: '09:00', status: 'Not Started', date: '' }); setTaskForm({ task: '', remarks: '', deadline: '', status: 'Not Started', owner: '' }); setEditMode(null); };
+
+  const handleEditEvent = (evt) => {
+    if (!canCreate) return;
+    setEventForm(evt);
+    setEditMode(evt.id);
+    setModalMode('event');
+    setSelectedDate(evt.date);
+    setIsModalOpen(true);
+  };
+
+  const handleDeleteEvent = (id) => {
+    if (!canDelete) return;
+    setDeleteConfirmId(id);
+  };
+
+  const confirmDeleteEvent = () => {
+    if (!canDelete) return;
+    deleteEvent(deleteConfirmId);
+    setDeleteConfirmId(null);
+    closeModal();
+  };
+
+  const submitEvent = (e) => {
+    e.preventDefault();
+    if (!canCreate) return;
+    if (editMode) {
+      updateEvent(editMode, eventForm);
+    } else {
+      addEvent({ ...eventForm, date: selectedDate, type: 'event' });
+    }
+    closeModal();
+  };
+
+  const submitTask = (e) => {
+    e.preventDefault();
+    if (!canCreate) return;
+    addTask({ ...taskForm, deadline: selectedDate, priority: taskForm.priority || 'Medium' });
+    closeModal();
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setEventForm({ title: '', description: '', time: '09:00', status: 'Not Started', date: '' });
+    setTaskForm({ task: '', remarks: '', deadline: '', status: 'Not Started', owner: '', priority: 'Medium' });
+    setEditMode(null);
+    setDeleteConfirmId(null);
+  };
 
   const getItemsForDay = (day) => {
       const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -42,6 +89,9 @@ const Schedule = () => {
       const dayTasks = tasks.filter(t => t.deadline === dateStr).map(t => ({...t, title: t.task, kind: 'task'}));
       return [...dayEvents, ...dayTasks];
   };
+
+  // Items for the selected date (shown in view mode for non-creators)
+  const selectedItems = selectedDate ? getItemsForDay(parseInt(selectedDate.split('-')[2])) : [];
 
   return (
     <div className="flex h-[calc(100vh-100px)] gap-6 animate-enter">
@@ -88,6 +138,7 @@ const Schedule = () => {
         </div>
       </div>
 
+      {/* RIGHT SIDEBAR: Upcoming Agenda */}
       <div className="w-80 bg-slate-900/50 rounded-xl border border-slate-800 flex flex-col overflow-hidden">
          <div className="p-4 border-b border-slate-800 bg-slate-800/30"><h3 className="font-bold text-slate-100">Upcoming Agenda</h3></div>
          <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
@@ -96,8 +147,19 @@ const Schedule = () => {
                 <div className="space-y-2">{[...events].sort((a,b) => new Date(a.date) - new Date(b.date)).map(evt => (
                     <div key={evt.id} className="p-3 rounded-lg border border-slate-800 bg-slate-800/30 hover:border-emerald-500/30 group relative transition-all duration-300 hover:shadow-md hover:-translate-y-1">
                        <div className="flex justify-between items-start">
-                          <div><p className="font-bold text-sm text-slate-200">{evt.title}</p><p className="text-xs text-slate-500">{evt.date} • {evt.time}</p><span className={`text-[10px] px-1.5 py-0.5 rounded mt-1 inline-block ${evt.status === 'Done' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-slate-700 text-slate-400'}`}>{evt.status}</span></div>
-                          <button onClick={() => handleEditEvent(evt)} className="opacity-0 group-hover:opacity-100 p-1 text-slate-500 hover:text-sky-400"><Edit2 size={14}/></button>
+                          <div>
+                            <p className="font-bold text-sm text-slate-200">{evt.title}</p>
+                            <p className="text-xs text-slate-500">{evt.date} • {evt.time}</p>
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded mt-1 inline-block ${evt.status === 'Done' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-slate-700 text-slate-400'}`}>{evt.status}</span>
+                          </div>
+                          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            {canCreate && (
+                              <button onClick={() => handleEditEvent(evt)} className="p-1 text-slate-500 hover:text-sky-400 transition"><Edit2 size={14}/></button>
+                            )}
+                            {canDelete && (
+                              <button onClick={() => handleDeleteEvent(evt.id)} className="p-1 text-slate-500 hover:text-red-400 transition"><Trash2 size={14}/></button>
+                            )}
+                          </div>
                        </div>
                     </div>
                   ))}</div></div>
@@ -111,10 +173,28 @@ const Schedule = () => {
          </div>
       </div>
 
-      {isModalOpen && (
+      {/* DELETE CONFIRMATION MODAL */}
+      {deleteConfirmId && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] animate-enter">
+          <div className="bg-slate-900 p-6 rounded-2xl w-[400px] shadow-2xl text-center border border-slate-700">
+            <div className="w-16 h-16 bg-red-500/15 text-red-400 rounded-full flex items-center justify-center mx-auto mb-4"><AlertCircle size={32} /></div>
+            <h3 className="text-xl font-bold text-slate-100 mb-2">Delete Event?</h3>
+            <p className="text-slate-400 text-sm mb-6">This action cannot be undone.</p>
+            <div className="flex gap-3 justify-center">
+              <button onClick={() => setDeleteConfirmId(null)} className="px-5 py-2.5 rounded-xl font-bold text-slate-300 hover:bg-slate-800 transition">Cancel</button>
+              <button onClick={confirmDeleteEvent} className="px-5 py-2.5 rounded-xl font-bold bg-red-600 text-white hover:bg-red-700 transition shadow-lg shadow-red-900/30">Yes, Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MAIN MODAL */}
+      {isModalOpen && !deleteConfirmId && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-enter">
-          <div className="relative bg-slate-900 rounded-xl shadow-2xl w-[450px] overflow-hidden transform transition-all scale-100 border border-slate-700">
+          <div className="relative bg-slate-900 rounded-xl shadow-2xl w-[480px] overflow-hidden transform transition-all scale-100 border border-slate-700">
              <button onClick={closeModal} className="absolute top-4 right-4 z-10 p-1.5 text-slate-400 hover:text-red-400 bg-slate-800/50 hover:bg-red-500/10 rounded-full transition-all"><X size={20} /></button>
+
+             {/* SELECTION MODE — choose event or task */}
              {modalMode === 'selection' && (
                 <div className="p-8 text-center">
                    <h3 className="text-xl font-bold text-slate-100 mb-2">Add to {selectedDate}</h3>
@@ -124,32 +204,122 @@ const Schedule = () => {
                    </div>
                 </div>
              )}
+
+             {/* VIEW MODE — for users without create permission */}
+             {modalMode === 'view' && (
+                <div className="p-6">
+                   <h3 className="text-lg font-bold text-slate-100 mb-4">Items on {selectedDate}</h3>
+                   {selectedItems.length === 0 ? (
+                     <p className="text-slate-500 text-sm text-center py-8">No events or tasks on this date.</p>
+                   ) : (
+                     <div className="space-y-3 max-h-60 overflow-y-auto custom-scrollbar">
+                       {selectedItems.map((item, idx) => (
+                         <div key={idx} className={`p-3 rounded-lg border ${item.kind === 'event' ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-amber-500/20 bg-amber-500/5'}`}>
+                           <div className="flex items-center gap-2 mb-1">
+                             <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase ${item.kind === 'event' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-amber-500/15 text-amber-400'}`}>{item.kind}</span>
+                             <span className={`text-[10px] px-1.5 py-0.5 rounded ${item.status === 'Done' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-slate-700 text-slate-400'}`}>{item.status}</span>
+                           </div>
+                           <p className="font-bold text-sm text-slate-200">{item.title}</p>
+                           {item.time && <p className="text-xs text-slate-500 mt-1">{item.time}</p>}
+                           {item.owner && <p className="text-xs text-slate-500">Assigned: {item.owner}</p>}
+                         </div>
+                       ))}
+                     </div>
+                   )}
+                </div>
+             )}
+
+             {/* EVENT FORM */}
              {modalMode === 'event' && (
                 <form onSubmit={submitEvent}>
                    <div className="bg-emerald-600 p-4 flex justify-between items-center text-white"><h3 className="font-bold flex items-center gap-2"><CalIcon size={18}/> {editMode ? 'Edit Event' : 'New Event'}</h3></div>
                    <div className="p-6 space-y-4">
-                      <div><label className="text-xs font-bold text-slate-500">Event Name</label><input required type="text" className="w-full bg-slate-800 border border-slate-700 p-2 rounded-lg mt-1 outline-none text-white focus:ring-2 focus:ring-sky-500" value={eventForm.title} onChange={e => setEventForm({...eventForm, title: e.target.value})} /></div>
-                      <div><label className="text-xs font-bold text-slate-500">Description</label><textarea className="w-full bg-slate-800 border border-slate-700 p-2 rounded-lg mt-1 outline-none text-white focus:ring-2 focus:ring-sky-500" rows="2" value={eventForm.description} onChange={e => setEventForm({...eventForm, description: e.target.value})} /></div>
-                      <div className="grid grid-cols-2 gap-4"><div><label className="text-xs font-bold text-slate-500">Date</label><input type="date" className="w-full bg-slate-800 border border-slate-700 p-2 rounded-lg mt-1 text-white" value={eventForm.date} onChange={e => setEventForm({...eventForm, date: e.target.value})} /></div><div><label className="text-xs font-bold text-slate-500">Time</label><input type="time" className="w-full bg-slate-800 border border-slate-700 p-2 rounded-lg mt-1 text-white" value={eventForm.time} onChange={e => setEventForm({...eventForm, time: e.target.value})} /></div></div>
-                      <div><label className="text-xs font-bold text-slate-500">Status</label><select value={eventForm.status} onChange={e => setEventForm({...eventForm, status: e.target.value})} className="w-full px-3 py-2 bg-slate-800 border border-slate-700 text-white rounded-lg mt-1 outline-none focus:ring-2 focus:ring-sky-500"><option value="Not Started">Not Started</option><option value="On-going">On-going</option><option value="Done">Done</option></select></div>
-                      <button className="w-full bg-emerald-600 text-white py-2 rounded-lg font-bold hover:bg-emerald-500 transition">Save Event</button>
-                      {editMode && (
-                        <button type="button" onClick={() => { deleteEvent(editMode); closeModal(); }} className="w-full flex items-center justify-center gap-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 py-2 rounded-lg font-bold transition mt-2">
+                      <div>
+                        <label className="text-xs font-bold text-slate-500">Event Name</label>
+                        <input required type="text" className="w-full bg-slate-800 border border-slate-700 p-2.5 rounded-lg mt-1 outline-none text-white focus:ring-2 focus:ring-emerald-500 transition" value={eventForm.title} onChange={e => setEventForm({...eventForm, title: e.target.value})} />
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-slate-500">Description</label>
+                        <textarea className="w-full bg-slate-800 border border-slate-700 p-2.5 rounded-lg mt-1 outline-none text-white focus:ring-2 focus:ring-emerald-500 transition resize-none" rows="2" value={eventForm.description} onChange={e => setEventForm({...eventForm, description: e.target.value})} />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-xs font-bold text-slate-500">Date</label>
+                          <input type="date" className="w-full bg-slate-800 border border-slate-700 p-2.5 rounded-lg mt-1 text-white outline-none focus:ring-2 focus:ring-emerald-500 transition" value={eventForm.date} onChange={e => setEventForm({...eventForm, date: e.target.value})} />
+                        </div>
+                        <div>
+                          <label className="text-xs font-bold text-slate-500">Time</label>
+                          <input type="time" className="w-full bg-slate-800 border border-slate-700 p-2.5 rounded-lg mt-1 text-white outline-none focus:ring-2 focus:ring-emerald-500 transition" value={eventForm.time} onChange={e => setEventForm({...eventForm, time: e.target.value})} />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-slate-500">Status</label>
+                        <select value={eventForm.status} onChange={e => setEventForm({...eventForm, status: e.target.value})} className="w-full px-3 py-2.5 bg-slate-800 border border-slate-700 text-white rounded-lg mt-1 outline-none focus:ring-2 focus:ring-emerald-500 transition">
+                          <option value="Not Started">Not Started</option><option value="On-going">On-going</option><option value="Done">Done</option>
+                        </select>
+                      </div>
+                      <button className="w-full bg-emerald-600 text-white py-2.5 rounded-lg font-bold hover:bg-emerald-500 transition flex items-center justify-center gap-2">
+                        <Save size={16} /> {editMode ? 'Save Changes' : 'Create Event'}
+                      </button>
+                      {editMode && canDelete && (
+                        <button type="button" onClick={() => handleDeleteEvent(editMode)} className="w-full flex items-center justify-center gap-2 text-red-400 hover:text-red-300 hover:bg-red-500/10 py-2 rounded-lg font-bold transition mt-1">
                           <Trash2 size={16} /> Delete Event
                         </button>
                       )}
                    </div>
                 </form>
              )}
+
+             {/* TASK FORM */}
              {modalMode === 'task' && (
                 <form onSubmit={submitTask}>
                    <div className="bg-amber-600 p-4 flex justify-between items-center text-white"><h3 className="font-bold flex items-center gap-2"><CheckSquare size={18}/> New Task / Deadline</h3></div>
                    <div className="p-6 space-y-4">
-                      <div><label className="text-xs font-bold text-slate-500">Task Name</label><input required type="text" className="w-full bg-slate-800 border border-slate-700 p-2 rounded-lg mt-1 outline-none text-white focus:ring-2 focus:ring-sky-500" value={taskForm.task} onChange={e => setTaskForm({...taskForm, task: e.target.value})} /></div>
-                      <div className="grid grid-cols-2 gap-4"><div><label className="text-xs font-bold text-slate-500">Deadline</label><input type="date" className="w-full bg-slate-800 border border-slate-700 p-2 rounded-lg mt-1 text-white" value={taskForm.deadline} onChange={e => setTaskForm({...taskForm, deadline: e.target.value})} /></div><div><label className="text-xs font-bold text-slate-500">Status</label><select className="w-full bg-slate-800 border border-slate-700 p-2 rounded-lg mt-1 text-white" value={taskForm.status} onChange={e => setTaskForm({...taskForm, status: e.target.value})}><option>Not Started</option><option>On-going</option></select></div></div>
-                      <div><label className="text-xs font-bold text-slate-500">Assigned To</label><input type="text" className="w-full bg-slate-800 border border-slate-700 p-2 rounded-lg mt-1 outline-none text-white focus:ring-2 focus:ring-sky-500" placeholder="Enter assignee name" value={taskForm.owner} onChange={e => setTaskForm({...taskForm, owner: e.target.value})} /></div>
-                      <div><label className="text-xs font-bold text-slate-500">Notes (optional)</label><textarea className="w-full bg-slate-800 border border-slate-700 p-2 rounded-lg mt-1 outline-none text-white focus:ring-2 focus:ring-sky-500 resize-none text-sm" rows={2} placeholder="Additional notes or context..." value={taskForm.remarks} onChange={e => setTaskForm({...taskForm, remarks: e.target.value})} /></div>
-                      <button className="w-full bg-amber-600 text-white py-2 rounded-lg font-bold hover:bg-amber-500 mt-2 transition">Create Task</button>
+                      <div>
+                        <label className="text-xs font-bold text-slate-500">Task Name</label>
+                        <input required type="text" className="w-full bg-slate-800 border border-slate-700 p-2.5 rounded-lg mt-1 outline-none text-white focus:ring-2 focus:ring-amber-500 transition" value={taskForm.task} onChange={e => setTaskForm({...taskForm, task: e.target.value})} />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="text-xs font-bold text-slate-500">Deadline</label>
+                          <input type="date" className="w-full bg-slate-800 border border-slate-700 p-2.5 rounded-lg mt-1 text-white outline-none focus:ring-2 focus:ring-amber-500 transition" value={taskForm.deadline} onChange={e => setTaskForm({...taskForm, deadline: e.target.value})} />
+                        </div>
+                        <div>
+                          <label className="text-xs font-bold text-slate-500">Status</label>
+                          <select className="w-full bg-slate-800 border border-slate-700 p-2.5 rounded-lg mt-1 text-white outline-none focus:ring-2 focus:ring-amber-500 transition" value={taskForm.status} onChange={e => setTaskForm({...taskForm, status: e.target.value})}>
+                            <option>Not Started</option><option>On-going</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-slate-500">Assigned To</label>
+                        <input type="text" className="w-full bg-slate-800 border border-slate-700 p-2.5 rounded-lg mt-1 outline-none text-white focus:ring-2 focus:ring-amber-500 transition" placeholder="Enter assignee name" value={taskForm.owner} onChange={e => setTaskForm({...taskForm, owner: e.target.value})} />
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-slate-500">Priority</label>
+                        <div className="flex gap-2 mt-1">
+                          {['Low', 'Medium', 'High', 'Critical'].map(p => (
+                            <button key={p} type="button"
+                              onClick={() => setTaskForm({...taskForm, priority: p})}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                                taskForm.priority === p
+                                  ? p === 'Critical' ? 'bg-red-600 text-white'
+                                  : p === 'High' ? 'bg-orange-600 text-white'
+                                  : p === 'Medium' ? 'bg-sky-600 text-white'
+                                  : 'bg-emerald-600 text-white'
+                                  : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
+                              }`}
+                            >{p}</button>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-xs font-bold text-slate-500">Notes (optional)</label>
+                        <textarea className="w-full bg-slate-800 border border-slate-700 p-2.5 rounded-lg mt-1 outline-none text-white focus:ring-2 focus:ring-amber-500 transition resize-none text-sm" rows={2} placeholder="Additional notes or context..." value={taskForm.remarks} onChange={e => setTaskForm({...taskForm, remarks: e.target.value})} />
+                      </div>
+                      <button className="w-full bg-amber-600 text-white py-2.5 rounded-lg font-bold hover:bg-amber-500 transition flex items-center justify-center gap-2">
+                        <Plus size={16} /> Create Task
+                      </button>
                    </div>
                 </form>
              )}

@@ -5,6 +5,9 @@ import { useAppContext } from '../context/AppContext';
 const DataHub = () => {
   const { datasets, addDataset, updateDataset, deleteDataset, user } = useAppContext();
 
+  const canCreate = user?.permissions?.canCreate;
+  const canDelete = user?.permissions?.canDelete;
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
@@ -29,12 +32,14 @@ const DataHub = () => {
 
   // --- ACTIONS ---
   const handleEdit = (data) => {
+    if (!canCreate) return;
     setFormData({ name: data.name, type: data.type, status: data.status, size: data.size, rows: data.rows });
     setEditingId(data.id);
     setIsModalOpen(true);
   };
 
   const handleDelete = () => {
+    if (!canDelete) return;
     deleteDataset(deleteConfirmId);
     setDeleteConfirmId(null);
   };
@@ -110,9 +115,11 @@ const DataHub = () => {
            <h2 className="text-2xl font-bold text-slate-100">Data Hub</h2>
            <p className="text-slate-500 text-sm">Manage datasets for SARIMAX Training</p>
         </div>
-        <button onClick={() => setIsModalOpen(true)} className="flex items-center space-x-2 bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-emerald-500 transition hover:scale-105 active:scale-95 duration-200 shadow-lg shadow-emerald-900/20">
-            <Upload size={18}/> <span>Upload CSV</span>
-        </button>
+        {canCreate && (
+          <button onClick={() => setIsModalOpen(true)} className="flex items-center space-x-2 bg-emerald-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-emerald-500 transition hover:scale-105 active:scale-95 duration-200 shadow-lg shadow-emerald-900/20">
+              <Upload size={18}/> <span>Upload CSV</span>
+          </button>
+        )}
       </header>
 
       {/* Stats Cards */}
@@ -163,8 +170,12 @@ const DataHub = () => {
                         <td className="p-4 text-slate-300 text-sm font-mono">{Number(d.rows).toLocaleString()}</td>
                         <td className="p-4"><span className="text-xs font-bold text-emerald-400 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> {d.status}</span></td>
                         <td className="p-4 flex justify-end gap-2">
-                            <button onClick={() => handleEdit(d)} className="p-2 text-slate-500 hover:text-amber-400 hover:bg-amber-500/10 rounded-lg transition"><Edit2 size={18}/></button>
-                            <button onClick={() => setDeleteConfirmId(d.id)} className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition"><Trash2 size={18}/></button>
+                            {canCreate && (
+                              <button onClick={() => handleEdit(d)} className="p-2 text-slate-500 hover:text-amber-400 hover:bg-amber-500/10 rounded-lg transition"><Edit2 size={18}/></button>
+                            )}
+                            {canDelete && (
+                              <button onClick={() => setDeleteConfirmId(d.id)} className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition"><Trash2 size={18}/></button>
+                            )}
                         </td>
                     </tr>
                 ))}

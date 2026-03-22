@@ -103,9 +103,17 @@ export const AppProvider = ({ children }) => {
   const [user, setUser] = useState(() => {
     const parsed = readLocal('xo_user', null);
     if (!parsed) return null;
-    // Re-derive permissions from roleKey (stored in localStorage)
-    const key = parsed.roleKey || 'guest';
-    parsed.permissions = ROLE_PERMISSIONS[key] || ROLE_PERMISSIONS.guest;
+    // Re-derive permissions from roleKey; infer from old role string if missing
+    let key = parsed.roleKey;
+    if (!key && parsed.role) {
+      const r = parsed.role.toLowerCase();
+      if (r.includes('project manager') || r.includes('pm')) key = 'pm';
+      else if (r.includes('backend')) key = 'backend';
+      else if (r.includes('frontend')) key = 'frontend';
+      else key = 'guest';
+      parsed.roleKey = key;
+    }
+    parsed.permissions = ROLE_PERMISSIONS[key || 'guest'] || ROLE_PERMISSIONS.guest;
     return parsed;
   });
 
@@ -450,13 +458,26 @@ export const AppProvider = ({ children }) => {
     // The DB trigger creates the profile; onAuthStateChange handles the rest
   }, []);
 
-  // ── AUTH: sign out ──
+  // ── AUTH: sign out (clears all local state + Supabase session) ──
   const signOut = useCallback(async () => {
     if (isCloudEnabled) {
       await supabase.auth.signOut();
     }
     setUser(null);
+    setTasks([]);
+    setEvents([]);
+    setMinutes([]);
+    setDatasets([]);
+    setActivityLog([]);
+    setNotifications([]);
     localStorage.removeItem('xo_user');
+    localStorage.removeItem('tasks');
+    localStorage.removeItem('events');
+    localStorage.removeItem('minutes');
+    localStorage.removeItem('datasets');
+    localStorage.removeItem('activityLog');
+    localStorage.removeItem('notifications');
+    setSyncStatus(isCloudEnabled ? 'connecting' : 'local');
   }, []);
 
   // ── AUTH: local-only mode (when Supabase is not configured) ──

@@ -1,15 +1,20 @@
 import React, { useState } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { Plus, Trash2, X, MessageSquare, List, BarChart as GanttIcon, Layout, CheckSquare, AlertTriangle, Send } from 'lucide-react';
+import { Plus, Trash2, X, MessageSquare, List, BarChart as GanttIcon, Layout, CheckSquare, AlertTriangle, Send, Edit2, Save } from 'lucide-react';
 import GanttView from '../components/GanttView';
 
 const TaskTracker = () => {
-  const { tasks, addTask, updateTaskStatus, deleteTask, addTaskComment, subtasks, user } = useAppContext();
+  const { tasks, addTask, updateTask, updateTaskStatus, deleteTask, addTaskComment, subtasks, user } = useAppContext();
   const [viewMode, setViewMode] = useState('board');
   const [filter, setFilter] = useState('All');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [expandedTask, setExpandedTask] = useState(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState({});
+
+  const canCreate = user?.permissions?.canCreate;
+  const canDelete = user?.permissions?.canDelete;
 
   // Forms
   const [commentText, setCommentText] = useState('');
@@ -17,8 +22,6 @@ const TaskTracker = () => {
   const [newTask, setNewTask] = useState({ task: '', deadline: '', start: '', remarks: '', owner: '', priority: 'Medium', dependency: '' });
 
   const filteredTasks = filter === 'All' ? tasks : tasks.filter(t => t.owner.includes(filter));
-
-  // Get unique owners for filter dropdown
   const ownerOptions = ['All', ...Array.from(new Set(tasks.map(t => t.owner)))];
 
   const getStatusColor = (status) => {
@@ -38,19 +41,25 @@ const TaskTracker = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (!canCreate) return;
     addTask({ ...newTask, status: 'Not Started', priority: newTask.priority || 'Medium', dependencies: newTask.dependency ? [newTask.dependency] : [] });
     setIsModalOpen(false);
     setNewTask({ task: '', deadline: '', start: '', remarks: '', owner: '', priority: 'Medium', dependency: '' });
   };
 
-  const handleDeleteRequest = (id) => { setDeleteConfirmId(id); };
+  const handleDeleteRequest = (id) => {
+    if (!canDelete) return;
+    setDeleteConfirmId(id);
+  };
 
   const confirmDelete = () => {
-      if (deleteConfirmId) {
-          deleteTask(deleteConfirmId);
-          setDeleteConfirmId(null);
-          setExpandedTask(null);
-      }
+    if (!canDelete) return;
+    if (deleteConfirmId) {
+      deleteTask(deleteConfirmId);
+      setDeleteConfirmId(null);
+      setExpandedTask(null);
+      setIsEditing(false);
+    }
   };
 
   const handleCommentSubmit = (taskId) => {
@@ -66,8 +75,36 @@ const TaskTracker = () => {
     setNewSubtask('');
   };
 
+  // ── EDIT MODE ──
+  const startEditing = () => {
+    if (!canCreate) return;
+    setEditForm({
+      task: expandedTask.task,
+      deadline: expandedTask.deadline || '',
+      start: expandedTask.start || '',
+      remarks: expandedTask.remarks || '',
+      owner: expandedTask.owner || '',
+      priority: expandedTask.priority || 'Medium',
+      status: expandedTask.status,
+    });
+    setIsEditing(true);
+  };
+
+  const saveEdit = () => {
+    updateTask(expandedTask.id, editForm);
+    const updated = { ...expandedTask, ...editForm };
+    setExpandedTask(updated);
+    setIsEditing(false);
+  };
+
+  const cancelEdit = () => {
+    setIsEditing(false);
+    setEditForm({});
+  };
+
   const handleSelectTask = (task) => {
     setExpandedTask(task);
+    setIsEditing(false);
   };
 
   // --- Renderers ---
@@ -79,7 +116,7 @@ const TaskTracker = () => {
         </div>
         <div className="p-3 space-y-3 overflow-y-auto flex-1 custom-scrollbar">
             {items.map(task => (
-                <div key={task.id} onClick={() => setExpandedTask(task)} className="bg-slate-800/50 p-4 rounded-lg border border-slate-700 cursor-pointer transition-all duration-300 ease-in-out hover:shadow-xl hover:-translate-y-1 hover:border-slate-600 group relative">
+                <div key={task.id} onClick={() => handleSelectTask(task)} className="bg-slate-800/50 p-4 rounded-lg border border-slate-700 cursor-pointer transition-all duration-300 ease-in-out hover:shadow-xl hover:-translate-y-1 hover:border-slate-600 group relative">
                     <div className="flex justify-between items-start mb-2">
                         <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider ${task.owner.includes(user.name) ? 'bg-sky-500/15 text-sky-400' : 'bg-slate-700/50 text-slate-500'}`}>{task.owner}</span>
                         {task.deadline && <span className="text-[10px] text-red-400 font-medium">Due {task.deadline.slice(5)}</span>}
@@ -103,7 +140,6 @@ const TaskTracker = () => {
            <p className="text-sm text-slate-500">View: <span className="font-bold capitalize text-sky-400">{viewMode}</span></p>
         </div>
         <div className="flex items-center space-x-4">
-            {/* Owner Filter Dropdown */}
             <select
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
@@ -118,9 +154,11 @@ const TaskTracker = () => {
                 <button onClick={() => setViewMode('board')} className={`p-1.5 rounded-md transition-all duration-200 ${viewMode === 'board' ? 'bg-slate-700 shadow text-slate-100 scale-105' : 'text-slate-500 hover:text-slate-300'}`}><Layout size={18}/></button>
                 <button onClick={() => setViewMode('gantt')} className={`p-1.5 rounded-md transition-all duration-200 ${viewMode === 'gantt' ? 'bg-slate-700 shadow text-slate-100 scale-105' : 'text-slate-500 hover:text-slate-300'}`}><GanttIcon size={18}/></button>
             </div>
-            <button onClick={() => setIsModalOpen(true)} className="flex items-center space-x-2 bg-sky-600 text-white px-4 py-2 rounded-lg hover:bg-sky-500 hover:scale-105 active:scale-95 transition-all duration-200 shadow-md">
-                <Plus size={16} /> <span>Add Task</span>
-            </button>
+            {canCreate && (
+              <button onClick={() => setIsModalOpen(true)} className="flex items-center space-x-2 bg-sky-600 text-white px-4 py-2 rounded-lg hover:bg-sky-500 hover:scale-105 active:scale-95 transition-all duration-200 shadow-md">
+                  <Plus size={16} /> <span>Add Task</span>
+              </button>
+            )}
         </div>
       </div>
 
@@ -136,7 +174,7 @@ const TaskTracker = () => {
           {viewMode === 'list' && (
               <div className="bg-slate-900/50 rounded-xl border border-slate-800 overflow-hidden animate-enter">
                   {filteredTasks.map(task => (
-                      <div key={task.id} onClick={() => setExpandedTask(task)} className="p-4 border-b border-slate-800 hover:bg-slate-800/50 cursor-pointer flex justify-between items-center transition-colors duration-200">
+                      <div key={task.id} onClick={() => handleSelectTask(task)} className="p-4 border-b border-slate-800 hover:bg-slate-800/50 cursor-pointer flex justify-between items-center transition-colors duration-200">
                           <div>
                               <p className="font-bold text-slate-100">{task.task}</p>
                               <div className="flex items-center space-x-2 mt-1">
@@ -174,7 +212,7 @@ const TaskTracker = () => {
          </div>
       )}
 
-      {/* FULL SCREEN FOCUS MODE: ADD / EDIT TASK */}
+      {/* FULL SCREEN FOCUS MODE: ADD / VIEW / EDIT TASK */}
       {(isModalOpen || expandedTask) && !deleteConfirmId && (
         <div className="fixed inset-0 bg-slate-950 z-[100] animate-in slide-in-from-bottom duration-300 overflow-y-auto">
 
@@ -182,18 +220,37 @@ const TaskTracker = () => {
             <div className="max-w-4xl mx-auto pt-10 pb-6 px-6 flex justify-between items-center border-b border-slate-800">
                 <div>
                     <h2 className="text-3xl font-bold text-slate-100">
-                        {expandedTask ? 'Task Details' : 'Create New Task'}
+                        {isModalOpen ? 'Create New Task' : isEditing ? 'Edit Task' : 'Task Details'}
                     </h2>
                     <p className="text-slate-500 mt-1">
-                        {expandedTask ? `Managing task ID: ${expandedTask.id}` : 'Fill in the details below to track progress.'}
+                        {isModalOpen ? 'Fill in the details below to track progress.' : isEditing ? 'Modify the fields below and save.' : `Managing task ID: ${expandedTask?.id?.slice(0, 8)}...`}
                     </p>
                 </div>
-                <button
-                    onClick={() => { setIsModalOpen(false); setExpandedTask(null); }}
-                    className="p-3 bg-slate-800 text-slate-400 rounded-full hover:bg-red-500 hover:text-white transition-all duration-200 shadow-sm"
-                >
-                    <X size={24} />
-                </button>
+                <div className="flex items-center gap-3">
+                    {/* Edit / Save / Cancel buttons in expanded view */}
+                    {expandedTask && !isEditing && canCreate && (
+                      <button
+                        onClick={startEditing}
+                        className="flex items-center gap-2 px-4 py-2 bg-sky-600 text-white rounded-lg font-bold hover:bg-sky-500 transition-all active:scale-95 shadow-md"
+                      >
+                        <Edit2 size={16} /> Edit
+                      </button>
+                    )}
+                    {isEditing && (
+                      <>
+                        <button onClick={cancelEdit} className="px-4 py-2 text-slate-400 hover:bg-slate-800 rounded-lg font-bold transition">Cancel</button>
+                        <button onClick={saveEdit} className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg font-bold hover:bg-emerald-500 transition-all active:scale-95 shadow-md">
+                          <Save size={16} /> Save
+                        </button>
+                      </>
+                    )}
+                    <button
+                        onClick={() => { setIsModalOpen(false); setExpandedTask(null); setIsEditing(false); }}
+                        className="p-3 bg-slate-800 text-slate-400 rounded-full hover:bg-red-500 hover:text-white transition-all duration-200 shadow-sm"
+                    >
+                        <X size={24} />
+                    </button>
+                </div>
             </div>
 
             {/* Content Container */}
@@ -266,51 +323,133 @@ const TaskTracker = () => {
                         </form>
                     )}
 
-                    {/* If Editing Task (Expanded) */}
+                    {/* If Viewing/Editing Task (Expanded) */}
                     {expandedTask && (
                         <div className="space-y-8 animate-enter">
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="p-4 bg-slate-800/30 rounded-xl border border-slate-800">
-                                    <p className="text-xs font-bold text-slate-500 uppercase">Status</p>
+                            {/* EDIT MODE: Inline editable fields */}
+                            {isEditing ? (
+                              <div className="space-y-6">
+                                <div className="space-y-2">
+                                  <label className="text-sm font-bold text-slate-400 uppercase tracking-wider">Task Title</label>
+                                  <input
+                                    type="text"
+                                    className="w-full text-xl font-bold border-b-2 border-slate-700 py-2 outline-none focus:border-sky-500 transition-colors bg-transparent text-white"
+                                    value={editForm.task}
+                                    onChange={e => setEditForm({...editForm, task: e.target.value})}
+                                  />
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div className="space-y-2">
+                                    <label className="text-xs font-bold text-slate-400 uppercase">Status</label>
                                     <select
-                                        value={expandedTask.status}
-                                        onChange={(e) => { updateTaskStatus(expandedTask.id, e.target.value); setExpandedTask({...expandedTask, status: e.target.value}) }}
-                                        className={`bg-transparent font-bold outline-none w-full mt-1 ${expandedTask.status === 'Not Started' ? 'text-red-400' : expandedTask.status === 'On-going' ? 'text-amber-400' : 'text-emerald-400'}`}
+                                      value={editForm.status}
+                                      onChange={e => setEditForm({...editForm, status: e.target.value})}
+                                      className="w-full bg-slate-800 p-3 rounded-lg border border-slate-700 outline-none focus:ring-2 focus:ring-sky-500 text-white"
                                     >
-                                        <option value="Not Started" className="bg-slate-900">Not Started</option>
-                                        <option value="On-going" className="bg-slate-900">On-going</option>
-                                        <option value="Done" className="bg-slate-900">Done</option>
+                                      <option value="Not Started" className="bg-slate-900">Not Started</option>
+                                      <option value="On-going" className="bg-slate-900">On-going</option>
+                                      <option value="Done" className="bg-slate-900">Done</option>
                                     </select>
+                                  </div>
+                                  <div className="space-y-2">
+                                    <label className="text-xs font-bold text-slate-400 uppercase">Priority</label>
+                                    <div className="flex gap-2 pt-1">
+                                      {['Low', 'Medium', 'High', 'Critical'].map(p => (
+                                        <button key={p} type="button"
+                                          onClick={() => setEditForm({...editForm, priority: p})}
+                                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                                            editForm.priority === p
+                                              ? p === 'Critical' ? 'bg-red-600 text-white'
+                                              : p === 'High' ? 'bg-orange-600 text-white'
+                                              : p === 'Medium' ? 'bg-sky-600 text-white'
+                                              : 'bg-emerald-600 text-white'
+                                              : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
+                                          }`}
+                                        >{p}</button>
+                                      ))}
+                                    </div>
+                                  </div>
                                 </div>
-                                <div className="p-4 bg-slate-800/30 rounded-xl border border-slate-800">
-                                    <p className="text-xs font-bold text-slate-500 uppercase">Deadline</p>
-                                    <p className="font-bold text-slate-300 mt-1">{expandedTask.deadline}</p>
-                                </div>
-                            </div>
 
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="p-4 bg-slate-800/30 rounded-xl border border-slate-800">
-                                    <p className="text-xs font-bold text-slate-500 uppercase">Priority</p>
-                                    <span className={`inline-block mt-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${
-                                        expandedTask.priority === 'Critical' ? 'bg-red-600/20 text-red-400' :
-                                        expandedTask.priority === 'High' ? 'bg-orange-600/20 text-orange-400' :
-                                        expandedTask.priority === 'Medium' ? 'bg-sky-600/20 text-sky-400' :
-                                        'bg-emerald-600/20 text-emerald-400'
-                                    }`}>{expandedTask.priority || 'Medium'}</span>
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div className="space-y-2">
+                                    <label className="text-xs font-bold text-slate-400 uppercase">Start Date</label>
+                                    <input type="date" className="w-full bg-slate-800 p-3 rounded-lg border border-slate-700 outline-none focus:ring-2 focus:ring-sky-500 text-white" value={editForm.start} onChange={e => setEditForm({...editForm, start: e.target.value})} />
+                                  </div>
+                                  <div className="space-y-2">
+                                    <label className="text-xs font-bold text-slate-400 uppercase">Deadline</label>
+                                    <input type="date" className="w-full bg-slate-800 p-3 rounded-lg border border-slate-700 outline-none focus:ring-2 focus:ring-sky-500 text-white" value={editForm.deadline} onChange={e => setEditForm({...editForm, deadline: e.target.value})} />
+                                  </div>
                                 </div>
-                                <div className="p-4 bg-slate-800/30 rounded-xl border border-slate-800">
-                                    <p className="text-xs font-bold text-slate-500 uppercase">Assigned To</p>
-                                    <p className="font-bold text-slate-300 mt-1">{expandedTask.owner || 'Unassigned'}</p>
-                                </div>
-                            </div>
 
-                            {expandedTask.remarks && (
-                                <div className="p-4 bg-slate-800/30 rounded-xl border border-slate-800">
-                                    <p className="text-xs font-bold text-slate-500 uppercase mb-1">Notes</p>
-                                    <p className="text-sm text-slate-300 leading-relaxed">{expandedTask.remarks}</p>
+                                <div className="space-y-2">
+                                  <label className="text-xs font-bold text-slate-400 uppercase">Assigned To</label>
+                                  <input type="text" className="w-full bg-slate-800 p-3 rounded-lg border border-slate-700 outline-none focus:ring-2 focus:ring-sky-500 text-white" value={editForm.owner} onChange={e => setEditForm({...editForm, owner: e.target.value})} />
                                 </div>
+
+                                <div className="space-y-2">
+                                  <label className="text-xs font-bold text-slate-400 uppercase">Notes</label>
+                                  <textarea
+                                    className="w-full px-3 py-2 bg-slate-800 border border-slate-700 text-white rounded-lg focus:ring-2 focus:ring-sky-500 outline-none transition text-sm resize-none"
+                                    rows={3}
+                                    value={editForm.remarks}
+                                    onChange={e => setEditForm({...editForm, remarks: e.target.value})}
+                                  />
+                                </div>
+                              </div>
+                            ) : (
+                              /* VIEW MODE: Read-only display */
+                              <>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="p-4 bg-slate-800/30 rounded-xl border border-slate-800">
+                                        <p className="text-xs font-bold text-slate-500 uppercase">Status</p>
+                                        {canCreate ? (
+                                          <select
+                                            value={expandedTask.status}
+                                            onChange={(e) => { updateTaskStatus(expandedTask.id, e.target.value); setExpandedTask({...expandedTask, status: e.target.value}) }}
+                                            className={`bg-transparent font-bold outline-none w-full mt-1 cursor-pointer ${expandedTask.status === 'Not Started' ? 'text-red-400' : expandedTask.status === 'On-going' ? 'text-amber-400' : 'text-emerald-400'}`}
+                                          >
+                                            <option value="Not Started" className="bg-slate-900">Not Started</option>
+                                            <option value="On-going" className="bg-slate-900">On-going</option>
+                                            <option value="Done" className="bg-slate-900">Done</option>
+                                          </select>
+                                        ) : (
+                                          <p className={`font-bold mt-1 ${expandedTask.status === 'Not Started' ? 'text-red-400' : expandedTask.status === 'On-going' ? 'text-amber-400' : 'text-emerald-400'}`}>{expandedTask.status}</p>
+                                        )}
+                                    </div>
+                                    <div className="p-4 bg-slate-800/30 rounded-xl border border-slate-800">
+                                        <p className="text-xs font-bold text-slate-500 uppercase">Deadline</p>
+                                        <p className="font-bold text-slate-300 mt-1">{expandedTask.deadline || 'Not set'}</p>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="p-4 bg-slate-800/30 rounded-xl border border-slate-800">
+                                        <p className="text-xs font-bold text-slate-500 uppercase">Priority</p>
+                                        <span className={`inline-block mt-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                                            expandedTask.priority === 'Critical' ? 'bg-red-600/20 text-red-400' :
+                                            expandedTask.priority === 'High' ? 'bg-orange-600/20 text-orange-400' :
+                                            expandedTask.priority === 'Medium' ? 'bg-sky-600/20 text-sky-400' :
+                                            'bg-emerald-600/20 text-emerald-400'
+                                        }`}>{expandedTask.priority || 'Medium'}</span>
+                                    </div>
+                                    <div className="p-4 bg-slate-800/30 rounded-xl border border-slate-800">
+                                        <p className="text-xs font-bold text-slate-500 uppercase">Assigned To</p>
+                                        <p className="font-bold text-slate-300 mt-1">{expandedTask.owner || 'Unassigned'}</p>
+                                    </div>
+                                </div>
+
+                                {expandedTask.remarks && (
+                                    <div className="p-4 bg-slate-800/30 rounded-xl border border-slate-800">
+                                        <p className="text-xs font-bold text-slate-500 uppercase mb-1">Notes</p>
+                                        <p className="text-sm text-slate-300 leading-relaxed">{expandedTask.remarks}</p>
+                                    </div>
+                                )}
+                              </>
                             )}
 
+                            {/* Subtasks — always visible */}
                             <div className="p-6 bg-slate-800/30 rounded-2xl border border-slate-800">
                                 <div className="flex justify-between items-center mb-4">
                                     <h3 className="font-bold text-slate-100 flex items-center gap-2"><CheckSquare /> Subtasks / Checklist</h3>
@@ -332,14 +471,17 @@ const TaskTracker = () => {
                                         </div>
                                     ))}
                                 </div>
-                                <form onSubmit={(e) => handleSubtaskSubmit(e, expandedTask.id)} className="flex mt-4 pt-4 border-t border-slate-700 gap-2">
-                                    <input type="text" placeholder="+ Add step" className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 outline-none focus:border-sky-500 transition text-white placeholder-slate-500" value={newSubtask} onChange={e => setNewSubtask(e.target.value)}/>
-                                    <button type="submit" className="bg-sky-600 text-white px-3 py-2 rounded-lg hover:bg-sky-500 transition text-sm font-bold flex items-center justify-center">
-                                      <Plus size={16} />
-                                    </button>
-                                </form>
+                                {canCreate && (
+                                  <form onSubmit={(e) => handleSubtaskSubmit(e, expandedTask.id)} className="flex mt-4 pt-4 border-t border-slate-700 gap-2">
+                                      <input type="text" placeholder="+ Add step" className="flex-1 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 outline-none focus:border-sky-500 transition text-white placeholder-slate-500" value={newSubtask} onChange={e => setNewSubtask(e.target.value)}/>
+                                      <button type="submit" className="bg-sky-600 text-white px-3 py-2 rounded-lg hover:bg-sky-500 transition text-sm font-bold flex items-center justify-center">
+                                        <Plus size={16} />
+                                      </button>
+                                  </form>
+                                )}
                             </div>
 
+                            {/* Comments — always visible */}
                             <div className="p-6 bg-slate-800/30 rounded-2xl border border-slate-800">
                                 <h3 className="font-bold text-slate-100 mb-4 flex items-center gap-2"><MessageSquare /> Team Discussion</h3>
                                 <div className="space-y-4 mb-4 max-h-40 overflow-y-auto custom-scrollbar">
@@ -359,9 +501,12 @@ const TaskTracker = () => {
                                 </div>
                             </div>
 
-                            <div className="flex justify-end pt-4">
-                                <button onClick={() => handleDeleteRequest(expandedTask.id)} className="text-red-400 font-bold flex items-center gap-2 hover:bg-red-600/10 p-3 rounded-lg transition-colors"><Trash2/> Delete Task</button>
-                            </div>
+                            {/* Delete button — only for users with canDelete */}
+                            {canDelete && (
+                              <div className="flex justify-end pt-4">
+                                  <button onClick={() => handleDeleteRequest(expandedTask.id)} className="text-red-400 font-bold flex items-center gap-2 hover:bg-red-600/10 p-3 rounded-lg transition-colors"><Trash2/> Delete Task</button>
+                              </div>
+                            )}
                         </div>
                     )}
                 </div>
@@ -372,6 +517,12 @@ const TaskTracker = () => {
                         <h4 className="font-bold text-amber-400 mb-2">Pro Tip</h4>
                         <p className="text-sm text-amber-300/70 leading-relaxed">Breaking down tasks into subtasks increases completion rates by 40%. Don't just write "Chapter 1", write "Draft Intro", "Review RRL", etc.</p>
                     </div>
+                    {!canCreate && (
+                      <div className="p-6 bg-slate-800/30 rounded-2xl border border-slate-800">
+                        <h4 className="font-bold text-slate-400 mb-2">View Only</h4>
+                        <p className="text-sm text-slate-500 leading-relaxed">Your current role doesn't have edit permissions. Contact the PM to request access.</p>
+                      </div>
+                    )}
                 </div>
             </div>
         </div>
