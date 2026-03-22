@@ -42,26 +42,6 @@ export async function fetchProfile(userId) {
 }
 
 /**
- * Log an auth event to the audit log.
- * @param {string} email
- * @param {string} eventType - sign_in_success|sign_in_failed|sign_up_success|sign_up_failed|sign_out|session_restored|restricted_blocked
- * @param {object} [metadata={}]
- */
-export async function logAuthEvent(email, eventType, metadata = {}) {
-  if (!supabase) return;
-  try {
-    await supabase.from('auth_audit_log').insert({
-      email,
-      event_type: eventType,
-      user_agent: navigator.userAgent || null,
-      metadata,
-    });
-  } catch {
-    // Audit logging should never block the auth flow
-  }
-}
-
-/**
  * Fetch all profiles (admin only — RLS enforced server-side).
  * @returns {Promise<Array|null>}
  */
@@ -91,23 +71,4 @@ export async function updateUserRole(userId, newRole) {
     .eq('id', userId);
   if (error) return { error: error.message };
   return { error: null };
-}
-
-/**
- * Fetch auth audit log (admin only — RLS enforced server-side).
- * @param {number} [limit=100]
- * @returns {Promise<Array|null>}
- */
-export async function fetchAuditLog(limit = 100) {
-  if (!supabase) return null;
-  const { data, error } = await supabase
-    .from('auth_audit_log')
-    .select('*')
-    .order('created_at', { ascending: false })
-    .limit(limit);
-  if (error) {
-    console.error('[XoCompass] fetchAuditLog:', error.message);
-    return null;
-  }
-  return data;
 }

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { isCloudEnabled, fetchAllProfiles, updateUserRole, fetchAuditLog } from '../lib/supabase';
-import { Shield, Users, Activity, RefreshCw, AlertTriangle, CheckCircle, XCircle, Clock, LogIn, LogOut, UserPlus, Ban, Eye } from 'lucide-react';
+import { isCloudEnabled, fetchAllProfiles, updateUserRole } from '../lib/supabase';
+import { Shield, Users, Activity, RefreshCw, AlertTriangle, CheckCircle, XCircle, Ban, FileText, CheckSquare, Database, Calendar, Bell } from 'lucide-react';
 
 const ROLE_OPTIONS = [
   { value: 'pm', label: 'Project Manager', color: 'text-sky-400' },
@@ -11,44 +11,32 @@ const ROLE_OPTIONS = [
   { value: 'restricted', label: 'Restricted', color: 'text-red-400' },
 ];
 
-const EVENT_ICONS = {
-  sign_in_success: { icon: LogIn, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
-  sign_in_failed: { icon: XCircle, color: 'text-red-400', bg: 'bg-red-500/10' },
-  sign_up_success: { icon: UserPlus, color: 'text-sky-400', bg: 'bg-sky-500/10' },
-  sign_up_failed: { icon: XCircle, color: 'text-orange-400', bg: 'bg-orange-500/10' },
-  sign_out: { icon: LogOut, color: 'text-slate-400', bg: 'bg-slate-500/10' },
-  session_restored: { icon: RefreshCw, color: 'text-purple-400', bg: 'bg-purple-500/10' },
-  restricted_blocked: { icon: Ban, color: 'text-red-500', bg: 'bg-red-500/15' },
-};
-
-const EVENT_LABELS = {
-  sign_in_success: 'Signed In',
-  sign_in_failed: 'Sign-In Failed',
-  sign_up_success: 'Signed Up',
-  sign_up_failed: 'Sign-Up Failed',
-  sign_out: 'Signed Out',
-  session_restored: 'Session Restored',
-  restricted_blocked: 'Blocked (Restricted)',
+const ACTION_ICONS = {
+  'Created Task': { icon: CheckSquare, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
+  'Moved Task': { icon: Activity, color: 'text-amber-400', bg: 'bg-amber-500/10' },
+  'Added Meeting': { icon: FileText, color: 'text-sky-400', bg: 'bg-sky-500/10' },
+  'Uploaded Dataset': { icon: Database, color: 'text-purple-400', bg: 'bg-purple-500/10' },
+  'Deleted Dataset': { icon: Database, color: 'text-red-400', bg: 'bg-red-500/10' },
+  'Imported Backup': { icon: RefreshCw, color: 'text-sky-400', bg: 'bg-sky-500/10' },
+  'Nudged Member': { icon: Bell, color: 'text-amber-400', bg: 'bg-amber-500/10' },
 };
 
 const AdminPanel = () => {
-  const { user } = useAppContext();
+  const { user, activityLog } = useAppContext();
   const [tab, setTab] = useState('users');
   const [profiles, setProfiles] = useState([]);
-  const [auditLog, setAuditLog] = useState([]);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(null);
   const [confirmAction, setConfirmAction] = useState(null);
-  const [auditFilter, setAuditFilter] = useState('all');
+  const [activityFilter, setActivityFilter] = useState('all');
 
   const isAdmin = user?.permissions?.isAdmin;
 
   const loadData = useCallback(async () => {
-    if (!isCloudEnabled) return; // nothing to fetch in local mode
+    if (!isCloudEnabled) return;
     setLoading(true);
-    const [p, a] = await Promise.all([fetchAllProfiles(), fetchAuditLog(200)]);
+    const p = await fetchAllProfiles();
     if (p) setProfiles(p);
-    if (a) setAuditLog(a);
     setLoading(false);
   }, []);
 
@@ -69,6 +57,7 @@ const AdminPanel = () => {
   };
 
   const timeAgo = (dateStr) => {
+    if (!dateStr) return '';
     const diff = Date.now() - new Date(dateStr).getTime();
     const mins = Math.floor(diff / 60000);
     if (mins < 1) return 'just now';
@@ -79,9 +68,11 @@ const AdminPanel = () => {
     return `${days}d ago`;
   };
 
-  const filteredAudit = auditFilter === 'all'
-    ? auditLog
-    : auditLog.filter(e => e.event_type === auditFilter);
+  // Activity log filtering
+  const actionTypes = [...new Set((activityLog || []).map(e => e.action))];
+  const filteredActivity = activityFilter === 'all'
+    ? (activityLog || [])
+    : (activityLog || []).filter(e => e.action === activityFilter);
 
   if (!isAdmin) {
     return (
@@ -103,7 +94,7 @@ const AdminPanel = () => {
           <h2 className="text-2xl font-bold text-slate-100 flex items-center gap-3">
             <Shield className="text-sky-400" size={28} /> Admin Panel
           </h2>
-          <p className="text-slate-500 text-sm">Manage team members and monitor authentication activity</p>
+          <p className="text-slate-500 text-sm">Manage team members and view workspace activity</p>
         </div>
         <button
           onClick={loadData}
@@ -115,7 +106,7 @@ const AdminPanel = () => {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-slate-900/50 p-5 rounded-xl border border-slate-800">
           <div className="flex items-center gap-2 text-slate-400 mb-2"><Users size={18} /> Team Members</div>
           <p className="text-2xl font-bold text-slate-100">{profiles.filter(p => p.role !== 'restricted').length}</p>
@@ -125,12 +116,8 @@ const AdminPanel = () => {
           <p className="text-2xl font-bold text-red-400">{profiles.filter(p => p.role === 'restricted').length}</p>
         </div>
         <div className="bg-slate-900/50 p-5 rounded-xl border border-slate-800">
-          <div className="flex items-center gap-2 text-emerald-400 mb-2"><CheckCircle size={18} /> Successful Logins</div>
-          <p className="text-2xl font-bold text-emerald-400">{auditLog.filter(e => e.event_type === 'sign_in_success').length}</p>
-        </div>
-        <div className="bg-slate-900/50 p-5 rounded-xl border border-slate-800">
-          <div className="flex items-center gap-2 text-red-400 mb-2"><XCircle size={18} /> Failed Attempts</div>
-          <p className="text-2xl font-bold text-red-400">{auditLog.filter(e => e.event_type === 'sign_in_failed').length}</p>
+          <div className="flex items-center gap-2 text-emerald-400 mb-2"><Activity size={18} /> Recent Actions</div>
+          <p className="text-2xl font-bold text-emerald-400">{(activityLog || []).length}</p>
         </div>
       </div>
 
@@ -143,14 +130,14 @@ const AdminPanel = () => {
           <Users size={16} /> User Management
         </button>
         <button
-          onClick={() => setTab('audit')}
-          className={`px-4 py-2 rounded-lg text-sm font-bold transition flex items-center gap-2 ${tab === 'audit' ? 'bg-sky-600 text-white shadow' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}
+          onClick={() => setTab('activity')}
+          className={`px-4 py-2 rounded-lg text-sm font-bold transition flex items-center gap-2 ${tab === 'activity' ? 'bg-sky-600 text-white shadow' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}
         >
-          <Activity size={16} /> Audit Log
+          <Activity size={16} /> Activity Log
         </button>
       </div>
 
-      {/* ═══ USER MANAGEMENT TAB ═══ */}
+      {/* USER MANAGEMENT TAB */}
       {tab === 'users' && (
         <div className="bg-slate-900/50 rounded-xl border border-slate-800 overflow-hidden">
           <table className="w-full text-left">
@@ -234,65 +221,60 @@ const AdminPanel = () => {
         </div>
       )}
 
-      {/* ═══ AUDIT LOG TAB ═══ */}
-      {tab === 'audit' && (
+      {/* ACTIVITY LOG TAB */}
+      {tab === 'activity' && (
         <div className="space-y-4">
           {/* Filter */}
           <div className="flex gap-2 flex-wrap">
-            {[
-              { value: 'all', label: 'All Events' },
-              { value: 'sign_in_success', label: 'Logins' },
-              { value: 'sign_in_failed', label: 'Failed' },
-              { value: 'sign_up_success', label: 'Sign-ups' },
-              { value: 'restricted_blocked', label: 'Blocked' },
-              { value: 'sign_out', label: 'Sign-outs' },
-            ].map(f => (
+            <button
+              onClick={() => setActivityFilter('all')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${activityFilter === 'all' ? 'bg-sky-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700 border border-slate-700'}`}
+            >
+              All Actions
+            </button>
+            {actionTypes.map(action => (
               <button
-                key={f.value}
-                onClick={() => setAuditFilter(f.value)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${auditFilter === f.value ? 'bg-sky-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700 border border-slate-700'}`}
+                key={action}
+                onClick={() => setActivityFilter(action)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${activityFilter === action ? 'bg-sky-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700 border border-slate-700'}`}
               >
-                {f.label}
+                {action}
               </button>
             ))}
           </div>
 
           {/* Log entries */}
           <div className="bg-slate-900/50 rounded-xl border border-slate-800 overflow-hidden">
-            {loading ? (
-              <div className="p-8 text-center text-slate-500"><RefreshCw size={20} className="animate-spin mx-auto mb-2" />Loading...</div>
-            ) : filteredAudit.length === 0 ? (
+            {filteredActivity.length === 0 ? (
               <div className="p-8 text-center text-slate-500">
                 <Activity size={32} className="mx-auto mb-2 text-slate-600" />
-                <p>No audit events found.</p>
-                <p className="text-xs mt-1">Events will appear here once the <code>004_admin_audit_log.sql</code> migration is run.</p>
+                <p>No activity recorded yet.</p>
+                <p className="text-xs mt-1">Actions like creating tasks, moving tasks, and uploading datasets will appear here.</p>
               </div>
             ) : (
               <div className="divide-y divide-slate-800 max-h-[500px] overflow-y-auto custom-scrollbar">
-                {filteredAudit.map(entry => {
-                  const evt = EVENT_ICONS[entry.event_type] || { icon: Eye, color: 'text-slate-400', bg: 'bg-slate-500/10' };
-                  const Icon = evt.icon;
+                {filteredActivity.map(entry => {
+                  const config = ACTION_ICONS[entry.action] || { icon: Activity, color: 'text-slate-400', bg: 'bg-slate-500/10' };
+                  const Icon = config.icon;
                   return (
                     <div key={entry.id} className="p-4 flex items-center gap-4 hover:bg-slate-800/30 transition">
-                      <div className={`w-9 h-9 rounded-full ${evt.bg} ${evt.color} flex items-center justify-center shrink-0`}>
+                      <div className={`w-9 h-9 rounded-full ${config.bg} ${config.color} flex items-center justify-center shrink-0`}>
                         <Icon size={18} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-bold text-sm text-slate-200 truncate">{entry.email}</span>
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${evt.color} ${evt.bg}`}>
-                            {EVENT_LABELS[entry.event_type] || entry.event_type}
+                          <span className="font-bold text-sm text-slate-200">{entry.user_name}</span>
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${config.color} ${config.bg}`}>
+                            {entry.action}
                           </span>
                         </div>
-                        {entry.metadata && Object.keys(entry.metadata).length > 0 && (
-                          <p className="text-xs text-slate-500 mt-0.5 truncate">
-                            {entry.metadata.reason || entry.metadata.name || entry.metadata.source || JSON.stringify(entry.metadata)}
-                          </p>
+                        {entry.details && (
+                          <p className="text-xs text-slate-500 mt-0.5 truncate">{entry.details}</p>
                         )}
                       </div>
                       <div className="text-right shrink-0">
                         <p className="text-xs text-slate-500">{timeAgo(entry.created_at)}</p>
-                        <p className="text-[10px] text-slate-600">{new Date(entry.created_at).toLocaleString()}</p>
+                        <p className="text-[10px] text-slate-600">{entry.time || ''}</p>
                       </div>
                     </div>
                   );
@@ -303,7 +285,7 @@ const AdminPanel = () => {
         </div>
       )}
 
-      {/* ═══ CONFIRM ACTION MODAL ═══ */}
+      {/* CONFIRM ACTION MODAL */}
       {confirmAction && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] animate-enter">
           <div className="bg-slate-900 p-6 rounded-2xl w-[420px] shadow-2xl text-center border border-slate-700">

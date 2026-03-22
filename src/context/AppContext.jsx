@@ -1,5 +1,5 @@
 import React, { createContext, useState, useEffect, useContext, useCallback, useRef } from 'react';
-import { supabase, isCloudEnabled, fetchProfile, logAuthEvent } from '../lib/supabase';
+import { supabase, isCloudEnabled, fetchProfile } from '../lib/supabase';
 
 const AppContext = createContext();
 
@@ -566,14 +566,10 @@ export const AppProvider = ({ children }) => {
   const handleProfile = useCallback((profile, eventSource) => {
     if (!profile) return null;
     if (profile.role === 'restricted') {
-      logAuthEvent(profile.email, 'restricted_blocked', { source: eventSource });
       return { restricted: true, email: profile.email };
     }
     const u = buildUser(profile);
     setUser(u);
-    if (eventSource === 'session_restore') {
-      logAuthEvent(profile.email, 'session_restored');
-    }
     return u;
   }, []);
 
@@ -665,7 +661,6 @@ export const AppProvider = ({ children }) => {
       'Sign-in timed out. Check your internet connection or try again.'
     );
     if (error) {
-      logAuthEvent(email, 'sign_in_failed', { reason: error.message });
       if (error.message?.includes('Invalid login credentials')) {
         throw new Error('Invalid email or password. Check your credentials or sign up first.');
       }
@@ -688,14 +683,12 @@ export const AppProvider = ({ children }) => {
         avatar_url: null,
       };
       setUser(immediateUser);
-      logAuthEvent(email, 'sign_in_success');
 
       // Background: enrich with full profile (avatar, updated role, restricted check)
       fetchProfile(data.user.id).then(profile => {
         if (!profile) return;
         if (profile.role === 'restricted') {
           supabase.auth.signOut();
-          logAuthEvent(email, 'restricted_blocked', { source: 'sign_in_bg' });
           setUser(null);
           localStorage.removeItem('xo_user');
           return;
@@ -714,13 +707,11 @@ export const AppProvider = ({ children }) => {
       'Sign-up timed out. Check your internet connection or try again.'
     );
     if (error) {
-      logAuthEvent(email, 'sign_up_failed', { reason: error.message });
       if (error.message?.includes('already registered')) {
         throw new Error('This email is already registered. Try signing in instead.');
       }
       throw error;
     }
-    logAuthEvent(email, 'sign_up_success', { name, role: roleKey });
 
     // If email confirmation is required, session will be null
     if (!data?.session) {
@@ -773,7 +764,6 @@ export const AppProvider = ({ children }) => {
     // Fire-and-forget: tell Supabase to end the session (non-blocking)
     if (isCloudEnabled) {
       supabase.auth.signOut().catch(() => {});
-      if (email) logAuthEvent(email, 'sign_out');
     }
   }, [user]);
 
