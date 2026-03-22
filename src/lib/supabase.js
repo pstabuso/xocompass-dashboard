@@ -1,8 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
 
+// ── Environment variables ──────────────────────────────────────────
+// Only VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are needed client-side.
+// The anon key is public by design (Supabase RLS protects data).
+// NEVER expose service_role keys or secrets in frontend code.
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-const teamSecret = import.meta.env.VITE_SUPABASE_TEAM_SECRET;
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.warn(
@@ -12,7 +15,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
 }
 
 // Create Supabase client — no custom headers (they cause CORS preflight failures).
-// RLS hardening uses the authenticated user's JWT instead.
+// Security relies on Supabase RLS policies + authenticated user JWT.
 export const supabase = (supabaseUrl && supabaseAnonKey)
   ? createClient(supabaseUrl, supabaseAnonKey)
   : null;

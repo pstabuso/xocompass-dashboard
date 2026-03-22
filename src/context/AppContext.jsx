@@ -50,6 +50,41 @@ const TABLES = {
   notifications: 'notifications',
 };
 
+// ─── INPUT VALIDATION (ISO 25010 — Security & Functional Suitability) ──
+
+const VALID_STATUSES = ['Not Started', 'On-going', 'Done'];
+const VALID_PRIORITIES = ['Low', 'Medium', 'High', 'Critical'];
+const VALID_DATASET_TYPES = ['Primary', 'Exogenous'];
+const VALID_DATASET_STATUSES = ['Raw', 'Cleaned', 'Verified'];
+const MAX_TEXT_LENGTH = 500;
+const MAX_COMMENT_LENGTH = 1000;
+
+/** Strip HTML/script tags to prevent XSS in stored data */
+const sanitize = (str) => {
+  if (typeof str !== 'string') return str;
+  return str
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/javascript:/gi, '')
+    .replace(/on\w+\s*=/gi, '')
+    .trim();
+};
+
+/** Sanitize all string fields in an object (shallow) */
+const sanitizeRow = (obj) => {
+  const cleaned = {};
+  for (const [key, value] of Object.entries(obj)) {
+    if (typeof value === 'string') {
+      cleaned[key] = sanitize(value).slice(0, key === 'remarks' || key === 'description' || key === 'notes' ? MAX_COMMENT_LENGTH : MAX_TEXT_LENGTH);
+    } else if (Array.isArray(value)) {
+      cleaned[key] = value; // arrays (comments, subtasks) handled separately
+    } else {
+      cleaned[key] = value;
+    }
+  }
+  return cleaned;
+};
+
 // ─── HELPERS ──────────────────────────────────────────────────────
 
 /** Read from localStorage with JSON parse safety */
@@ -58,9 +93,13 @@ const readLocal = (key, fallback = []) => {
   catch { return fallback; }
 };
 
-/** Write to localStorage */
+/** Write to localStorage with quota safety */
 const writeLocal = (key, value) => {
-  try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* quota */ }
+  try { localStorage.setItem(key, JSON.stringify(value)); }
+  catch {
+    // localStorage quota exceeded — clear oldest cached data
+    console.warn(`[XoCompass] localStorage quota exceeded for key "${key}"`);
+  }
 };
 
 /** Fetch full table from Supabase, ordered newest-first */
@@ -71,25 +110,80 @@ const fetchTable = async (table) => {
   return data;
 };
 
-/** Upsert a row to Supabase (insert or update by id) */
+// ── Retry queue for failed writes (ISO 25010 — Reliability) ──
+const RETRY_QUEUE_KEY = 'xo_retry_queue';
+const MAX_RETRIES = 3;
+
+const enqueueRetry = (operation, table, payload) => {
+  try {
+    const queue = JSON.parse(localStorage.getItem(RETRY_QUEUE_KEY) || '[]');
+    queue.push({ operation, table, payload, retries: 0, created_at: Date.now() });
+    // Keep queue bounded (max 50 pending operations)
+    if (queue.length > 50) queue.shift();
+    localStorage.setItem(RETRY_QUEUE_KEY, JSON.stringify(queue));
+  } catch { /* ignore */ }
+};
+
+const clearRetryQueue = () => {
+  try { localStorage.removeItem(RETRY_QUEUE_KEY); } catch { /* ignore */ }
+};
+
+/** Upsert a row to Supabase with retry on failure */
 const upsertRow = async (table, row) => {
   if (!supabase) return;
   const { error } = await supabase.from(table).upsert(row, { onConflict: 'id' });
-  if (error) console.error(`[XoCompass] upsert ${table}:`, error.message);
+  if (error) {
+    console.error(`[XoCompass] upsert ${table}:`, error.message);
+    enqueueRetry('upsert', table, row);
+  }
 };
 
-/** Insert a row to Supabase */
+/** Insert a row to Supabase with retry on failure */
 const insertRow = async (table, row) => {
   if (!supabase) return;
   const { error } = await supabase.from(table).insert(row);
-  if (error) console.error(`[XoCompass] insert ${table}:`, error.message);
+  if (error) {
+    console.error(`[XoCompass] insert ${table}:`, error.message);
+    enqueueRetry('insert', table, row);
+  }
 };
 
 /** Delete a row from Supabase by id */
 const deleteRow = async (table, id) => {
   if (!supabase) return;
   const { error } = await supabase.from(table).delete().eq('id', id);
-  if (error) console.error(`[XoCompass] delete ${table}:`, error.message);
+  if (error) {
+    console.error(`[XoCompass] delete ${table}:`, error.message);
+    enqueueRetry('delete', table, { id });
+  }
+};
+
+/** Process retry queue — called on mount and periodically */
+const processRetryQueue = async () => {
+  if (!supabase) return;
+  let queue;
+  try { queue = JSON.parse(localStorage.getItem(RETRY_QUEUE_KEY) || '[]'); } catch { return; }
+  if (queue.length === 0) return;
+
+  const remaining = [];
+  for (const item of queue) {
+    let error = null;
+    try {
+      if (item.operation === 'upsert') {
+        ({ error } = await supabase.from(item.table).upsert(item.payload, { onConflict: 'id' }));
+      } else if (item.operation === 'insert') {
+        ({ error } = await supabase.from(item.table).insert(item.payload));
+      } else if (item.operation === 'delete') {
+        ({ error } = await supabase.from(item.table).delete().eq('id', item.payload.id));
+      }
+    } catch (e) { error = e; }
+
+    if (error && item.retries < MAX_RETRIES) {
+      remaining.push({ ...item, retries: item.retries + 1 });
+    }
+    // If retries exhausted or success, drop from queue
+  }
+  localStorage.setItem(RETRY_QUEUE_KEY, JSON.stringify(remaining));
 };
 
 // ─── PROVIDER ─────────────────────────────────────────────────────
@@ -223,13 +317,22 @@ export const AppProvider = ({ children }) => {
     };
   }, []);
 
+  // ── Retry queue processor (runs on mount + every 30s) ──
+  useEffect(() => {
+    if (!isCloudEnabled) return;
+    // Process any failed writes from previous session
+    processRetryQueue();
+    const interval = setInterval(processRetryQueue, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
   // ── Activity Log ──
   const logAction = useCallback((action, details) => {
     const newLog = {
       id: crypto.randomUUID(),
-      user_name: user?.name || 'System',
-      action,
-      details,
+      user_name: sanitize(user?.name || 'System'),
+      action: sanitize(action),
+      details: sanitize(details),
       time: new Date().toLocaleString(),
       created_at: new Date().toISOString(),
     };
@@ -237,46 +340,61 @@ export const AppProvider = ({ children }) => {
     insertRow(TABLES.activity_log, newLog);
   }, [user]);
 
-  // ── TASKS CRUD ──
+  // ── TASKS CRUD (ISO 25010 — Reliability: sync captured row directly) ──
   const addTask = useCallback((newTask) => {
+    const sanitized = sanitizeRow(newTask);
+    // Validate status & priority
+    if (sanitized.status && !VALID_STATUSES.includes(sanitized.status)) sanitized.status = 'Not Started';
+    if (sanitized.priority && !VALID_PRIORITIES.includes(sanitized.priority)) sanitized.priority = 'Medium';
+
     const task = {
-      ...newTask,
+      ...sanitized,
       id: crypto.randomUUID(),
       comments: [],
       subtasks: [],
-      dependencies: newTask.dependencies || [],
+      dependencies: sanitized.dependencies || [],
       status: 'Not Started',
       created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
     };
     setTasks(prev => [...prev, task]);
     insertRow(TABLES.tasks, task);
-    logAction('Created Task', newTask.task);
+    logAction('Created Task', sanitized.task);
   }, [logAction]);
 
+  // FIX: Capture merged row INSIDE setState, then sync it OUTSIDE setState.
+  // The old queueMicrotask+setState pattern was broken — React 19 can skip
+  // updaters that return unchanged references, silently dropping the upsertRow call.
   const updateTask = useCallback((id, updates) => {
-    setTasks(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
-    // Sync to Supabase after React commits the state update
-    queueMicrotask(() => {
-      setTasks(prev => {
-        const updated = prev.find(t => t.id === id);
-        if (updated) upsertRow(TABLES.tasks, updated);
-        return prev;
-      });
-    });
+    const sanitized = sanitizeRow(updates);
+    if (sanitized.status && !VALID_STATUSES.includes(sanitized.status)) delete sanitized.status;
+    if (sanitized.priority && !VALID_PRIORITIES.includes(sanitized.priority)) delete sanitized.priority;
+
+    let rowToSync = null;
+    setTasks(prev => prev.map(t => {
+      if (t.id !== id) return t;
+      const merged = { ...t, ...sanitized, updated_at: new Date().toISOString() };
+      rowToSync = merged;
+      return merged;
+    }));
+    // rowToSync is populated synchronously by the updater
+    if (rowToSync) upsertRow(TABLES.tasks, rowToSync);
   }, []);
 
   const updateTaskStatus = useCallback((id, newStatus) => {
-    setTasks(prev => prev.map(t => t.id === id ? { ...t, status: newStatus } : t));
-    queueMicrotask(() => {
-      setTasks(prev => {
-        const updated = prev.find(t => t.id === id);
-        if (updated) {
-          upsertRow(TABLES.tasks, updated);
-          logAction('Moved Task', `"${updated.task}" is now ${newStatus}`);
-        }
-        return prev;
-      });
-    });
+    if (!VALID_STATUSES.includes(newStatus)) return;
+
+    let rowToSync = null;
+    setTasks(prev => prev.map(t => {
+      if (t.id !== id) return t;
+      const merged = { ...t, status: newStatus, updated_at: new Date().toISOString() };
+      rowToSync = merged;
+      return merged;
+    }));
+    if (rowToSync) {
+      upsertRow(TABLES.tasks, rowToSync);
+      logAction('Moved Task', `"${rowToSync.task}" is now ${newStatus}`);
+    }
   }, [logAction]);
 
   const deleteTask = useCallback((id) => {
@@ -285,66 +403,72 @@ export const AppProvider = ({ children }) => {
   }, []);
 
   const addTaskComment = useCallback((taskId, commentText) => {
-    const comment = { user: user?.name, text: commentText, time: new Date().toLocaleTimeString() };
-    setTasks(prev => prev.map(t => t.id === taskId
-      ? { ...t, comments: [...(t.comments || []), comment] }
-      : t
-    ));
-    queueMicrotask(() => {
-      setTasks(prev => {
-        const updated = prev.find(t => t.id === taskId);
-        if (updated) upsertRow(TABLES.tasks, updated);
-        return prev;
-      });
-    });
+    const safeText = sanitize(commentText).slice(0, MAX_COMMENT_LENGTH);
+    if (!safeText) return;
+    const comment = { user: sanitize(user?.name || 'Anonymous'), text: safeText, time: new Date().toLocaleTimeString() };
+
+    let rowToSync = null;
+    setTasks(prev => prev.map(t => {
+      if (t.id !== taskId) return t;
+      const merged = { ...t, comments: [...(t.comments || []), comment], updated_at: new Date().toISOString() };
+      rowToSync = merged;
+      return merged;
+    }));
+    if (rowToSync) upsertRow(TABLES.tasks, rowToSync);
   }, [user]);
 
   const subtasks = {
     add: (taskId, name) => {
-      const newSub = { id: crypto.randomUUID(), name, done: false };
-      setTasks(prev => prev.map(t => t.id === taskId
-        ? { ...t, subtasks: [...(t.subtasks || []), newSub] }
-        : t
-      ));
-      queueMicrotask(() => {
-        setTasks(prev => {
-          const updated = prev.find(t => t.id === taskId);
-          if (updated) upsertRow(TABLES.tasks, updated);
-          return prev;
-        });
-      });
+      const safeName = sanitize(name).slice(0, MAX_TEXT_LENGTH);
+      if (!safeName) return;
+      const newSub = { id: crypto.randomUUID(), name: safeName, done: false };
+
+      let rowToSync = null;
+      setTasks(prev => prev.map(t => {
+        if (t.id !== taskId) return t;
+        const merged = { ...t, subtasks: [...(t.subtasks || []), newSub], updated_at: new Date().toISOString() };
+        rowToSync = merged;
+        return merged;
+      }));
+      if (rowToSync) upsertRow(TABLES.tasks, rowToSync);
     },
     toggle: (taskId, sId) => {
-      setTasks(prev => prev.map(t => t.id === taskId
-        ? { ...t, subtasks: t.subtasks.map(s => s.id === sId ? { ...s, done: !s.done } : s) }
-        : t
-      ));
-      queueMicrotask(() => {
-        setTasks(prev => {
-          const updated = prev.find(t => t.id === taskId);
-          if (updated) upsertRow(TABLES.tasks, updated);
-          return prev;
-        });
-      });
+      let rowToSync = null;
+      setTasks(prev => prev.map(t => {
+        if (t.id !== taskId) return t;
+        const merged = {
+          ...t,
+          subtasks: (t.subtasks || []).map(s => s.id === sId ? { ...s, done: !s.done } : s),
+          updated_at: new Date().toISOString(),
+        };
+        rowToSync = merged;
+        return merged;
+      }));
+      if (rowToSync) upsertRow(TABLES.tasks, rowToSync);
     },
   };
 
   // ── EVENTS CRUD ──
   const addEvent = useCallback((evt) => {
-    const event = { ...evt, id: crypto.randomUUID(), status: evt.status || 'Not Started', created_at: new Date().toISOString() };
+    const sanitized = sanitizeRow(evt);
+    if (sanitized.status && !VALID_STATUSES.includes(sanitized.status)) sanitized.status = 'Not Started';
+    const event = { ...sanitized, id: crypto.randomUUID(), status: sanitized.status || 'Not Started', created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
     setEvents(prev => [...prev, event]);
     insertRow(TABLES.events, event);
   }, []);
 
   const updateEvent = useCallback((id, updatedEvt) => {
-    setEvents(prev => prev.map(e => e.id === id ? { ...e, ...updatedEvt } : e));
-    queueMicrotask(() => {
-      setEvents(prev => {
-        const updated = prev.find(e => e.id === id);
-        if (updated) upsertRow(TABLES.events, updated);
-        return prev;
-      });
-    });
+    const sanitized = sanitizeRow(updatedEvt);
+    if (sanitized.status && !VALID_STATUSES.includes(sanitized.status)) delete sanitized.status;
+
+    let rowToSync = null;
+    setEvents(prev => prev.map(e => {
+      if (e.id !== id) return e;
+      const merged = { ...e, ...sanitized, updated_at: new Date().toISOString() };
+      rowToSync = merged;
+      return merged;
+    }));
+    if (rowToSync) upsertRow(TABLES.events, rowToSync);
   }, []);
 
   const deleteEvent = useCallback((id) => {
@@ -354,21 +478,24 @@ export const AppProvider = ({ children }) => {
 
   // ── MINUTES CRUD ──
   const addMinute = useCallback((minute) => {
-    const m = { ...minute, id: crypto.randomUUID(), created_at: new Date().toISOString() };
+    const sanitized = sanitizeRow(minute);
+    const m = { ...sanitized, id: crypto.randomUUID(), created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
     setMinutes(prev => [...prev, m]);
     insertRow(TABLES.minutes, m);
-    logAction('Added Meeting', minute.topic || 'New meeting');
+    logAction('Added Meeting', sanitized.topic || 'New meeting');
   }, [logAction]);
 
   const updateMinute = useCallback((id, updates) => {
-    setMinutes(prev => prev.map(m => m.id === id ? { ...m, ...updates } : m));
-    queueMicrotask(() => {
-      setMinutes(prev => {
-        const row = prev.find(m => m.id === id);
-        if (row) upsertRow(TABLES.minutes, row);
-        return prev;
-      });
-    });
+    const sanitized = sanitizeRow(updates);
+
+    let rowToSync = null;
+    setMinutes(prev => prev.map(m => {
+      if (m.id !== id) return m;
+      const merged = { ...m, ...sanitized, updated_at: new Date().toISOString() };
+      rowToSync = merged;
+      return merged;
+    }));
+    if (rowToSync) upsertRow(TABLES.minutes, rowToSync);
   }, []);
 
   const deleteMinute = useCallback((id) => {
@@ -378,21 +505,28 @@ export const AppProvider = ({ children }) => {
 
   // ── DATASETS CRUD ──
   const addDataset = useCallback((dataset) => {
-    const d = { ...dataset, id: crypto.randomUUID(), uploadedAt: new Date().toISOString(), created_at: new Date().toISOString() };
+    const sanitized = sanitizeRow(dataset);
+    if (sanitized.type && !VALID_DATASET_TYPES.includes(sanitized.type)) sanitized.type = 'Primary';
+    if (sanitized.status && !VALID_DATASET_STATUSES.includes(sanitized.status)) sanitized.status = 'Raw';
+    const d = { ...sanitized, id: crypto.randomUUID(), uploadedAt: new Date().toISOString(), created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
     setDatasets(prev => [...prev, d]);
     insertRow(TABLES.datasets, d);
-    logAction('Uploaded Dataset', dataset.name);
+    logAction('Uploaded Dataset', sanitized.name);
   }, [logAction]);
 
   const updateDataset = useCallback((id, updates) => {
-    setDatasets(prev => prev.map(d => d.id === id ? { ...d, ...updates } : d));
-    queueMicrotask(() => {
-      setDatasets(prev => {
-        const row = prev.find(d => d.id === id);
-        if (row) upsertRow(TABLES.datasets, row);
-        return prev;
-      });
-    });
+    const sanitized = sanitizeRow(updates);
+    if (sanitized.type && !VALID_DATASET_TYPES.includes(sanitized.type)) delete sanitized.type;
+    if (sanitized.status && !VALID_DATASET_STATUSES.includes(sanitized.status)) delete sanitized.status;
+
+    let rowToSync = null;
+    setDatasets(prev => prev.map(d => {
+      if (d.id !== id) return d;
+      const merged = { ...d, ...sanitized, updated_at: new Date().toISOString() };
+      rowToSync = merged;
+      return merged;
+    }));
+    if (rowToSync) upsertRow(TABLES.datasets, rowToSync);
   }, []);
 
   const deleteDataset = useCallback((id) => {
@@ -634,6 +768,7 @@ export const AppProvider = ({ children }) => {
     localStorage.removeItem('datasets');
     localStorage.removeItem('activityLog');
     localStorage.removeItem('notifications');
+    clearRetryQueue();
     setSyncStatus(isCloudEnabled ? 'connecting' : 'local');
     // Fire-and-forget: tell Supabase to end the session (non-blocking)
     if (isCloudEnabled) {
@@ -669,16 +804,22 @@ export const AppProvider = ({ children }) => {
   const importAllData = useCallback(async (jsonString) => {
     try {
       const data = JSON.parse(jsonString);
-      if (data.tasks) { setTasks(data.tasks); for (const r of data.tasks) await upsertRow(TABLES.tasks, r); }
-      if (data.events) { setEvents(data.events); for (const r of data.events) await upsertRow(TABLES.events, r); }
-      if (data.minutes) { setMinutes(data.minutes); for (const r of data.minutes) await upsertRow(TABLES.minutes, r); }
-      if (data.datasets) { setDatasets(data.datasets); for (const r of data.datasets) await upsertRow(TABLES.datasets, r); }
-      if (data.activityLog) { setActivityLog(data.activityLog); }
-      if (data.notifications) { setNotifications(data.notifications); }
-      logAction('Imported Backup', `From ${data.exportedAt || 'unknown'}`);
+      // Validate structure (ISO 25010 — Security: never trust imported data blindly)
+      if (typeof data !== 'object' || data === null) throw new Error('Invalid format');
+      if (data.version && typeof data.version !== 'string') throw new Error('Invalid version');
+
+      const sanitizeArray = (arr) => Array.isArray(arr) ? arr.filter(item => item && typeof item === 'object' && item.id).map(sanitizeRow) : [];
+
+      if (data.tasks) { const rows = sanitizeArray(data.tasks); setTasks(rows); for (const r of rows) await upsertRow(TABLES.tasks, r); }
+      if (data.events) { const rows = sanitizeArray(data.events); setEvents(rows); for (const r of rows) await upsertRow(TABLES.events, r); }
+      if (data.minutes) { const rows = sanitizeArray(data.minutes); setMinutes(rows); for (const r of rows) await upsertRow(TABLES.minutes, r); }
+      if (data.datasets) { const rows = sanitizeArray(data.datasets); setDatasets(rows); for (const r of rows) await upsertRow(TABLES.datasets, r); }
+      if (data.activityLog) { setActivityLog(sanitizeArray(data.activityLog)); }
+      if (data.notifications) { setNotifications(sanitizeArray(data.notifications)); }
+      logAction('Imported Backup', `From ${sanitize(data.exportedAt || 'unknown')}`);
       return { success: true };
-    } catch {
-      return { success: false, message: 'Invalid backup file format.' };
+    } catch (err) {
+      return { success: false, message: err.message || 'Invalid backup file format.' };
     }
   }, [logAction]);
 
