@@ -32,13 +32,23 @@ const buildUser = (profile) => ({
   avatar_url: profile.avatar_url,
 });
 
-// Available roles for sign-up (exported for the login screen)
+// Available roles for admin role-assignment (NOT for sign-up — new users always start as guest)
 export const AVAILABLE_ROLES = [
   { id: 'pm', label: 'Project Manager & Docs Head' },
   { id: 'backend', label: 'Backend Developer' },
   { id: 'frontend', label: 'Frontend Developer' },
   { id: 'guest', label: 'Guest Viewer' },
 ];
+
+// Pages each role can access (by route path).
+// Guests and restricted only get the basics; others get everything.
+export const ROLE_ROUTES = {
+  pm:         null, // null = all routes
+  backend:    null,
+  frontend:   null,
+  guest:      ['/', '/defense', '/resources'],
+  restricted: ['/', '/defense', '/resources'],
+};
 
 // ─── SUPABASE TABLE NAMES ─────────────────────────────────────────
 const TABLES = {
@@ -809,10 +819,12 @@ export const AppProvider = ({ children }) => {
   }, [logAction]);
 
   // ── AUTH: sign up with email/password + profile metadata ──
-  const signUp = useCallback(async (email, password, name, roleKey) => {
+  // New users ALWAYS start as guest. Only Pao (PM) can promote via Admin Panel.
+  const signUp = useCallback(async (email, password, name) => {
     if (!isCloudEnabled) throw new Error('Cloud not configured. Use local mode instead.');
+    const assignedRole = 'guest';
     const { data, error } = await withTimeout(
-      supabase.auth.signUp({ email, password, options: { data: { name, role: roleKey } } }),
+      supabase.auth.signUp({ email, password, options: { data: { name, role: assignedRole } } }),
       8000,
       'Sign-up timed out. Check your internet connection or try again.'
     );
@@ -842,14 +854,14 @@ export const AppProvider = ({ children }) => {
           id: data.user.id,
           email: data.user.email,
           name,
-          role: ROLE_LABELS[roleKey] || roleKey,
-          roleKey,
-          permissions: ROLE_PERMISSIONS[roleKey] || ROLE_PERMISSIONS.guest,
+          role: ROLE_LABELS[assignedRole],
+          roleKey: assignedRole,
+          permissions: ROLE_PERMISSIONS[assignedRole],
           avatar_url: null,
         };
         setUser(fallbackUser);
       }
-      logAction('Signed Up', `${email} as ${ROLE_LABELS[roleKey] || roleKey}`);
+      logAction('Signed Up', `${email} as ${ROLE_LABELS[assignedRole]} (pending role assignment)`);
     }
   }, [logAction]);
 
@@ -889,14 +901,15 @@ export const AppProvider = ({ children }) => {
   }, [logAction]);
 
   // ── AUTH: local-only mode (when Supabase is not configured) ──
-  const localSignIn = useCallback((name, roleKey) => {
+  // Local mode also defaults to guest — no role picking allowed
+  const localSignIn = useCallback((name) => {
     const u = {
       id: crypto.randomUUID(),
       email: null,
       name,
-      role: ROLE_LABELS[roleKey] || roleKey,
-      roleKey,
-      permissions: ROLE_PERMISSIONS[roleKey] || ROLE_PERMISSIONS.guest,
+      role: ROLE_LABELS.guest,
+      roleKey: 'guest',
+      permissions: ROLE_PERMISSIONS.guest,
       avatar_url: null,
     };
     setUser(u);

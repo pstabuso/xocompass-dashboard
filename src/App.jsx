@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { LayoutDashboard, CheckSquare, Calendar, Book, FolderOpen, LogOut, User, Database, Shield, BrainCircuit, Users, Cloud, CloudOff, Loader2, Mail, Lock, Eye, EyeOff, Menu, X } from 'lucide-react';
-import { AppProvider, useAppContext, AVAILABLE_ROLES } from './context/AppContext';
+import { AppProvider, useAppContext, ROLE_ROUTES } from './context/AppContext';
 import { isCloudEnabled } from './lib/supabase';
 
 // Pages
@@ -20,7 +20,10 @@ const Sidebar = ({ mobileOpen, setMobileOpen }) => {
   const location = useLocation();
   const { user, signOut, syncStatus } = useAppContext();
 
-  const menuItems = [
+  // Role-based route filtering: guests/restricted only see allowed pages
+  const allowedRoutes = ROLE_ROUTES[user?.roleKey] || ROLE_ROUTES.guest;
+
+  const allMenuItems = [
     { path: '/', icon: LayoutDashboard, label: 'Overview' },
     { path: '/model', icon: BrainCircuit, label: 'SARIMAX Lab' },
     { path: '/tasks', icon: CheckSquare, label: 'Task Tracker' },
@@ -31,6 +34,11 @@ const Sidebar = ({ mobileOpen, setMobileOpen }) => {
     { path: '/resources', icon: FolderOpen, label: 'Resources' },
     ...(user?.permissions?.isAdmin ? [{ path: '/admin', icon: Users, label: 'Admin Panel' }] : []),
   ];
+
+  // null means all routes allowed (pm, backend, frontend)
+  const menuItems = allowedRoutes === null
+    ? allMenuItems
+    : allMenuItems.filter(item => allowedRoutes.includes(item.path));
 
   const sidebarContent = (
     <>
@@ -112,12 +120,6 @@ const Sidebar = ({ mobileOpen, setMobileOpen }) => {
 const MAX_NAME_LENGTH = 20;
 const NAME_REGEX = /^[a-zA-Z\s'-]+$/;
 
-const roleIcons = {
-  pm: <Shield size={24} className="text-sky-400" />,
-  backend: <BrainCircuit size={24} className="text-emerald-400" />,
-  frontend: <Book size={24} className="text-amber-400" />,
-  guest: <Users size={24} className="text-slate-400" />,
-};
 
 const WelcomeScreen = () => {
   const { signIn, signUp, localSignIn, authLoading } = useAppContext();
@@ -126,7 +128,6 @@ const WelcomeScreen = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
-  const [selectedRole, setSelectedRole] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -153,7 +154,6 @@ const WelcomeScreen = () => {
     if (!email || !password) { setError('Email and password are required'); return; }
     if (password.length < 6) { setError('Password must be at least 6 characters'); return; }
     if (!displayName.trim()) { setError('Name is required'); return; }
-    if (!selectedRole) { setError('Please select your role'); return; }
 
     const trimmed = displayName.trim();
     if (trimmed.length > MAX_NAME_LENGTH) { setError(`Name cannot exceed ${MAX_NAME_LENGTH} characters`); return; }
@@ -163,10 +163,10 @@ const WelcomeScreen = () => {
     setConfirmMsg('');
     setLoading(true);
     try {
-      await signUp(email, password, trimmed, selectedRole);
+      await signUp(email, password, trimmed);
     } catch (err) {
       if (err.message === 'CONFIRM_EMAIL') {
-        setConfirmMsg('Account created! Check your email to confirm, then sign in.');
+        setConfirmMsg('Account created! Check your email to confirm, then sign in. You\'ll start as a Guest — the PM will assign your role.');
         setMode('login');
       } else {
         setError(err.message || 'Sign up failed');
@@ -181,9 +181,8 @@ const WelcomeScreen = () => {
     if (!trimmed) { setNameError('Please enter your name'); return; }
     if (trimmed.length > MAX_NAME_LENGTH) { setNameError(`Name cannot exceed ${MAX_NAME_LENGTH} characters`); return; }
     if (!NAME_REGEX.test(trimmed)) { setNameError('Name can only contain letters, spaces, hyphens, and apostrophes'); return; }
-    if (!selectedRole) { setNameError('Please select your role'); return; }
     setNameError('');
-    localSignIn(trimmed, selectedRole);
+    localSignIn(trimmed);
   };
 
   // Show loading spinner while checking existing session
@@ -251,27 +250,13 @@ const WelcomeScreen = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 mb-6">
-              {AVAILABLE_ROLES.map((r) => (
-                <button
-                  key={r.id}
-                  onClick={() => setSelectedRole(r.id)}
-                  className={`p-4 rounded-xl border transition-all duration-200 text-left group ${
-                    selectedRole === r.id
-                      ? 'bg-sky-600/15 border-sky-500/40 shadow-[0_0_20px_rgba(56,189,248,0.1)]'
-                      : 'bg-slate-800/50 border-slate-700 hover:border-slate-600 hover:bg-slate-800'
-                  }`}
-                >
-                  <div className="mb-2">{roleIcons[r.id]}</div>
-                  <p className={`text-sm font-bold ${selectedRole === r.id ? 'text-sky-300' : 'text-slate-200'}`}>{r.label}</p>
-                </button>
-              ))}
+            <div className="mb-4 p-3 bg-sky-500/10 border border-sky-500/20 rounded-lg">
+              <p className="text-xs text-sky-400">You'll join as a <span className="font-bold">Guest</span>. The Project Manager can assign your role.</p>
             </div>
 
             <button
               onClick={handleLocalEnter}
-              disabled={!selectedRole}
-              className="w-full bg-sky-600 text-white py-3 rounded-lg font-bold hover:bg-sky-500 transition shadow-lg shadow-sky-900/20 active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
+              className="w-full bg-sky-600 text-white py-3 rounded-lg font-bold hover:bg-sky-500 transition shadow-lg shadow-sky-900/20 active:scale-95"
             >
               Enter Workspace
             </button>
@@ -387,22 +372,8 @@ const WelcomeScreen = () => {
               </div>
             </div>
 
-            {/* Role selection grid */}
-            <div className="grid grid-cols-2 gap-3 mb-6">
-              {AVAILABLE_ROLES.map((r) => (
-                <button
-                  key={r.id}
-                  onClick={() => setSelectedRole(r.id)}
-                  className={`p-3 rounded-xl border transition-all duration-200 text-left group ${
-                    selectedRole === r.id
-                      ? 'bg-sky-600/15 border-sky-500/40 shadow-[0_0_20px_rgba(56,189,248,0.1)]'
-                      : 'bg-slate-800/50 border-slate-700 hover:border-slate-600 hover:bg-slate-800'
-                  }`}
-                >
-                  <div className="mb-1">{roleIcons[r.id]}</div>
-                  <p className={`text-xs font-bold ${selectedRole === r.id ? 'text-sky-300' : 'text-slate-200'}`}>{r.label}</p>
-                </button>
-              ))}
+            <div className="mb-4 p-3 bg-sky-500/10 border border-sky-500/20 rounded-lg">
+              <p className="text-xs text-sky-400">You'll join as a <span className="font-bold">Guest</span>. The Project Manager will assign your role after you sign up.</p>
             </div>
 
             <button
@@ -445,6 +416,26 @@ const SyncErrorToast = () => {
   );
 };
 
+// Route guard — redirects to home if user doesn't have access
+const GuardedRoute = ({ element, path }) => {
+  const { user } = useAppContext();
+  const allowedRoutes = ROLE_ROUTES[user?.roleKey] || ROLE_ROUTES.guest;
+  // null = all routes allowed
+  if (allowedRoutes !== null && !allowedRoutes.includes(path)) {
+    return (
+      <div className="flex items-center justify-center h-[calc(100vh-140px)]">
+        <div className="text-center">
+          <Lock size={48} className="text-amber-400 mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-slate-100 mb-2">Access Restricted</h2>
+          <p className="text-slate-500 text-sm">Your current role doesn't have access to this page.</p>
+          <p className="text-slate-600 text-xs mt-2">Ask the Project Manager to assign you a role.</p>
+        </div>
+      </div>
+    );
+  }
+  return element;
+};
+
 const AppContent = () => {
   const { user, syncStatus } = useAppContext();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -473,14 +464,14 @@ const AppContent = () => {
         <main className="flex-1 lg:ml-64 pt-14 lg:pt-0 p-4 sm:p-6 lg:p-8 overflow-y-auto min-h-screen">
           <Routes>
             <Route path="/" element={<Dashboard />} />
-            <Route path="/model" element={<ModelLab />} />
-            <Route path="/tasks" element={<TaskTracker />} />
-            <Route path="/schedule" element={<Schedule />} />
-            <Route path="/minutes" element={<Minutes />} />
+            <Route path="/model" element={<GuardedRoute path="/model" element={<ModelLab />} />} />
+            <Route path="/tasks" element={<GuardedRoute path="/tasks" element={<TaskTracker />} />} />
+            <Route path="/schedule" element={<GuardedRoute path="/schedule" element={<Schedule />} />} />
+            <Route path="/minutes" element={<GuardedRoute path="/minutes" element={<Minutes />} />} />
             <Route path="/resources" element={<Resources />} />
-            <Route path="/data" element={<DataHub />} />
+            <Route path="/data" element={<GuardedRoute path="/data" element={<DataHub />} />} />
             <Route path="/defense" element={<Defense />} />
-            <Route path="/admin" element={<AdminPanel />} />
+            <Route path="/admin" element={<GuardedRoute path="/admin" element={<AdminPanel />} />} />
           </Routes>
         </main>
         <SyncErrorToast />
