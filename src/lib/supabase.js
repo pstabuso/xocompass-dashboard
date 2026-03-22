@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const teamSecret = import.meta.env.VITE_SUPABASE_TEAM_SECRET;
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.warn(
@@ -10,8 +11,15 @@ if (!supabaseUrl || !supabaseAnonKey) {
   );
 }
 
+// Phase 1 RLS Hardening: pass x-team-secret header on every request.
+// This header is checked by the team_secret_matches() SQL function in RLS policies.
+// Reads are open; writes require the secret to match the DB-side app setting.
 export const supabase = (supabaseUrl && supabaseAnonKey)
-  ? createClient(supabaseUrl, supabaseAnonKey)
+  ? createClient(supabaseUrl, supabaseAnonKey, {
+      global: {
+        headers: teamSecret ? { 'x-team-secret': teamSecret } : {},
+      },
+    })
   : null;
 
 export const isCloudEnabled = !!supabase;

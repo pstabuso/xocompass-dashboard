@@ -78,14 +78,55 @@ const Sidebar = () => {
   );
 };
 
+// ── Phase 3: Input validation constants ─────────────────────────────────
+const MAX_NAME_LENGTH = 20;
+const NAME_REGEX = /^[a-zA-Z\s'-]+$/;
+
 const WelcomeScreen = () => {
   const { selectRole } = useAppContext();
   const [displayName, setDisplayName] = useState('');
   const [selectedRole, setSelectedRole] = useState(null);
+  const [nameError, setNameError] = useState('');
 
-  const handleEnter = () => {
+  // Phase 3: strict validation before entering workspace
+  const validateAndEnter = () => {
     if (!selectedRole) return;
-    selectRole(selectedRole, displayName.trim() || undefined);
+
+    const trimmed = displayName.trim();
+
+    // Name is required (no blank names)
+    if (!trimmed) {
+      setNameError('Please enter your name');
+      return;
+    }
+
+    // Length cap
+    if (trimmed.length > MAX_NAME_LENGTH) {
+      setNameError(`Name cannot exceed ${MAX_NAME_LENGTH} characters`);
+      return;
+    }
+
+    // Character whitelist: letters, spaces, hyphens, apostrophes only
+    if (!NAME_REGEX.test(trimmed)) {
+      setNameError('Name can only contain letters, spaces, hyphens, and apostrophes');
+      return;
+    }
+
+    setNameError('');
+    selectRole(selectedRole, trimmed);
+  };
+
+  // Live validation feedback on keystroke
+  const handleNameChange = (e) => {
+    const raw = e.target.value;
+    // Hard-block input beyond max + 5 buffer (allows seeing the error before clip)
+    if (raw.length > MAX_NAME_LENGTH + 5) return;
+    setDisplayName(raw);
+
+    // Clear error as user types valid input
+    if (nameError && raw.trim().length > 0 && raw.trim().length <= MAX_NAME_LENGTH) {
+      setNameError('');
+    }
   };
 
   const roleIcons = {
@@ -94,6 +135,9 @@ const WelcomeScreen = () => {
     doc: <Book size={24} className="text-amber-400" />,
     guest: <Users size={24} className="text-slate-400" />,
   };
+
+  const charCount = displayName.trim().length;
+  const isOverLimit = charCount > MAX_NAME_LENGTH;
 
   return (
     <div className="h-screen flex items-center justify-center bg-slate-950 relative overflow-hidden">
@@ -104,19 +148,35 @@ const WelcomeScreen = () => {
           <p className="text-slate-400 text-sm mt-1">Select your role to enter the workspace</p>
         </div>
 
-        {/* Name input */}
+        {/* Name input — Phase 3 hardened */}
         <div className="mb-6">
-          <label className="block text-sm font-bold text-slate-400 mb-1 ml-1">Your Name (optional)</label>
+          <div className="flex justify-between items-center mb-1 ml-1">
+            <label className="text-sm font-bold text-slate-400">Your Name</label>
+            <span className={`text-[10px] font-mono ${isOverLimit ? 'text-red-400' : 'text-slate-600'}`}>
+              {charCount}/{MAX_NAME_LENGTH}
+            </span>
+          </div>
           <div className="relative">
             <User className="absolute left-3 top-2.5 text-slate-500" size={18} />
             <input
               type="text"
-              className="w-full pl-10 pr-4 py-2 bg-slate-800 border border-slate-700 text-white rounded-lg focus:ring-2 focus:ring-sky-500 outline-none transition"
+              className={`w-full pl-10 pr-4 py-2 bg-slate-800 border text-white rounded-lg outline-none transition ${
+                nameError ? 'border-red-500 focus:ring-2 focus:ring-red-500/50' : 'border-slate-700 focus:ring-2 focus:ring-sky-500'
+              }`}
               placeholder="Enter your name"
               value={displayName}
-              onChange={e => setDisplayName(e.target.value)}
+              onChange={handleNameChange}
+              onKeyDown={e => e.key === 'Enter' && validateAndEnter()}
+              autoFocus
             />
           </div>
+          {/* Phase 3: error state display */}
+          {nameError && (
+            <p className="text-xs text-red-400 mt-1.5 ml-1 flex items-center gap-1 animate-in fade-in slide-in-from-top-1 duration-200">
+              <span className="w-1 h-1 rounded-full bg-red-400 shrink-0"></span>
+              {nameError}
+            </p>
+          )}
         </div>
 
         {/* Role selection grid */}
@@ -139,7 +199,7 @@ const WelcomeScreen = () => {
         </div>
 
         <button
-          onClick={handleEnter}
+          onClick={validateAndEnter}
           disabled={!selectedRole}
           className="w-full bg-sky-600 text-white py-3 rounded-lg font-bold hover:bg-sky-500 transition shadow-lg shadow-sky-900/20 active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed"
         >
