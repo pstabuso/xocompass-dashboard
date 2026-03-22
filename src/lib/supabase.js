@@ -11,13 +11,10 @@ if (!supabaseUrl || !supabaseAnonKey) {
   );
 }
 
-// Phase 1 RLS Hardening: pass x-team-secret header on every request.
+// Create Supabase client — no custom headers (they cause CORS preflight failures).
+// RLS hardening uses the authenticated user's JWT instead.
 export const supabase = (supabaseUrl && supabaseAnonKey)
-  ? createClient(supabaseUrl, supabaseAnonKey, {
-      global: {
-        headers: teamSecret ? { 'x-team-secret': teamSecret } : {},
-      },
-    })
+  ? createClient(supabaseUrl, supabaseAnonKey)
   : null;
 
 export const isCloudEnabled = !!supabase;
