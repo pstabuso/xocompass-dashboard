@@ -58,6 +58,40 @@ export const ROLE_ROUTES = {
   restricted: ['/'],
 };
 
+/** Check if a notification is addressed to a given user.
+ *  Matches by email (preferred) or falls back to first-name in to_user. */
+export const isNotificationForUser = (n, user) => {
+  if (!n || !user) return false;
+  const toUser = (n.to_user || '').toLowerCase();
+  // Match by email (reliable — notifications now use PM_EMAIL as to_user)
+  if (user.email && toUser === user.email.toLowerCase()) return true;
+  // Legacy fallback: match by first name for old notifications stored with "Pao"
+  const firstName = (user.name || '').split(' ')[0].toLowerCase();
+  if (firstName && toUser.includes(firstName)) return true;
+  return false;
+};
+
+/** Enrich a notification from DB with derived fields.
+ *  DB rows only have (id, to_user, message, read, created_at).
+ *  We reconstruct type/from_user/from_email from the message prefix. */
+const enrichNotification = (n) => {
+  if (n.type) return n; // already enriched (came from local state)
+  const msg = n.message || '';
+  if (msg.startsWith('[ACCESS_REQUEST] ')) {
+    // Parse: "[ACCESS_REQUEST] Name (email) tried to ..." or "... is requesting access to ..."
+    const body = msg.slice('[ACCESS_REQUEST] '.length);
+    const nameEmailMatch = body.match(/^(.+?)\s*\(([^)]+)\)/);
+    return {
+      ...n,
+      type: 'access_request',
+      from_user: nameEmailMatch?.[1] || '',
+      from_email: nameEmailMatch?.[2] || '',
+      message: body, // strip prefix for display
+    };
+  }
+  return { ...n, type: 'general' };
+};
+
 // ─── SUPABASE TABLE NAMES ─────────────────────────────────────────
 const TABLES = {
   tasks: 'tasks',
@@ -311,7 +345,7 @@ export const AppProvider = ({ children }) => {
         if (cloudMinutes) setMinutes(cloudMinutes);
         if (cloudDatasets) setDatasets(cloudDatasets);
         if (cloudLog) setActivityLog(cloudLog);
-        if (cloudNotif) setNotifications(cloudNotif);
+        if (cloudNotif) setNotifications(cloudNotif.map(enrichNotification));
 
         setCloudReady(true);
         setSyncStatus('synced');
@@ -329,20 +363,21 @@ export const AppProvider = ({ children }) => {
   useEffect(() => {
     if (!isCloudEnabled || !authSettled) return;
 
-    const subscribe = (table, setter) => {
+    const subscribe = (table, setter, transform = null) => {
       const channel = supabase
         .channel(`realtime-${table}`)
         .on('postgres_changes', { event: '*', schema: 'public', table }, (payload) => {
           const { eventType, new: newRow, old: oldRow } = payload;
+          const row = transform && newRow ? transform(newRow) : newRow;
 
           setter(prev => {
             if (eventType === 'INSERT') {
               // Avoid duplicates (we may have optimistically added it)
-              if (prev.some(item => item.id === newRow.id)) return prev;
-              return [newRow, ...prev];
+              if (prev.some(item => item.id === row.id)) return prev;
+              return [row, ...prev];
             }
             if (eventType === 'UPDATE') {
-              return prev.map(item => item.id === newRow.id ? newRow : item);
+              return prev.map(item => item.id === row.id ? row : item);
             }
             if (eventType === 'DELETE') {
               return prev.filter(item => item.id !== oldRow.id);
@@ -361,7 +396,7 @@ export const AppProvider = ({ children }) => {
       subscribe(TABLES.minutes, setMinutes),
       subscribe(TABLES.datasets, setDatasets),
       subscribe(TABLES.activity_log, setActivityLog),
-      subscribe(TABLES.notifications, setNotifications),
+      subscribe(TABLES.notifications, setNotifications, enrichNotification),
     ];
 
     return () => {
@@ -651,15 +686,15 @@ export const AppProvider = ({ children }) => {
 
   // ── NOTIFICATIONS ──
   const nudgeUser = useCallback((targetUser, taskName) => {
-    const notif = {
+    const dbRow = {
       id: crypto.randomUUID(),
       to_user: targetUser,
       message: `${userRef.current?.name || 'Someone'} nudged you about "${taskName}"`,
       read: false,
       created_at: new Date().toISOString(),
     };
-    setNotifications(prev => [notif, ...prev]);
-    insertRow(TABLES.notifications, notif).then(r => showWriteError('nudge', r));
+    setNotifications(prev => [{ ...dbRow, type: 'nudge' }, ...prev]);
+    insertRow(TABLES.notifications, dbRow).then(r => showWriteError('nudge', r));
     logAction('Nudged Member', `Alerted ${targetUser} about "${taskName}"`);
   }, [logAction, showWriteError]);
 
@@ -673,35 +708,37 @@ export const AppProvider = ({ children }) => {
     sessionStorage.setItem(key, '1');
 
     const message = type === 'action'
-      ? `${currentUser.name} (${currentUser.email || 'local'}) tried to "${context}" but lacks permission. Consider upgrading their role.`
-      : `${currentUser.name} (${currentUser.email || 'local'}) is requesting access to "${context}". Assign them a role in User Management.`;
+      ? `[ACCESS_REQUEST] ${currentUser.name} (${currentUser.email || 'local'}) tried to "${context}" but lacks permission. Consider upgrading their role.`
+      : `[ACCESS_REQUEST] ${currentUser.name} (${currentUser.email || 'local'}) is requesting access to "${context}". Assign them a role in User Management.`;
 
-    const notif = {
-      id: crypto.randomUUID(),
-      to_user: 'Pao',
+    const id = crypto.randomUUID();
+    const created_at = new Date().toISOString();
+
+    // DB row — only columns that exist in the notifications table
+    const dbRow = { id, to_user: PM_EMAIL, message, read: false, created_at };
+
+    // Local state gets enriched copy for UI (AdminPanel filtering, quick-assign)
+    const localNotif = {
+      ...dbRow,
       type: 'access_request',
-      message,
       from_user: currentUser.name,
       from_email: currentUser.email || '',
       request_context: context,
       request_type: type,
-      read: false,
-      created_at: new Date().toISOString(),
     };
-    setNotifications(prev => [notif, ...prev]);
-    // Silent: don't surface sync errors for access requests — the optimistic local
-    // notification is enough for the PM to see it when they're online.
-    insertRow(TABLES.notifications, notif).catch(() => {});
+
+    setNotifications(prev => [localNotif, ...prev]);
+    insertRow(TABLES.notifications, dbRow).catch(() => {});
     logAction('Requested Access', `${currentUser.name} → "${context}" (${type})`);
   }, [logAction]);
 
   const clearNotifications = useCallback(() => {
     const currentUser = userRef.current;
     if (!currentUser) return;
-    const firstName = currentUser.name.split(' ')[0].toLowerCase();
     setNotifications(prev => {
-      const toKeep = prev.filter(n => !(n.to_user || '').toLowerCase().includes(firstName));
-      const toRemove = prev.filter(n => (n.to_user || '').toLowerCase().includes(firstName));
+      const isForMe = (n) => isNotificationForUser(n, currentUser);
+      const toKeep = prev.filter(n => !isForMe(n));
+      const toRemove = prev.filter(isForMe);
       toRemove.forEach(n => deleteRow(TABLES.notifications, n.id));
       return toKeep;
     });

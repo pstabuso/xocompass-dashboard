@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { Plus, FileText, ExternalLink, X, Trash2, Edit2, AlertTriangle, LockKeyhole } from 'lucide-react';
+import { Plus, FileText, ExternalLink, X, Trash2, Edit2, AlertTriangle, LockKeyhole, Send } from 'lucide-react';
 
 const safeUrl = (url) => {
   if (!url) return '#';
@@ -10,12 +10,13 @@ const safeUrl = (url) => {
 };
 
 const Minutes = () => {
-  const { minutes, addMinute, updateMinute, deleteMinute, user } = useAppContext();
+  const { minutes, addMinute, updateMinute, deleteMinute, user, requestAccess } = useAppContext();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({ date: '', topic: '', link: '' });
+  const [accessSent, setAccessSent] = useState(false);
 
   // Sorted list derived from context — no duplicate state
   const sortedMinutes = useMemo(
@@ -64,7 +65,14 @@ const Minutes = () => {
       {!user?.permissions?.canCreate && (
         <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center gap-3">
           <LockKeyhole size={16} className="text-amber-400 shrink-0" />
-          <p className="text-xs text-amber-300">View-only mode. Only the PM can log or edit meetings.</p>
+          <p className="text-xs text-amber-300 flex-1">You're in <span className="font-bold">view-only</span> mode. Need edit access?</p>
+          {accessSent ? (
+            <span className="text-[10px] px-2 py-1 bg-emerald-500/15 text-emerald-400 rounded font-bold shrink-0 flex items-center gap-1"><Send size={10} /> Sent</span>
+          ) : (
+            <button onClick={() => { requestAccess('Edit on Minutes of Meeting', 'action'); setAccessSent(true); }} className="text-[10px] px-2.5 py-1 bg-sky-600 text-white rounded font-bold hover:bg-sky-500 transition shrink-0">
+              Request
+            </button>
+          )}
         </div>
       )}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">

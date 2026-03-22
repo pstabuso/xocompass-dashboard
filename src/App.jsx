@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { LayoutDashboard, CheckSquare, Calendar, Book, FolderOpen, LogOut, User, Database, Shield, BrainCircuit, Users, Cloud, CloudOff, Loader2, Mail, Lock, Eye, EyeOff, Menu, X, Bell, LockKeyhole, Send, ArrowRight } from 'lucide-react';
-import { AppProvider, useAppContext, ROLE_ROUTES } from './context/AppContext';
+import { AppProvider, useAppContext, ROLE_ROUTES, isNotificationForUser } from './context/AppContext';
 import { isCloudEnabled } from './lib/supabase';
 
 // Pages
@@ -21,11 +21,9 @@ const Sidebar = ({ mobileOpen, setMobileOpen }) => {
   const { user, signOut, syncStatus, notifications, requestAccess } = useAppContext();
   const [requestedPages, setRequestedPages] = useState({});
 
-  const myUnread = user?.permissions?.isAdmin ? (notifications || []).filter(n => {
-    if (n.read) return false;
-    const firstName = (user?.name || '').split(' ')[0].toLowerCase();
-    return (n.to_user || '').toLowerCase().includes(firstName);
-  }).length : 0;
+  const myUnread = user?.permissions?.isAdmin
+    ? (notifications || []).filter(n => !n.read && isNotificationForUser(n, user)).length
+    : 0;
 
   const allowedRoutes = ROLE_ROUTES[user?.roleKey] || ROLE_ROUTES.guest;
   const isLocked = (path) => allowedRoutes !== null && !allowedRoutes.includes(path);

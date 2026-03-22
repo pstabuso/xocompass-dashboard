@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useAppContext } from '../context/AppContext';
+import { useAppContext, isNotificationForUser } from '../context/AppContext';
 import { isCloudEnabled, fetchAllProfiles, updateUserRole } from '../lib/supabase';
 import { Shield, Users, Activity, RefreshCw, AlertTriangle, CheckCircle, XCircle, Ban, FileText, CheckSquare, Database, Calendar, Bell, Edit2, Trash2, MessageSquare, LogIn, LogOut, UserPlus, Send, LockKeyhole } from 'lucide-react';
 
@@ -160,8 +160,7 @@ const AdminPanel = () => {
         >
           <Bell size={16} /> Notifications
           {(() => {
-            const myFirstName = (user?.name || '').split(' ')[0].toLowerCase();
-            const unread = (notifications || []).filter(n => !n.read && (n.to_user || '').toLowerCase().includes(myFirstName)).length;
+            const unread = (notifications || []).filter(n => !n.read && isNotificationForUser(n, user)).length;
             return unread > 0 ? <span className="ml-1 px-1.5 py-0.5 bg-amber-500 text-white text-[10px] rounded-full font-bold">{unread}</span> : null;
           })()}
         </button>
@@ -259,8 +258,7 @@ const AdminPanel = () => {
 
       {/* NOTIFICATIONS TAB */}
       {tab === 'notifications' && (() => {
-        const myFirstName = (user?.name || '').split(' ')[0].toLowerCase();
-        const myNotifs = (notifications || []).filter(n => (n.to_user || '').toLowerCase().includes(myFirstName))
+        const myNotifs = (notifications || []).filter(n => isNotificationForUser(n, user))
           .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
         const accessRequests = myNotifs.filter(n => n.type === 'access_request');
         const otherNotifs = myNotifs.filter(n => n.type !== 'access_request');

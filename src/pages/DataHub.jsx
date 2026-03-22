@@ -1,9 +1,9 @@
 import React, { useState, useRef, useMemo } from 'react';
-import { Database, FileText, Upload, AlertCircle, Trash2, Edit2, X, AlertTriangle, Check, FileSpreadsheet, LockKeyhole } from 'lucide-react';
+import { Database, FileText, Upload, AlertCircle, Trash2, Edit2, X, AlertTriangle, Check, FileSpreadsheet, LockKeyhole, Send } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 
 const DataHub = () => {
-  const { datasets, addDataset, updateDataset, deleteDataset, user } = useAppContext();
+  const { datasets, addDataset, updateDataset, deleteDataset, user, requestAccess } = useAppContext();
 
   const canCreate = user?.permissions?.canCreate;
   const canDelete = user?.permissions?.canDelete;
@@ -16,6 +16,7 @@ const DataHub = () => {
   const [formData, setFormData] = useState({ name: '', type: 'Primary', status: 'Raw', size: '0 KB', rows: 0 });
   const fileInputRef = useRef(null);
   const [dragActive, setDragActive] = useState(false);
+  const [accessSent, setAccessSent] = useState(false);
 
   // --- COMPUTED STATS ---
   const stats = useMemo(() => {
@@ -113,7 +114,14 @@ const DataHub = () => {
       {!canCreate && (
         <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center gap-3">
           <LockKeyhole size={16} className="text-amber-400 shrink-0" />
-          <p className="text-xs text-amber-300">View-only mode. Only the PM can upload, edit, or delete datasets.</p>
+          <p className="text-xs text-amber-300 flex-1">You're in <span className="font-bold">view-only</span> mode. Need edit access?</p>
+          {accessSent ? (
+            <span className="text-[10px] px-2 py-1 bg-emerald-500/15 text-emerald-400 rounded font-bold shrink-0 flex items-center gap-1"><Send size={10} /> Sent</span>
+          ) : (
+            <button onClick={() => { requestAccess('Edit on Data Hub', 'action'); setAccessSent(true); }} className="text-[10px] px-2.5 py-1 bg-sky-600 text-white rounded font-bold hover:bg-sky-500 transition shrink-0">
+              Request
+            </button>
+          )}
         </div>
       )}
       <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
