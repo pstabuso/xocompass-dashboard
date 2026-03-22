@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, CheckSquare, Calendar, Book, FolderOpen, LogOut, User, Database, Shield, BrainCircuit, Users, Cloud, CloudOff, Loader2, Mail, Lock, Eye, EyeOff, Menu, X, Bell } from 'lucide-react';
-import { AppProvider, useAppContext } from './context/AppContext';
+import { LayoutDashboard, CheckSquare, Calendar, Book, FolderOpen, LogOut, User, Database, Shield, BrainCircuit, Users, Cloud, CloudOff, Loader2, Mail, Lock, Eye, EyeOff, Menu, X, Bell, LockKeyhole, Send, ArrowRight } from 'lucide-react';
+import { AppProvider, useAppContext, ROLE_ROUTES } from './context/AppContext';
 import { isCloudEnabled } from './lib/supabase';
 
 // Pages
@@ -18,16 +18,19 @@ import AdminPanel from './pages/AdminPanel';
 // Sidebar (Dark Mode — responsive: collapsible on mobile)
 const Sidebar = ({ mobileOpen, setMobileOpen }) => {
   const location = useLocation();
-  const { user, signOut, syncStatus, notifications } = useAppContext();
+  const { user, signOut, syncStatus, notifications, requestAccess } = useAppContext();
+  const [requestedPages, setRequestedPages] = useState({});
 
-  // Count unread notifications for the PM
   const myUnread = user?.permissions?.isAdmin ? (notifications || []).filter(n => {
     if (n.read) return false;
     const firstName = (user?.name || '').split(' ')[0].toLowerCase();
     return (n.to_user || '').toLowerCase().includes(firstName);
   }).length : 0;
 
-  const menuItems = [
+  const allowedRoutes = ROLE_ROUTES[user?.roleKey] || ROLE_ROUTES.guest;
+  const isLocked = (path) => allowedRoutes !== null && !allowedRoutes.includes(path);
+
+  const allMenuItems = [
     { path: '/', icon: LayoutDashboard, label: 'Overview' },
     { path: '/model', icon: BrainCircuit, label: 'SARIMAX Lab' },
     { path: '/tasks', icon: CheckSquare, label: 'Task Tracker' },
@@ -38,6 +41,12 @@ const Sidebar = ({ mobileOpen, setMobileOpen }) => {
     { path: '/resources', icon: FolderOpen, label: 'Resources' },
     ...(user?.permissions?.isAdmin ? [{ path: '/admin', icon: Users, label: 'Admin Panel' }] : []),
   ];
+
+  const handleLockedClick = (item) => {
+    if (requestedPages[item.path]) return;
+    requestAccess(item.label, 'page');
+    setRequestedPages(prev => ({ ...prev, [item.path]: true }));
+  };
 
   const sidebarContent = (
     <>
@@ -59,21 +68,46 @@ const Sidebar = ({ mobileOpen, setMobileOpen }) => {
       </div>
 
       <nav className="flex-1 p-3 sm:p-4 space-y-1 sm:space-y-2 overflow-y-auto">
-        {menuItems.map((item) => (
-          <Link
-            key={item.path}
-            to={item.path}
-            onClick={() => setMobileOpen(false)}
-            className={`flex items-center space-x-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl transition-all duration-200 ease-in-out group ${
-              location.pathname === item.path
-                ? 'bg-sky-600/10 text-sky-400 border border-sky-500/20 shadow-[0_0_15px_rgba(56,189,248,0.1)]'
-                : 'hover:bg-slate-800 hover:text-white'
-            }`}
-          >
-            <item.icon size={20} className={location.pathname === item.path ? 'text-sky-400' : 'group-hover:scale-110 transition-transform'} />
-            <span className="font-medium text-sm sm:text-base">{item.label}</span>
-          </Link>
-        ))}
+        {allMenuItems.map((item) => {
+          const locked = isLocked(item.path);
+          const requested = requestedPages[item.path];
+
+          if (locked) {
+            return (
+              <button
+                key={item.path}
+                onClick={() => handleLockedClick(item)}
+                className={`w-full flex items-center space-x-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl transition-all duration-200 group ${
+                  requested ? 'opacity-50 cursor-default' : 'opacity-60 hover:opacity-80 hover:bg-slate-800/50 cursor-pointer'
+                }`}
+                title={requested ? 'Request sent — waiting for PM' : `Request access to ${item.label}`}
+              >
+                <item.icon size={20} className="text-slate-600" />
+                <span className="font-medium text-sm sm:text-base text-slate-500 flex-1 text-left">{item.label}</span>
+                {requested
+                  ? <span className="text-[9px] px-1.5 py-0.5 bg-emerald-500/15 text-emerald-400 rounded font-bold shrink-0">Sent</span>
+                  : <LockKeyhole size={14} className="text-slate-600 shrink-0" />
+                }
+              </button>
+            );
+          }
+
+          return (
+            <Link
+              key={item.path}
+              to={item.path}
+              onClick={() => setMobileOpen(false)}
+              className={`flex items-center space-x-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl transition-all duration-200 ease-in-out group ${
+                location.pathname === item.path
+                  ? 'bg-sky-600/10 text-sky-400 border border-sky-500/20 shadow-[0_0_15px_rgba(56,189,248,0.1)]'
+                  : 'hover:bg-slate-800 hover:text-white'
+              }`}
+            >
+              <item.icon size={20} className={location.pathname === item.path ? 'text-sky-400' : 'group-hover:scale-110 transition-transform'} />
+              <span className="font-medium text-sm sm:text-base">{item.label}</span>
+            </Link>
+          );
+        })}
       </nav>
 
       <div className="p-3 sm:p-4 border-t border-slate-800">
@@ -427,16 +461,133 @@ const SyncErrorToast = () => {
   );
 };
 
+// ── Route guard: locked pages show request-access UI ──
+const PAGE_LABELS = {
+  '/model': 'SARIMAX Lab', '/tasks': 'Task Tracker', '/schedule': 'Calendar & Schedule',
+  '/minutes': 'Minutes of Meeting', '/data': 'Data Hub', '/admin': 'Admin Panel',
+};
+
+const GuardedRoute = ({ element, path }) => {
+  const { user, requestAccess } = useAppContext();
+  const [requested, setRequested] = useState(false);
+  const allowed = ROLE_ROUTES[user?.roleKey];
+  if (allowed !== null && !allowed.includes(path)) {
+    const pageName = PAGE_LABELS[path] || path;
+    return (
+      <div className="flex items-center justify-center h-[calc(100vh-140px)]">
+        <div className="text-center max-w-sm">
+          <LockKeyhole size={48} className="text-amber-400 mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-slate-100 mb-2">{pageName}</h2>
+          <p className="text-slate-500 text-sm mb-1">Your role (<span className="font-bold text-slate-300">{user?.role}</span>) doesn't have access yet.</p>
+          <p className="text-slate-600 text-xs mb-6">Request access and the PM will be notified.</p>
+          {requested ? (
+            <div className="inline-flex items-center gap-2 px-4 py-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+              <Send size={16} className="text-emerald-400" />
+              <span className="text-sm font-bold text-emerald-400">Request Sent</span>
+            </div>
+          ) : (
+            <button
+              onClick={() => { requestAccess(pageName, 'page'); setRequested(true); }}
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-sky-600 text-white rounded-xl font-bold hover:bg-sky-500 transition-all active:scale-95 shadow-lg shadow-sky-900/30"
+            >
+              <Send size={16} /> Request Access
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+  return element;
+};
+
+// ── Post-login onboarding — shown once per session ──
+const OnboardingScreen = ({ onContinue }) => {
+  const { user } = useAppContext();
+  const isPM = user?.permissions?.isAdmin;
+
+  return (
+    <div className="fixed inset-0 bg-slate-950 z-[200] flex items-center justify-center p-4 animate-enter">
+      <div className="bg-slate-900/80 backdrop-blur-xl rounded-2xl border border-slate-800 shadow-2xl w-[calc(100%-2rem)] max-w-lg p-6 sm:p-8">
+        <h1 className="text-2xl font-bold text-white mb-1">Welcome, {user?.name?.split(' ')[0]}</h1>
+        <p className="text-slate-500 text-sm mb-6">Here's how XoCompass works.</p>
+
+        <div className="space-y-4 mb-6">
+          <div className="flex gap-3 items-start">
+            <div className="w-8 h-8 rounded-lg bg-sky-600/15 text-sky-400 flex items-center justify-center shrink-0 mt-0.5"><Eye size={16} /></div>
+            <div>
+              <p className="text-sm font-bold text-slate-200">View-Only by Default</p>
+              <p className="text-xs text-slate-500">All team members can browse every unlocked page. Only the PM can create, edit, or delete anything.</p>
+            </div>
+          </div>
+
+          <div className="flex gap-3 items-start">
+            <div className="w-8 h-8 rounded-lg bg-amber-500/15 text-amber-400 flex items-center justify-center shrink-0 mt-0.5"><LockKeyhole size={16} /></div>
+            <div>
+              <p className="text-sm font-bold text-slate-200">Locked Pages</p>
+              <p className="text-xs text-slate-500">Some pages show a lock icon. Tap them to send an access request to the PM — no extra steps needed.</p>
+            </div>
+          </div>
+
+          {isPM ? (
+            <div className="flex gap-3 items-start">
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/15 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5"><Shield size={16} /></div>
+              <div>
+                <p className="text-sm font-bold text-slate-200">You're the PM</p>
+                <p className="text-xs text-slate-500">You have full control. Manage roles in Admin Panel. Access requests from team members appear in your notifications.</p>
+              </div>
+            </div>
+          ) : (
+            <div className="flex gap-3 items-start">
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/15 text-emerald-400 flex items-center justify-center shrink-0 mt-0.5"><Send size={16} /></div>
+              <div>
+                <p className="text-sm font-bold text-slate-200">Need More Access?</p>
+                <p className="text-xs text-slate-500">Tap any locked item or action button — the PM gets notified instantly and can upgrade your role.</p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="text-center text-[10px] text-slate-600 mb-4">
+          Your role: <span className="font-bold text-slate-400">{user?.role}</span>
+        </div>
+
+        <button
+          onClick={onContinue}
+          className="w-full flex items-center justify-center gap-2 bg-sky-600 text-white py-3 rounded-xl font-bold hover:bg-sky-500 transition-all active:scale-95 shadow-lg shadow-sky-900/30"
+        >
+          Go to Dashboard <ArrowRight size={16} />
+        </button>
+      </div>
+    </div>
+  );
+};
+
 const AppContent = () => {
   const { user, syncStatus } = useAppContext();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
+  // Show onboarding once per session after login
+  const prevUser = useRef(null);
+  useEffect(() => {
+    if (user && !prevUser.current) {
+      const key = `xo_onboarded_${user.id}`;
+      if (!sessionStorage.getItem(key)) {
+        setShowOnboarding(true);
+        sessionStorage.setItem(key, '1');
+      }
+    }
+    prevUser.current = user;
+  }, [user]);
+
   if (!user) return <WelcomeScreen />;
   return (
     <Router>
+      {showOnboarding && <OnboardingScreen onContinue={() => setShowOnboarding(false)} />}
       <div className="flex bg-slate-950 min-h-screen font-sans text-slate-200 selection:bg-sky-500/30">
         <Sidebar mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
 
-        {/* Mobile top bar — visible only on small screens */}
+        {/* Mobile top bar */}
         <div className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-sm border-b border-slate-800 px-4 py-3 flex items-center justify-between">
           <button onClick={() => setMobileOpen(true)} className="p-1 text-slate-300 hover:text-white">
             <Menu size={24} />
@@ -455,10 +606,10 @@ const AppContent = () => {
         <main className="flex-1 lg:ml-64 pt-14 lg:pt-0 p-4 sm:p-6 lg:p-8 overflow-y-auto min-h-screen">
           <Routes>
             <Route path="/" element={<Dashboard />} />
-            <Route path="/model" element={<ModelLab />} />
+            <Route path="/model" element={<GuardedRoute path="/model" element={<ModelLab />} />} />
             <Route path="/tasks" element={<TaskTracker />} />
-            <Route path="/schedule" element={<Schedule />} />
-            <Route path="/minutes" element={<Minutes />} />
+            <Route path="/schedule" element={<GuardedRoute path="/schedule" element={<Schedule />} />} />
+            <Route path="/minutes" element={<GuardedRoute path="/minutes" element={<Minutes />} />} />
             <Route path="/resources" element={<Resources />} />
             <Route path="/data" element={<DataHub />} />
             <Route path="/defense" element={<Defense />} />

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useMemo } from 'react';
-import { Database, FileText, Upload, AlertCircle, Trash2, Edit2, X, AlertTriangle, Check, FileSpreadsheet } from 'lucide-react';
+import { Database, FileText, Upload, AlertCircle, Trash2, Edit2, X, AlertTriangle, Check, FileSpreadsheet, LockKeyhole } from 'lucide-react';
 import { useAppContext } from '../context/AppContext';
 
 const DataHub = () => {
@@ -110,6 +110,12 @@ const DataHub = () => {
 
   return (
     <div className="space-y-6 animate-enter">
+      {!canCreate && (
+        <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center gap-3">
+          <LockKeyhole size={16} className="text-amber-400 shrink-0" />
+          <p className="text-xs text-amber-300">View-only mode. Only the PM can upload, edit, or delete datasets.</p>
+        </div>
+      )}
       <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div>
            <h2 className="text-xl sm:text-2xl font-bold text-slate-100">Data Hub</h2>

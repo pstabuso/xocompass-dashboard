@@ -44,13 +44,14 @@ export const AVAILABLE_ROLES = [
   { id: 'guest', label: 'Guest Viewer' },
 ];
 
-// All authenticated users can see all pages. Admin Panel is gated separately (isAdmin).
+// Route access by role. null = all routes. Guests get view-only basics.
+// SARIMAX Lab, Calendar, Minutes are locked for guests until PM grants a role.
 export const ROLE_ROUTES = {
   pm:         null,
   backend:    null,
   frontend:   null,
-  guest:      null,
-  restricted: null,
+  guest:      ['/', '/tasks', '/data', '/defense', '/resources'],
+  restricted: ['/'],
 };
 
 // ─── SUPABASE TABLE NAMES ─────────────────────────────────────────
@@ -658,6 +659,38 @@ export const AppProvider = ({ children }) => {
     logAction('Nudged Member', `Alerted ${targetUser} about "${taskName}"`);
   }, [logAction, showWriteError]);
 
+  // ── ACCESS REQUEST: non-PM users request access or notify PM of blocked actions ──
+  const requestAccess = useCallback((context, type = 'page') => {
+    const currentUser = userRef.current;
+    if (!currentUser) return;
+    // Throttle: don't spam the same request within a session
+    const key = `xo_req_${type}_${context}`;
+    if (sessionStorage.getItem(key)) return;
+    sessionStorage.setItem(key, '1');
+
+    const message = type === 'action'
+      ? `${currentUser.name} (${currentUser.email || 'local'}) tried to "${context}" but lacks permission. Consider upgrading their role.`
+      : `${currentUser.name} (${currentUser.email || 'local'}) is requesting access to "${context}". Assign them a role in User Management.`;
+
+    const notif = {
+      id: crypto.randomUUID(),
+      to_user: 'Pao',
+      type: 'access_request',
+      message,
+      from_user: currentUser.name,
+      from_email: currentUser.email || '',
+      request_context: context,
+      request_type: type,
+      read: false,
+      created_at: new Date().toISOString(),
+    };
+    setNotifications(prev => [notif, ...prev]);
+    insertRow(TABLES.notifications, notif).then(r => {
+      if (!r.ok) console.warn('[XoCompass] access request notification failed:', r.error);
+    });
+    logAction('Requested Access', `${currentUser.name} → "${context}" (${type})`);
+  }, [logAction]);
+
   const clearNotifications = useCallback(() => {
     const currentUser = userRef.current;
     if (!currentUser) return;
@@ -973,7 +1006,7 @@ export const AppProvider = ({ children }) => {
       activityLog, getStats,
       minutes, addMinute, updateMinute, deleteMinute,
       datasets, addDataset, updateDataset, deleteDataset,
-      notifications, nudgeUser, clearNotifications,
+      notifications, nudgeUser, clearNotifications, requestAccess,
       exportAllData, importAllData,
       syncStatus, syncError, isCloudEnabled, cloudReady,
     }}>

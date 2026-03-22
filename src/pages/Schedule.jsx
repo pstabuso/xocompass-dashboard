@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { ChevronLeft, ChevronRight, Calendar as CalIcon, Edit2, Plus, X, CheckSquare, AlertCircle, Trash2, Save } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar as CalIcon, Edit2, Plus, X, CheckSquare, AlertCircle, Trash2, Save, LockKeyhole } from 'lucide-react';
 
 const Schedule = () => {
   const { user, events, addEvent, updateEvent, deleteEvent, tasks, addTask } = useAppContext();
@@ -95,6 +95,12 @@ const Schedule = () => {
 
   return (
     <div className="flex flex-col lg:flex-row h-auto lg:h-[calc(100vh-100px)] gap-4 sm:gap-6 animate-enter">
+      {!canCreate && (
+        <div className="w-full p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center gap-3 shrink-0">
+          <LockKeyhole size={16} className="text-amber-400 shrink-0" />
+          <p className="text-xs text-amber-300">View-only mode. Only the PM can create or edit events.</p>
+        </div>
+      )}
       <div className="flex-1 flex flex-col space-y-4 sm:space-y-6 min-w-0">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-slate-900/50 p-3 sm:p-4 rounded-xl border border-slate-800 transition hover:shadow-md duration-300">
           <div className="flex items-center gap-3">

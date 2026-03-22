@@ -272,19 +272,45 @@ const AdminPanel = () => {
               <div>
                 <h3 className="text-sm font-bold text-amber-400 uppercase mb-3 flex items-center gap-2"><LockKeyhole size={16} /> Access Requests</h3>
                 <div className="bg-slate-900/50 rounded-xl border border-slate-800 divide-y divide-slate-800">
-                  {accessRequests.map(n => (
-                    <div key={n.id} className="p-4 flex items-start gap-3">
-                      <div className="w-9 h-9 rounded-full bg-amber-500/10 text-amber-400 flex items-center justify-center shrink-0">
-                        <Send size={16} />
+                  {accessRequests.map(n => {
+                    // Try to find the user in profiles for quick role assign
+                    const matchedProfile = profiles.find(p =>
+                      (n.from_email && p.email === n.from_email) ||
+                      (n.from_user && p.name === n.from_user)
+                    );
+                    return (
+                      <div key={n.id} className="p-4">
+                        <div className="flex items-start gap-3">
+                          <div className="w-9 h-9 rounded-full bg-amber-500/10 text-amber-400 flex items-center justify-center shrink-0">
+                            <Send size={16} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm text-slate-200">{n.message}</p>
+                            <p className="text-[10px] text-slate-500 mt-1">{timeAgo(n.created_at)}</p>
+                          </div>
+                        </div>
+                        {/* Quick role assign buttons */}
+                        {matchedProfile && matchedProfile.role === 'guest' && (
+                          <div className="mt-3 ml-12 flex flex-wrap gap-2">
+                            <span className="text-[10px] text-slate-500 self-center mr-1">Quick assign:</span>
+                            {[
+                              { role: 'frontend', label: 'Frontend', color: 'bg-amber-600 hover:bg-amber-500' },
+                              { role: 'backend', label: 'Backend', color: 'bg-emerald-600 hover:bg-emerald-500' },
+                            ].map(opt => (
+                              <button
+                                key={opt.role}
+                                onClick={() => setConfirmAction({ userId: matchedProfile.id, name: matchedProfile.name, newRole: opt.role, action: `change role to ${opt.role}` })}
+                                className={`text-[10px] px-2.5 py-1 rounded-lg font-bold text-white transition ${opt.color}`}
+                              >
+                                {opt.label}
+                              </button>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-slate-200">{n.message}</p>
-                        <p className="text-[10px] text-slate-500 mt-1">{timeAgo(n.created_at)}</p>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
-                <p className="text-xs text-slate-600 mt-2">Go to <span className="text-sky-400 font-bold cursor-pointer" onClick={() => setTab('users')}>User Management</span> to change their role.</p>
               </div>
             )}
 

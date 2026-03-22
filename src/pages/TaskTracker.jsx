@@ -1,7 +1,25 @@
 import React, { useState } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { Plus, Trash2, X, MessageSquare, List, BarChart as GanttIcon, Layout, CheckSquare, AlertTriangle, Send, Edit2, Save } from 'lucide-react';
+import { Plus, Trash2, X, MessageSquare, List, BarChart as GanttIcon, Layout, CheckSquare, AlertTriangle, Send, Edit2, Save, LockKeyhole } from 'lucide-react';
 import GanttView from '../components/GanttView';
+
+const RequestBanner = ({ page }) => {
+  const { requestAccess } = useAppContext();
+  const [sent, setSent] = useState(false);
+  return (
+    <div className="mb-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center gap-3">
+      <LockKeyhole size={16} className="text-amber-400 shrink-0" />
+      <p className="text-xs text-amber-300 flex-1">You're in <span className="font-bold">view-only</span> mode. Need edit access?</p>
+      {sent ? (
+        <span className="text-[10px] px-2 py-1 bg-emerald-500/15 text-emerald-400 rounded font-bold shrink-0">Sent</span>
+      ) : (
+        <button onClick={() => { requestAccess(`Edit on ${page}`, 'action'); setSent(true); }} className="text-[10px] px-2 py-1 bg-sky-600 text-white rounded font-bold hover:bg-sky-500 transition shrink-0">
+          Request
+        </button>
+      )}
+    </div>
+  );
+};
 
 const TaskTracker = () => {
   const { tasks, addTask, updateTask, updateTaskStatus, deleteTask, addTaskComment, subtasks, user } = useAppContext();
@@ -133,6 +151,7 @@ const TaskTracker = () => {
 
   return (
     <div className="space-y-4 sm:space-y-6 h-[calc(100vh-140px)] lg:h-[calc(100vh-140px)] flex flex-col animate-enter">
+      {!canCreate && <RequestBanner page="Task Tracker" />}
       {/* Controls */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 shrink-0">
         <div>
