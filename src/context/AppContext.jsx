@@ -99,7 +99,12 @@ export const AppProvider = ({ children }) => {
   const [syncStatus, setSyncStatus] = useState(isCloudEnabled ? 'connecting' : 'local'); // 'local' | 'connecting' | 'synced' | 'error'
   const subscriptionsRef = useRef([]);
 
-  const [authLoading, setAuthLoading] = useState(isCloudEnabled); // true while checking session
+  // Only show "Restoring session…" if there's a cached user to restore.
+  // No cached user → show login screen immediately (zero delay).
+  const [authLoading, setAuthLoading] = useState(() => {
+    if (!isCloudEnabled) return false;
+    return !!readLocal('xo_user', null);
+  });
 
   // ── State: initialised from localStorage (instant), then overwritten by Supabase ──
   const [user, setUser] = useState(() => {
@@ -426,19 +431,23 @@ export const AppProvider = ({ children }) => {
   useEffect(() => {
     if (!isCloudEnabled) { setAuthLoading(false); return; }
 
-    // Check existing session on mount — fast path with timeout guard
-    const AUTH_TIMEOUT_MS = 4000;
+    // If no cached user, skip session restore (show login instantly).
+    // The onAuthStateChange listener below still handles future sign-ins.
+    const hasCachedUser = !!readLocal('xo_user', null);
+    if (!hasCachedUser) { setAuthLoading(false); }
+
+    // Session restore with 2s timeout guard (only blocks UI if hasCachedUser)
+    const AUTH_TIMEOUT_MS = 2000;
     let timedOut = false;
     const timeout = setTimeout(() => {
       timedOut = true;
-      console.warn('[XoCompass] Auth session check timed out — showing login screen.');
-      setAuthLoading(false);
+      setAuthLoading(false); // stop spinner, fall through to cached user or login
     }, AUTH_TIMEOUT_MS);
 
     const initSession = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        if (timedOut) return; // timeout already cleared authLoading
+        if (timedOut) return;
         if (session?.user) {
           sessionInitRef.current = true;
           const profile = await fetchProfile(session.user.id);
@@ -446,10 +455,9 @@ export const AppProvider = ({ children }) => {
           if (profile) {
             handleProfile(profile, 'session_restore');
           } else {
-            // Profile missing — build from user metadata (graceful fallback)
             const meta = session.user.user_metadata || {};
             const roleKey = meta.role || 'guest';
-            const fallbackUser = {
+            setUser({
               id: session.user.id,
               email: session.user.email,
               name: meta.name || session.user.email?.split('@')[0] || 'User',
@@ -457,8 +465,7 @@ export const AppProvider = ({ children }) => {
               roleKey,
               permissions: ROLE_PERMISSIONS[roleKey] || ROLE_PERMISSIONS.guest,
               avatar_url: null,
-            };
-            setUser(fallbackUser);
+            });
           }
         }
       } catch (err) {
@@ -491,12 +498,13 @@ export const AppProvider = ({ children }) => {
   }, [handleProfile]);
 
   // ── AUTH: sign in with email/password + audit logging ──
+  // Strategy: ONE network call (signInWithPassword) → set user from metadata instantly
+  //           → enrich with full profile in the background (non-blocking).
   const signIn = useCallback(async (email, password) => {
     if (!isCloudEnabled) throw new Error('Cloud not configured. Use local mode instead.');
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
       logAuthEvent(email, 'sign_in_failed', { reason: error.message });
-      // Translate common Supabase errors to user-friendly messages
       if (error.message?.includes('Invalid login credentials')) {
         throw new Error('Invalid email or password. Check your credentials or sign up first.');
       }
@@ -505,31 +513,34 @@ export const AppProvider = ({ children }) => {
       }
       throw error;
     }
-    // Fetch profile immediately (don't wait for onAuthStateChange) for speed
     if (data?.user) {
-      const profile = await fetchProfile(data.user.id);
-      if (profile?.role === 'restricted') {
-        await supabase.auth.signOut();
-        logAuthEvent(email, 'restricted_blocked', { source: 'sign_in' });
-        throw new Error('Your account has been restricted. Contact the administrator.');
-      }
-      if (profile) {
+      // Instant: set user from auth metadata (no second network call)
+      const meta = data.user.user_metadata || {};
+      const roleKey = meta.role || 'guest';
+      const immediateUser = {
+        id: data.user.id,
+        email: data.user.email,
+        name: meta.name || email.split('@')[0],
+        role: ROLE_LABELS[roleKey] || roleKey,
+        roleKey,
+        permissions: ROLE_PERMISSIONS[roleKey] || ROLE_PERMISSIONS.guest,
+        avatar_url: null,
+      };
+      setUser(immediateUser);
+      logAuthEvent(email, 'sign_in_success');
+
+      // Background: enrich with full profile (avatar, updated role, restricted check)
+      fetchProfile(data.user.id).then(profile => {
+        if (!profile) return;
+        if (profile.role === 'restricted') {
+          supabase.auth.signOut();
+          logAuthEvent(email, 'restricted_blocked', { source: 'sign_in_bg' });
+          setUser(null);
+          localStorage.removeItem('xo_user');
+          return;
+        }
         setUser(buildUser(profile));
-        logAuthEvent(email, 'sign_in_success');
-      } else {
-        // Profile doesn't exist yet (DB trigger may have failed) — create a minimal one
-        const fallbackUser = {
-          id: data.user.id,
-          email: data.user.email,
-          name: data.user.user_metadata?.name || email.split('@')[0],
-          role: ROLE_LABELS[data.user.user_metadata?.role] || 'Guest Viewer',
-          roleKey: data.user.user_metadata?.role || 'guest',
-          permissions: ROLE_PERMISSIONS[data.user.user_metadata?.role] || ROLE_PERMISSIONS.guest,
-          avatar_url: null,
-        };
-        setUser(fallbackUser);
-        logAuthEvent(email, 'sign_in_success', { note: 'profile_missing_used_fallback' });
-      }
+      }).catch(() => { /* profile enrichment is best-effort */ });
     }
   }, []);
 
