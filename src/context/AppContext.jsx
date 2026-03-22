@@ -128,11 +128,22 @@ const clearRetryQueue = () => {
   try { localStorage.removeItem(RETRY_QUEUE_KEY); } catch { /* ignore */ }
 };
 
-/** Upsert a row to Supabase with retry on failure */
+/** Upsert a row to Supabase with retry on failure.
+ *  If upsert fails due to unknown column (e.g. updated_at), retries without it. */
 const upsertRow = async (table, row) => {
   if (!supabase) return;
   const { error } = await supabase.from(table).upsert(row, { onConflict: 'id' });
   if (error) {
+    // If the error is about an unknown column, strip updated_at and retry once
+    if (error.message?.includes('updated_at') || error.code === 'PGRST204') {
+      const { updated_at, ...withoutUpdatedAt } = row;
+      const { error: retryErr } = await supabase.from(table).upsert(withoutUpdatedAt, { onConflict: 'id' });
+      if (retryErr) {
+        console.error(`[XoCompass] upsert ${table} (retry):`, retryErr.message);
+        enqueueRetry('upsert', table, withoutUpdatedAt);
+      }
+      return;
+    }
     console.error(`[XoCompass] upsert ${table}:`, error.message);
     enqueueRetry('upsert', table, row);
   }
@@ -191,7 +202,17 @@ const processRetryQueue = async () => {
 export const AppProvider = ({ children }) => {
   const [cloudReady, setCloudReady] = useState(false);
   const [syncStatus, setSyncStatus] = useState(isCloudEnabled ? 'connecting' : 'local'); // 'local' | 'connecting' | 'synced' | 'error'
+  const [syncError, setSyncError] = useState(null); // user-visible error message, auto-clears after 5s
   const subscriptionsRef = useRef([]);
+  const authSettledRef = useRef(false); // tracks whether initial auth has resolved
+  const [authSettled, setAuthSettled] = useState(false); // triggers hydration after auth lock is released
+
+  // Auto-clear sync errors after 5 seconds
+  useEffect(() => {
+    if (!syncError) return;
+    const timer = setTimeout(() => setSyncError(null), 5000);
+    return () => clearTimeout(timer);
+  }, [syncError]);
 
   // Only show "Restoring session…" if there's a cached user to restore.
   // No cached user → show login screen immediately (zero delay).
@@ -234,9 +255,12 @@ export const AppProvider = ({ children }) => {
   useEffect(() => { writeLocal('minutes', minutes); }, [minutes]);
   useEffect(() => { writeLocal('datasets', datasets); }, [datasets]);
 
-  // ── Supabase: initial fetch (hydrate from cloud on mount) ──
+  // ── Supabase: initial fetch (hydrate from cloud AFTER auth settles) ──
+  // This prevents fetch failures caused by NavigatorLock contention.
+  // Previously, hydration fired on mount while auth was still acquiring its lock,
+  // causing ALL Supabase operations to fail with lock-steal errors.
   useEffect(() => {
-    if (!isCloudEnabled) return;
+    if (!isCloudEnabled || !authSettled) return;
     let cancelled = false;
 
     const hydrate = async () => {
@@ -270,11 +294,11 @@ export const AppProvider = ({ children }) => {
 
     hydrate();
     return () => { cancelled = true; };
-  }, []);
+  }, [authSettled]);
 
-  // ── Supabase: real-time subscriptions ──
+  // ── Supabase: real-time subscriptions (wait for auth to settle) ──
   useEffect(() => {
-    if (!isCloudEnabled) return;
+    if (!isCloudEnabled || !authSettled) return;
 
     const subscribe = (table, setter) => {
       const channel = supabase
@@ -315,16 +339,16 @@ export const AppProvider = ({ children }) => {
       subscriptionsRef.current.forEach(ch => supabase.removeChannel(ch));
       subscriptionsRef.current = [];
     };
-  }, []);
+  }, [authSettled]);
 
-  // ── Retry queue processor (runs on mount + every 30s) ──
+  // ── Retry queue processor (runs after auth settles + every 30s) ──
   useEffect(() => {
-    if (!isCloudEnabled) return;
+    if (!isCloudEnabled || !authSettled) return;
     // Process any failed writes from previous session
     processRetryQueue();
     const interval = setInterval(processRetryQueue, 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [authSettled]);
 
   // ── Activity Log (stable ref — never stale, no dependency chain issues) ──
   const userRef = useRef(user);
@@ -616,8 +640,6 @@ export const AppProvider = ({ children }) => {
   }, [logAction]);
 
   // ── AUTH: handle profile → user, with restricted check ──
-  const sessionInitRef = useRef(false); // prevent double-fetch between initSession and onAuthStateChange
-
   const handleProfile = useCallback((profile, eventSource) => {
     if (!profile) return null;
     if (profile.role === 'restricted') {
@@ -628,74 +650,87 @@ export const AppProvider = ({ children }) => {
     return u;
   }, []);
 
-  // ── AUTH: Supabase session listener (optimized — no double-fetch) ──
+  // ── AUTH: Single onAuthStateChange listener (NO getSession — avoids NavigatorLock race) ──
+  // Supabase JS v2 emits INITIAL_SESSION as the first event, giving us the
+  // existing session without a separate getSession() call that would compete
+  // for the same NavigatorLock, causing ALL subsequent Supabase operations to fail.
   useEffect(() => {
-    if (!isCloudEnabled) { setAuthLoading(false); return; }
+    if (!isCloudEnabled) {
+      setAuthLoading(false);
+      setAuthSettled(true);
+      return;
+    }
 
-    // If no cached user, skip session restore (show login instantly).
-    // The onAuthStateChange listener below still handles future sign-ins.
+    // If no cached user, show login immediately (don't block on network)
     const hasCachedUser = !!readLocal('xo_user', null);
     if (!hasCachedUser) { setAuthLoading(false); }
 
-    // Session restore with 2s timeout guard (only blocks UI if hasCachedUser)
-    const AUTH_TIMEOUT_MS = 2000;
+    // Timeout guard: if auth takes too long, unblock UI
+    const AUTH_TIMEOUT_MS = 3000;
     let timedOut = false;
     const timeout = setTimeout(() => {
       timedOut = true;
-      setAuthLoading(false); // stop spinner, fall through to cached user or login
+      setAuthLoading(false);
+      if (!authSettledRef.current) {
+        authSettledRef.current = true;
+        setAuthSettled(true); // allow hydration even if auth timed out
+      }
     }, AUTH_TIMEOUT_MS);
 
-    const initSession = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (timedOut) return;
+    // Single listener — handles INITIAL_SESSION, SIGNED_IN, SIGNED_OUT, TOKEN_REFRESHED
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      // INITIAL_SESSION replaces getSession() — no lock contention
+      if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN') {
         if (session?.user) {
-          sessionInitRef.current = true;
-          const profile = await fetchProfile(session.user.id);
-          if (timedOut) return;
-          if (profile) {
-            handleProfile(profile, 'session_restore');
-          } else {
-            const meta = session.user.user_metadata || {};
-            const roleKey = meta.role || 'guest';
-            setUser({
-              id: session.user.id,
-              email: session.user.email,
-              name: meta.name || session.user.email?.split('@')[0] || 'User',
-              role: ROLE_LABELS[roleKey] || roleKey,
-              roleKey,
-              permissions: ROLE_PERMISSIONS[roleKey] || ROLE_PERMISSIONS.guest,
-              avatar_url: null,
-            });
+          try {
+            const profile = await fetchProfile(session.user.id);
+            if (profile) {
+              handleProfile(profile, event);
+            } else {
+              // Fallback: build user from JWT metadata
+              const meta = session.user.user_metadata || {};
+              const roleKey = meta.role || 'guest';
+              setUser({
+                id: session.user.id,
+                email: session.user.email,
+                name: meta.name || session.user.email?.split('@')[0] || 'User',
+                role: ROLE_LABELS[roleKey] || roleKey,
+                roleKey,
+                permissions: ROLE_PERMISSIONS[roleKey] || ROLE_PERMISSIONS.guest,
+                avatar_url: null,
+              });
+            }
+          } catch (err) {
+            console.error('[XoCompass] auth profile fetch:', err);
           }
         }
-      } catch (err) {
-        console.error('[XoCompass] session init:', err);
-      } finally {
+        // Mark auth as settled (whether we got a session or not)
+        if (!authSettledRef.current) {
+          authSettledRef.current = true;
+          setAuthSettled(true);
+        }
         clearTimeout(timeout);
         if (!timedOut) setAuthLoading(false);
       }
-    };
-    initSession();
 
-    // Listen for auth changes — skip if initSession already handled this session
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && session?.user) {
-        // Skip if initSession already fetched this user (prevents double-fetch on page load)
-        if (sessionInitRef.current) {
-          sessionInitRef.current = false;
-          return;
-        }
-        const profile = await fetchProfile(session.user.id);
-        handleProfile(profile, 'sign_in');
-      }
       if (event === 'SIGNED_OUT') {
         setUser(null);
         localStorage.removeItem('xo_user');
       }
+
+      if (event === 'TOKEN_REFRESHED' && session?.user) {
+        // Silently refresh profile on token refresh (role may have changed)
+        try {
+          const profile = await fetchProfile(session.user.id);
+          if (profile) handleProfile(profile, 'token_refresh');
+        } catch { /* best effort */ }
+      }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      clearTimeout(timeout);
+      subscription.unsubscribe();
+    };
   }, [handleProfile]);
 
   // ── Helper: race a promise against a timeout ──
@@ -893,7 +928,7 @@ export const AppProvider = ({ children }) => {
       datasets, addDataset, updateDataset, deleteDataset,
       notifications, nudgeUser, clearNotifications,
       exportAllData, importAllData,
-      syncStatus, isCloudEnabled, cloudReady,
+      syncStatus, syncError, isCloudEnabled, cloudReady,
     }}>
       {children}
     </AppContext.Provider>

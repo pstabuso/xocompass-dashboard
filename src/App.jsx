@@ -401,6 +401,24 @@ const WelcomeScreen = () => {
   );
 };
 
+const SyncErrorToast = () => {
+  const { syncError } = useAppContext();
+  if (!syncError) return null;
+  return (
+    <div className="fixed bottom-4 right-4 z-[9999] animate-in slide-in-from-bottom-4 max-w-sm">
+      <div className="bg-red-900/90 backdrop-blur-sm border border-red-500/30 rounded-xl px-4 py-3 shadow-2xl shadow-red-900/40">
+        <div className="flex items-start gap-2">
+          <CloudOff size={16} className="text-red-400 mt-0.5 shrink-0" />
+          <div>
+            <p className="text-xs font-bold text-red-300">Sync Error</p>
+            <p className="text-[11px] text-red-400/80 mt-0.5">{syncError}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const AppContent = () => {
   const { user } = useAppContext();
   if (!user) return <WelcomeScreen />;
@@ -421,10 +439,29 @@ const AppContent = () => {
             <Route path="/admin" element={<AdminPanel />} />
           </Routes>
         </main>
+        <SyncErrorToast />
       </div>
     </Router>
   );
 };
 
-const App = () => <AppProvider><AppContent /></AppProvider>;
+class ErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(error) { return { error }; }
+  componentDidCatch(error, info) { console.error('[XoCompass ErrorBoundary]', error.message, error.stack); }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{ padding: 40, color: '#f87171', background: '#0f172a', minHeight: '100vh', fontFamily: 'monospace' }}>
+          <h1 style={{ fontSize: 24, marginBottom: 16 }}>Something went wrong</h1>
+          <pre style={{ whiteSpace: 'pre-wrap', fontSize: 14, color: '#fbbf24' }}>{this.state.error.message}</pre>
+          <pre style={{ whiteSpace: 'pre-wrap', fontSize: 12, color: '#94a3b8', marginTop: 12 }}>{this.state.error.stack}</pre>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+const App = () => <ErrorBoundary><AppProvider><AppContent /></AppProvider></ErrorBoundary>;
 export default App;
