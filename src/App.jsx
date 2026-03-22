@@ -121,6 +121,8 @@ const WelcomeScreen = () => {
     }
   };
 
+  const [confirmMsg, setConfirmMsg] = useState('');
+
   const handleSignUp = async () => {
     if (!email || !password) { setError('Email and password are required'); return; }
     if (password.length < 6) { setError('Password must be at least 6 characters'); return; }
@@ -132,11 +134,17 @@ const WelcomeScreen = () => {
     if (!NAME_REGEX.test(trimmed)) { setError('Name can only contain letters, spaces, hyphens, and apostrophes'); return; }
 
     setError('');
+    setConfirmMsg('');
     setLoading(true);
     try {
       await signUp(email, password, trimmed, selectedRole);
     } catch (err) {
-      setError(err.message || 'Sign up failed');
+      if (err.message === 'CONFIRM_EMAIL') {
+        setConfirmMsg('Account created! Check your email to confirm, then sign in.');
+        setMode('login');
+      } else {
+        setError(err.message || 'Sign up failed');
+      }
     } finally {
       setLoading(false);
     }
@@ -177,6 +185,16 @@ const WelcomeScreen = () => {
             {isLocal ? 'Local mode — enter your name to start' : mode === 'login' ? 'Sign in to your workspace' : 'Create your team account'}
           </p>
         </div>
+
+        {/* Success message (e.g. email confirmation) */}
+        {confirmMsg && (
+          <div className="mb-4 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
+            <p className="text-xs text-emerald-400 flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"></span>
+              {confirmMsg}
+            </p>
+          </div>
+        )}
 
         {/* Error display */}
         {(error || nameError) && (

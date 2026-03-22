@@ -426,19 +426,46 @@ export const AppProvider = ({ children }) => {
   useEffect(() => {
     if (!isCloudEnabled) { setAuthLoading(false); return; }
 
-    // Check existing session on mount — fast path
+    // Check existing session on mount — fast path with timeout guard
+    const AUTH_TIMEOUT_MS = 4000;
+    let timedOut = false;
+    const timeout = setTimeout(() => {
+      timedOut = true;
+      console.warn('[XoCompass] Auth session check timed out — showing login screen.');
+      setAuthLoading(false);
+    }, AUTH_TIMEOUT_MS);
+
     const initSession = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
+        if (timedOut) return; // timeout already cleared authLoading
         if (session?.user) {
           sessionInitRef.current = true;
           const profile = await fetchProfile(session.user.id);
-          handleProfile(profile, 'session_restore');
+          if (timedOut) return;
+          if (profile) {
+            handleProfile(profile, 'session_restore');
+          } else {
+            // Profile missing — build from user metadata (graceful fallback)
+            const meta = session.user.user_metadata || {};
+            const roleKey = meta.role || 'guest';
+            const fallbackUser = {
+              id: session.user.id,
+              email: session.user.email,
+              name: meta.name || session.user.email?.split('@')[0] || 'User',
+              role: ROLE_LABELS[roleKey] || roleKey,
+              roleKey,
+              permissions: ROLE_PERMISSIONS[roleKey] || ROLE_PERMISSIONS.guest,
+              avatar_url: null,
+            };
+            setUser(fallbackUser);
+          }
         }
       } catch (err) {
         console.error('[XoCompass] session init:', err);
       } finally {
-        setAuthLoading(false);
+        clearTimeout(timeout);
+        if (!timedOut) setAuthLoading(false);
       }
     };
     initSession();
@@ -465,10 +492,17 @@ export const AppProvider = ({ children }) => {
 
   // ── AUTH: sign in with email/password + audit logging ──
   const signIn = useCallback(async (email, password) => {
-    if (!isCloudEnabled) throw new Error('Cloud not configured');
+    if (!isCloudEnabled) throw new Error('Cloud not configured. Use local mode instead.');
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) {
       logAuthEvent(email, 'sign_in_failed', { reason: error.message });
+      // Translate common Supabase errors to user-friendly messages
+      if (error.message?.includes('Invalid login credentials')) {
+        throw new Error('Invalid email or password. Check your credentials or sign up first.');
+      }
+      if (error.message?.includes('Email not confirmed')) {
+        throw new Error('Please confirm your email before signing in. Check your inbox.');
+      }
       throw error;
     }
     // Fetch profile immediately (don't wait for onAuthStateChange) for speed
@@ -482,13 +516,26 @@ export const AppProvider = ({ children }) => {
       if (profile) {
         setUser(buildUser(profile));
         logAuthEvent(email, 'sign_in_success');
+      } else {
+        // Profile doesn't exist yet (DB trigger may have failed) — create a minimal one
+        const fallbackUser = {
+          id: data.user.id,
+          email: data.user.email,
+          name: data.user.user_metadata?.name || email.split('@')[0],
+          role: ROLE_LABELS[data.user.user_metadata?.role] || 'Guest Viewer',
+          roleKey: data.user.user_metadata?.role || 'guest',
+          permissions: ROLE_PERMISSIONS[data.user.user_metadata?.role] || ROLE_PERMISSIONS.guest,
+          avatar_url: null,
+        };
+        setUser(fallbackUser);
+        logAuthEvent(email, 'sign_in_success', { note: 'profile_missing_used_fallback' });
       }
     }
   }, []);
 
   // ── AUTH: sign up with email/password + profile metadata ──
   const signUp = useCallback(async (email, password, name, roleKey) => {
-    if (!isCloudEnabled) throw new Error('Cloud not configured');
+    if (!isCloudEnabled) throw new Error('Cloud not configured. Use local mode instead.');
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -496,15 +543,38 @@ export const AppProvider = ({ children }) => {
     });
     if (error) {
       logAuthEvent(email, 'sign_up_failed', { reason: error.message });
+      if (error.message?.includes('already registered')) {
+        throw new Error('This email is already registered. Try signing in instead.');
+      }
       throw error;
     }
     logAuthEvent(email, 'sign_up_success', { name, role: roleKey });
+
+    // If email confirmation is required, session will be null
+    if (!data?.session) {
+      throw new Error('CONFIRM_EMAIL');
+    }
+
     // Fetch profile immediately for instant dashboard access
     if (data?.user) {
       // Small delay for DB trigger to create profile
       await new Promise(r => setTimeout(r, 500));
       const profile = await fetchProfile(data.user.id);
-      if (profile) setUser(buildUser(profile));
+      if (profile) {
+        setUser(buildUser(profile));
+      } else {
+        // Fallback: profile trigger hasn't fired yet — build from metadata
+        const fallbackUser = {
+          id: data.user.id,
+          email: data.user.email,
+          name,
+          role: ROLE_LABELS[roleKey] || roleKey,
+          roleKey,
+          permissions: ROLE_PERMISSIONS[roleKey] || ROLE_PERMISSIONS.guest,
+          avatar_url: null,
+        };
+        setUser(fallbackUser);
+      }
     }
   }, []);
 
