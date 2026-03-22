@@ -1,22 +1,24 @@
 import React, { createContext, useState, useEffect, useContext, useCallback, useRef } from 'react';
-import { supabase, isCloudEnabled, fetchProfile } from '../lib/supabase';
+import { supabase, isCloudEnabled, fetchProfile, logAuthEvent } from '../lib/supabase';
 
 const AppContext = createContext();
 
 // ─── ROLE → PERMISSIONS MAP (non-hardcoded users, roles from DB) ──
 // Roles are stored in the `profiles` table; permissions derived here.
 const ROLE_PERMISSIONS = {
-  pm:       { canCreate: true, canDelete: true, canNudge: true, viewAll: true },
-  backend:  { canCreate: true, canDelete: true, canNudge: true, viewAll: true },
-  frontend: { canCreate: true, canDelete: false, canNudge: false, viewAll: false },
-  guest:    { canCreate: false, canDelete: false, canNudge: false, viewAll: true },
+  pm:         { canCreate: true, canDelete: true, canNudge: true, viewAll: true, isAdmin: true },
+  backend:    { canCreate: true, canDelete: true, canNudge: true, viewAll: true, isAdmin: false },
+  frontend:   { canCreate: true, canDelete: false, canNudge: false, viewAll: false, isAdmin: false },
+  guest:      { canCreate: false, canDelete: false, canNudge: false, viewAll: true, isAdmin: false },
+  restricted: { canCreate: false, canDelete: false, canNudge: false, viewAll: false, isAdmin: false },
 };
 
 const ROLE_LABELS = {
-  pm:       'Project Manager & Documentations Head',
-  backend:  'Backend Developer',
-  frontend: 'Frontend Developer',
-  guest:    'Guest Viewer',
+  pm:         'Project Manager & Documentations Head',
+  backend:    'Backend Developer',
+  frontend:   'Frontend Developer',
+  guest:      'Guest Viewer',
+  restricted: 'Restricted',
 };
 
 /** Build a user object from a Supabase profile row */
@@ -403,17 +405,35 @@ export const AppProvider = ({ children }) => {
     });
   }, [user]);
 
-  // ── AUTH: Supabase session listener ──
+  // ── AUTH: handle profile → user, with restricted check ──
+  const sessionInitRef = useRef(false); // prevent double-fetch between initSession and onAuthStateChange
+
+  const handleProfile = useCallback((profile, eventSource) => {
+    if (!profile) return null;
+    if (profile.role === 'restricted') {
+      logAuthEvent(profile.email, 'restricted_blocked', { source: eventSource });
+      return { restricted: true, email: profile.email };
+    }
+    const u = buildUser(profile);
+    setUser(u);
+    if (eventSource === 'session_restore') {
+      logAuthEvent(profile.email, 'session_restored');
+    }
+    return u;
+  }, []);
+
+  // ── AUTH: Supabase session listener (optimized — no double-fetch) ──
   useEffect(() => {
     if (!isCloudEnabled) { setAuthLoading(false); return; }
 
-    // Check existing session on mount
+    // Check existing session on mount — fast path
     const initSession = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
+          sessionInitRef.current = true;
           const profile = await fetchProfile(session.user.id);
-          if (profile) setUser(buildUser(profile));
+          handleProfile(profile, 'session_restore');
         }
       } catch (err) {
         console.error('[XoCompass] session init:', err);
@@ -423,11 +443,16 @@ export const AppProvider = ({ children }) => {
     };
     initSession();
 
-    // Listen for auth changes (login, logout, token refresh)
+    // Listen for auth changes — skip if initSession already handled this session
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session?.user) {
+        // Skip if initSession already fetched this user (prevents double-fetch on page load)
+        if (sessionInitRef.current) {
+          sessionInitRef.current = false;
+          return;
+        }
         const profile = await fetchProfile(session.user.id);
-        if (profile) setUser(buildUser(profile));
+        handleProfile(profile, 'sign_in');
       }
       if (event === 'SIGNED_OUT') {
         setUser(null);
@@ -436,32 +461,59 @@ export const AppProvider = ({ children }) => {
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [handleProfile]);
 
-  // ── AUTH: sign in with email/password ──
+  // ── AUTH: sign in with email/password + audit logging ──
   const signIn = useCallback(async (email, password) => {
     if (!isCloudEnabled) throw new Error('Cloud not configured');
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw error;
-    // onAuthStateChange will handle setting the user
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) {
+      logAuthEvent(email, 'sign_in_failed', { reason: error.message });
+      throw error;
+    }
+    // Fetch profile immediately (don't wait for onAuthStateChange) for speed
+    if (data?.user) {
+      const profile = await fetchProfile(data.user.id);
+      if (profile?.role === 'restricted') {
+        await supabase.auth.signOut();
+        logAuthEvent(email, 'restricted_blocked', { source: 'sign_in' });
+        throw new Error('Your account has been restricted. Contact the administrator.');
+      }
+      if (profile) {
+        setUser(buildUser(profile));
+        logAuthEvent(email, 'sign_in_success');
+      }
+    }
   }, []);
 
   // ── AUTH: sign up with email/password + profile metadata ──
   const signUp = useCallback(async (email, password, name, roleKey) => {
     if (!isCloudEnabled) throw new Error('Cloud not configured');
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: { data: { name, role: roleKey } },
     });
-    if (error) throw error;
-    // The DB trigger creates the profile; onAuthStateChange handles the rest
+    if (error) {
+      logAuthEvent(email, 'sign_up_failed', { reason: error.message });
+      throw error;
+    }
+    logAuthEvent(email, 'sign_up_success', { name, role: roleKey });
+    // Fetch profile immediately for instant dashboard access
+    if (data?.user) {
+      // Small delay for DB trigger to create profile
+      await new Promise(r => setTimeout(r, 500));
+      const profile = await fetchProfile(data.user.id);
+      if (profile) setUser(buildUser(profile));
+    }
   }, []);
 
   // ── AUTH: sign out (clears all local state + Supabase session) ──
   const signOut = useCallback(async () => {
+    const email = user?.email;
     if (isCloudEnabled) {
       await supabase.auth.signOut();
+      if (email) logAuthEvent(email, 'sign_out');
     }
     setUser(null);
     setTasks([]);
@@ -478,7 +530,7 @@ export const AppProvider = ({ children }) => {
     localStorage.removeItem('activityLog');
     localStorage.removeItem('notifications');
     setSyncStatus(isCloudEnabled ? 'connecting' : 'local');
-  }, []);
+  }, [user]);
 
   // ── AUTH: local-only mode (when Supabase is not configured) ──
   const localSignIn = useCallback((name, roleKey) => {

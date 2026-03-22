@@ -13,6 +13,7 @@ import Resources from './pages/Resources';
 import DataHub from './pages/DataHub';
 import Defense from './pages/Defense';
 import ModelLab from './pages/ModelLab';
+import AdminPanel from './pages/AdminPanel';
 
 // Sidebar (Dark Mode)
 const Sidebar = () => {
@@ -28,6 +29,7 @@ const Sidebar = () => {
     { path: '/data', icon: Database, label: 'Data Hub' },
     { path: '/defense', icon: Shield, label: 'Defense Prep' },
     { path: '/resources', icon: FolderOpen, label: 'Resources' },
+    ...(user?.permissions?.isAdmin ? [{ path: '/admin', icon: Users, label: 'Admin Panel' }] : []),
   ];
 
   return (
@@ -398,6 +400,7 @@ const AppContent = () => {
             <Route path="/resources" element={<Resources />} />
             <Route path="/data" element={<DataHub />} />
             <Route path="/defense" element={<Defense />} />
+            <Route path="/admin" element={<AdminPanel />} />
           </Routes>
         </main>
       </div>
