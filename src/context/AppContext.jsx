@@ -141,26 +141,32 @@ const stripForDB = (table, row) => {
   return clean;
 };
 
-/** Upsert a row to Supabase with retry on failure */
+/** Upsert a row to Supabase with retry on failure.
+ *  Returns { ok: boolean, error?: string } so callers can surface failures. */
 const upsertRow = async (table, row) => {
-  if (!supabase) return;
+  if (!supabase) return { ok: false, error: 'offline' };
   const cleaned = stripForDB(table, row);
   const { error } = await supabase.from(table).upsert(cleaned, { onConflict: 'id' });
   if (error) {
     console.error(`[XoCompass] upsert ${table}:`, error.message);
     enqueueRetry('upsert', table, cleaned);
+    return { ok: false, error: error.message };
   }
+  return { ok: true };
 };
 
-/** Insert a row to Supabase with retry on failure */
+/** Insert a row to Supabase with retry on failure.
+ *  Returns { ok: boolean, error?: string } so callers can surface failures. */
 const insertRow = async (table, row) => {
-  if (!supabase) return;
+  if (!supabase) return { ok: false, error: 'offline' };
   const cleaned = stripForDB(table, row);
   const { error } = await supabase.from(table).insert(cleaned);
   if (error) {
     console.error(`[XoCompass] insert ${table}:`, error.message);
     enqueueRetry('insert', table, cleaned);
+    return { ok: false, error: error.message };
   }
+  return { ok: true };
 };
 
 /** Delete a row from Supabase by id */
@@ -355,6 +361,14 @@ export const AppProvider = ({ children }) => {
     return () => clearInterval(interval);
   }, [authSettled]);
 
+  // ── Helper: surface write errors to the user ──
+  const showWriteError = useCallback((operation, result) => {
+    if (result && !result.ok && result.error && result.error !== 'offline') {
+      setSyncError(`Failed to save: ${operation}. Will retry automatically.`);
+      console.warn(`[XoCompass] Write failed (${operation}):`, result.error);
+    }
+  }, []);
+
   // ── Activity Log (stable ref — never stale, no dependency chain issues) ──
   const userRef = useRef(user);
   useEffect(() => { userRef.current = user; }, [user]);
@@ -389,9 +403,9 @@ export const AppProvider = ({ children }) => {
       updated_at: new Date().toISOString(),
     };
     setTasks(prev => [...prev, task]);
-    insertRow(TABLES.tasks, task);
+    insertRow(TABLES.tasks, task).then(r => showWriteError('create task', r));
     logAction('Created Task', `"${sanitized.task}" assigned to ${sanitized.owner || 'unassigned'}`);
-  }, [logAction]);
+  }, [logAction, showWriteError]);
 
   const updateTask = useCallback((id, updates) => {
     const sanitized = sanitizeRow(updates);
@@ -406,12 +420,12 @@ export const AppProvider = ({ children }) => {
       return merged;
     }));
     if (rowToSync) {
-      upsertRow(TABLES.tasks, rowToSync);
+      upsertRow(TABLES.tasks, rowToSync).then(r => showWriteError('update task', r));
       // Build a human-readable summary of what changed
       const changes = Object.keys(sanitized).filter(k => k !== 'updated_at').join(', ');
       logAction('Edited Task', `"${rowToSync.task}" — updated ${changes}`);
     }
-  }, [logAction]);
+  }, [logAction, showWriteError]);
 
   const updateTaskStatus = useCallback((id, newStatus) => {
     if (!VALID_STATUSES.includes(newStatus)) return;
@@ -424,10 +438,10 @@ export const AppProvider = ({ children }) => {
       return merged;
     }));
     if (rowToSync) {
-      upsertRow(TABLES.tasks, rowToSync);
+      upsertRow(TABLES.tasks, rowToSync).then(r => showWriteError('move task', r));
       logAction('Moved Task', `"${rowToSync.task}" → ${newStatus}`);
     }
-  }, [logAction]);
+  }, [logAction, showWriteError]);
 
   const deleteTask = useCallback((id) => {
     let deletedName = null;
@@ -438,7 +452,7 @@ export const AppProvider = ({ children }) => {
     });
     deleteRow(TABLES.tasks, id);
     logAction('Deleted Task', deletedName ? `"${deletedName}"` : `ID: ${id}`);
-  }, [logAction]);
+  }, [logAction, showWriteError]);
 
   const addTaskComment = useCallback((taskId, commentText) => {
     const safeText = sanitize(commentText).slice(0, MAX_COMMENT_LENGTH);
@@ -454,10 +468,10 @@ export const AppProvider = ({ children }) => {
       return merged;
     }));
     if (rowToSync) {
-      upsertRow(TABLES.tasks, rowToSync);
+      upsertRow(TABLES.tasks, rowToSync).then(r => showWriteError('add comment', r));
       logAction('Commented', `on "${rowToSync.task}": "${safeText.slice(0, 60)}${safeText.length > 60 ? '...' : ''}"`);
     }
-  }, [logAction]);
+  }, [logAction, showWriteError]);
 
   const subtasks = {
     add: (taskId, name) => {
@@ -473,7 +487,7 @@ export const AppProvider = ({ children }) => {
         return merged;
       }));
       if (rowToSync) {
-        upsertRow(TABLES.tasks, rowToSync);
+        upsertRow(TABLES.tasks, rowToSync).then(r => showWriteError('add subtask', r));
         logAction('Added Subtask', `"${safeName}" to "${rowToSync.task}"`);
       }
     },
@@ -497,7 +511,7 @@ export const AppProvider = ({ children }) => {
         return merged;
       }));
       if (rowToSync) {
-        upsertRow(TABLES.tasks, rowToSync);
+        upsertRow(TABLES.tasks, rowToSync).then(r => showWriteError('toggle subtask', r));
         logAction(toggledDone ? 'Completed Subtask' : 'Unchecked Subtask', `"${toggledName}" in "${rowToSync.task}"`);
       }
     },
@@ -509,9 +523,9 @@ export const AppProvider = ({ children }) => {
     if (sanitized.status && !VALID_STATUSES.includes(sanitized.status)) sanitized.status = 'Not Started';
     const event = { ...sanitized, id: crypto.randomUUID(), status: sanitized.status || 'Not Started', created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
     setEvents(prev => [...prev, event]);
-    insertRow(TABLES.events, event);
+    insertRow(TABLES.events, event).then(r => showWriteError('create event', r));
     logAction('Created Event', `"${sanitized.title}" on ${sanitized.date || event.date || 'TBD'}`);
-  }, [logAction]);
+  }, [logAction, showWriteError]);
 
   const updateEvent = useCallback((id, updatedEvt) => {
     const sanitized = sanitizeRow(updatedEvt);
@@ -525,10 +539,10 @@ export const AppProvider = ({ children }) => {
       return merged;
     }));
     if (rowToSync) {
-      upsertRow(TABLES.events, rowToSync);
+      upsertRow(TABLES.events, rowToSync).then(r => showWriteError('update event', r));
       logAction('Edited Event', `"${rowToSync.title}"`);
     }
-  }, [logAction]);
+  }, [logAction, showWriteError]);
 
   const deleteEvent = useCallback((id) => {
     let deletedTitle = null;
@@ -539,16 +553,16 @@ export const AppProvider = ({ children }) => {
     });
     deleteRow(TABLES.events, id);
     logAction('Deleted Event', deletedTitle ? `"${deletedTitle}"` : `ID: ${id}`);
-  }, [logAction]);
+  }, [logAction, showWriteError]);
 
   // ── MINUTES CRUD ──
   const addMinute = useCallback((minute) => {
     const sanitized = sanitizeRow(minute);
     const m = { ...sanitized, id: crypto.randomUUID(), created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
     setMinutes(prev => [...prev, m]);
-    insertRow(TABLES.minutes, m);
+    insertRow(TABLES.minutes, m).then(r => showWriteError('add meeting', r));
     logAction('Added Meeting', `"${sanitized.topic || 'Untitled'}" on ${sanitized.date || 'TBD'}`);
-  }, [logAction]);
+  }, [logAction, showWriteError]);
 
   const updateMinute = useCallback((id, updates) => {
     const sanitized = sanitizeRow(updates);
@@ -561,10 +575,10 @@ export const AppProvider = ({ children }) => {
       return merged;
     }));
     if (rowToSync) {
-      upsertRow(TABLES.minutes, rowToSync);
+      upsertRow(TABLES.minutes, rowToSync).then(r => showWriteError('update meeting', r));
       logAction('Edited Meeting', `"${rowToSync.topic || 'Untitled'}"`);
     }
-  }, [logAction]);
+  }, [logAction, showWriteError]);
 
   const deleteMinute = useCallback((id) => {
     let deletedTopic = null;
@@ -575,7 +589,7 @@ export const AppProvider = ({ children }) => {
     });
     deleteRow(TABLES.minutes, id);
     logAction('Deleted Meeting', deletedTopic ? `"${deletedTopic}"` : `ID: ${id}`);
-  }, [logAction]);
+  }, [logAction, showWriteError]);
 
   // ── DATASETS CRUD ──
   const addDataset = useCallback((dataset) => {
@@ -584,9 +598,9 @@ export const AppProvider = ({ children }) => {
     if (sanitized.status && !VALID_DATASET_STATUSES.includes(sanitized.status)) sanitized.status = 'Raw';
     const d = { ...sanitized, id: crypto.randomUUID(), uploadedAt: new Date().toISOString(), created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
     setDatasets(prev => [...prev, d]);
-    insertRow(TABLES.datasets, d);
+    insertRow(TABLES.datasets, d).then(r => showWriteError('add dataset', r));
     logAction('Uploaded Dataset', `"${sanitized.name}" (${sanitized.type}, ${sanitized.rows || 0} rows)`);
-  }, [logAction]);
+  }, [logAction, showWriteError]);
 
   const updateDataset = useCallback((id, updates) => {
     const sanitized = sanitizeRow(updates);
@@ -601,10 +615,10 @@ export const AppProvider = ({ children }) => {
       return merged;
     }));
     if (rowToSync) {
-      upsertRow(TABLES.datasets, rowToSync);
+      upsertRow(TABLES.datasets, rowToSync).then(r => showWriteError('update dataset', r));
       logAction('Updated Dataset', `"${rowToSync.name}" — ${Object.keys(sanitized).join(', ')}`);
     }
-  }, [logAction]);
+  }, [logAction, showWriteError]);
 
   const deleteDataset = useCallback((id) => {
     let deletedName = null;
@@ -615,7 +629,7 @@ export const AppProvider = ({ children }) => {
     });
     deleteRow(TABLES.datasets, id);
     logAction('Deleted Dataset', deletedName ? `"${deletedName}"` : `ID: ${id}`);
-  }, [logAction]);
+  }, [logAction, showWriteError]);
 
   // ── NOTIFICATIONS ──
   const nudgeUser = useCallback((targetUser, taskName) => {
@@ -627,9 +641,9 @@ export const AppProvider = ({ children }) => {
       created_at: new Date().toISOString(),
     };
     setNotifications(prev => [notif, ...prev]);
-    insertRow(TABLES.notifications, notif);
+    insertRow(TABLES.notifications, notif).then(r => showWriteError('nudge', r));
     logAction('Nudged Member', `Alerted ${targetUser} about "${taskName}"`);
-  }, [logAction]);
+  }, [logAction, showWriteError]);
 
   const clearNotifications = useCallback(() => {
     const currentUser = userRef.current;
