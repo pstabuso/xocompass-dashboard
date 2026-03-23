@@ -860,6 +860,25 @@ export const AppProvider = ({ children }) => {
           } catch (err) {
             console.error('[XoCompass] auth profile fetch:', err);
           }
+
+          if (event === 'SIGNED_IN') {
+            // With persistSession: false, INITIAL_SESSION fires before sign-in with
+            // no JWT, so the initial hydration runs under anon-key access only.
+            // Re-fetch all tables now that the in-memory JWT is live so RLS-protected
+            // rows (e.g. activity_log) are visible and every device sees the same data.
+            Promise.all([
+              fetchTable(TABLES.tasks),        fetchTable(TABLES.events),
+              fetchTable(TABLES.minutes),      fetchTable(TABLES.datasets),
+              fetchTable(TABLES.activity_log), fetchTable(TABLES.notifications),
+            ]).then(([t, e, m, d, a, n]) => {
+              if (t) setTasks(t);        if (e) setEvents(e);
+              if (m) setMinutes(m);      if (d) setDatasets(d);
+              if (a) setActivityLog(a);
+              if (n) setNotifications(n.map(enrichNotification));
+              setCloudReady(true);
+              setSyncStatus('synced');
+            }).catch(() => {});
+          }
         }
         // Mark auth as settled (whether we got a session or not)
         if (!authSettledRef.current) {
