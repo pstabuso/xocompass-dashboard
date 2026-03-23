@@ -98,8 +98,8 @@ const Sidebar = ({ mobileOpen, setMobileOpen }) => {
                 }`}
                 title={requested ? 'Request sent — waiting for PM' : `Request access to ${item.label}`}
               >
-                <item.icon size={20} className="text-slate-600" />
-                <span className="font-medium text-sm sm:text-base text-slate-500 flex-1 text-left">{item.label}</span>
+                <item.icon size={20} className="text-slate-600 shrink-0" />
+                <span className="font-medium text-sm text-slate-500 flex-1 text-left truncate">{item.label}</span>
                 {requested
                   ? <span className="text-[9px] px-1.5 py-0.5 bg-emerald-500/15 text-emerald-400 rounded font-bold shrink-0">Sent</span>
                   : <LockKeyhole size={14} className="text-slate-600 shrink-0" />
@@ -119,8 +119,8 @@ const Sidebar = ({ mobileOpen, setMobileOpen }) => {
                   : 'hover:bg-slate-800 hover:text-white'
               }`}
             >
-              <item.icon size={20} className={location.pathname === item.path ? 'text-sky-400' : 'group-hover:scale-110 transition-transform'} />
-              <span className="font-medium text-sm sm:text-base">{item.label}</span>
+              <item.icon size={20} className={`shrink-0 ${location.pathname === item.path ? 'text-sky-400' : 'group-hover:scale-110 transition-transform'}`} />
+              <span className="font-medium text-sm truncate">{item.label}</span>
             </Link>
           );
         })}
@@ -165,9 +165,10 @@ const Sidebar = ({ mobileOpen, setMobileOpen }) => {
         {sidebarContent}
       </div>
 
-      {/* Mobile overlay + drawer */}
+      {/* Mobile overlay + drawer — z-[200] sits above all page content (sticky
+          headers, page modals up to z-[110], and the desktop sidebar at z-50) */}
       {mobileOpen && (
-        <div className="lg:hidden fixed inset-0 z-50">
+        <div className="lg:hidden fixed inset-0 z-[200]">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
           <div className="absolute left-0 top-0 w-72 h-full bg-slate-900 border-r border-slate-800 text-slate-300 flex flex-col animate-slide-in-left">
             {sidebarContent}

@@ -47,6 +47,10 @@
     to { transform: translateX(0); }
   }
 
+  /* Hide scrollbar while keeping scroll functionality (used on step navs, tag rows) */
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
   /* Smooth scrollbar for tables/lists (Chrome/Edge/Safari) */
   .custom-scrollbar::-webkit-scrollbar {
     width: 6px;

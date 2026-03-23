@@ -847,7 +847,7 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
 
   return (
     <div className="min-h-screen text-slate-200 pb-10 bg-slate-950 font-sans selection:bg-sky-500/30">
-      <div className="mb-6 p-3 sm:p-6 border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-50">
+      <div className="mb-6 p-3 sm:p-6 border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-10">
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3 sm:gap-4 mb-4 sm:mb-6">
           <div className="min-w-0">
             <h1 className="text-xl sm:text-3xl font-black text-white tracking-tight flex items-center gap-2 sm:gap-3">

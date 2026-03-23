@@ -23,10 +23,10 @@ const Defense = () => {
                <div key={idx} className="bg-slate-900/50 border border-slate-800 rounded-xl overflow-hidden transition-all duration-300 hover:border-slate-700">
                    <button
                     onClick={() => setOpenIndex(openIndex === idx ? null : idx)}
-                    className="w-full flex justify-between items-center p-6 text-left font-bold text-slate-200 hover:bg-slate-800/50 transition"
+                    className="w-full flex justify-between items-center gap-3 p-6 text-left font-bold text-slate-200 hover:bg-slate-800/50 transition"
                    >
-                       <span className="flex items-center gap-3"><MessageCircle className="text-sky-400" size={20}/> {item.q}</span>
-                       {openIndex === idx ? <ChevronUp size={20} className="text-slate-500"/> : <ChevronDown size={20} className="text-slate-500"/>}
+                       <span className="flex items-center gap-3 flex-1 min-w-0"><MessageCircle className="text-sky-400 shrink-0" size={20}/> <span className="truncate">{item.q}</span></span>
+                       {openIndex === idx ? <ChevronUp size={20} className="text-slate-500 shrink-0"/> : <ChevronDown size={20} className="text-slate-500 shrink-0"/>}
                    </button>
                    {openIndex === idx && (
                        <div className="p-6 pt-0 bg-slate-800/30 text-slate-400 leading-relaxed border-t border-slate-800">

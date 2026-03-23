@@ -142,7 +142,7 @@ const Dashboard = () => {
         </div>
 
         {/* Global Controls */}
-        <div className="flex gap-3 mt-4 md:mt-0">
+        <div className="flex flex-wrap gap-3 mt-4 md:mt-0">
           <button onClick={() => setTimeRange(prev => prev === 'All Time' ? 'This Week' : prev === 'This Week' ? 'This Month' : 'All Time')} className="flex items-center gap-2 px-4 py-2 bg-slate-800 border border-slate-700 rounded-lg text-sm font-medium hover:bg-slate-700 hover:border-slate-600 transition text-slate-300">
             <Clock size={16} className="text-slate-400"/>
             {timeRange}
