@@ -1018,9 +1018,17 @@ export const AppProvider = ({ children }) => {
     // hooks never re-fire, leaving all data arrays empty after sign-out→sign-in.
     authSettledRef.current = false;
     setAuthSettled(false);
-    // Fire-and-forget: tell Supabase to end the session (non-blocking)
+    // Fire-and-forget: clear the local session only (scope: 'local' skips the
+    // server-side DELETE /auth/v1/logout network call).
+    // Without this, the default signOut() holds the NavigatorLock for the entire
+    // round-trip to Supabase — on desktop Chrome/Firefox (which enforce the Web
+    // Locks API strictly) a subsequent signInWithPassword() queues behind that
+    // lock and times out after 8 s.  iOS Safari gained navigator.locks in 15.4
+    // and falls back to a non-locking path on older versions, which is why this
+    // only surfaced on laptops.  The JWT remains valid server-side until it
+    // expires (~1 h), but RLS still applies for that window.
     if (isCloudEnabled) {
-      supabase.auth.signOut().catch(() => {});
+      supabase.auth.signOut({ scope: 'local' }).catch(() => {});
     }
   }, [logAction]);
 
