@@ -47,7 +47,7 @@
     to { transform: translateX(0); }
   }
 
-  /* Smooth scrollbar for tables/lists */
+  /* Smooth scrollbar for tables/lists (Chrome/Edge/Safari) */
   .custom-scrollbar::-webkit-scrollbar {
     width: 6px;
     height: 6px;
@@ -62,12 +62,35 @@
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
     background: #94a3b8;
   }
+
+  /* Firefox scrollbar support (Firefox ignores ::-webkit-scrollbar) */
+  .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+  }
 }
 
 /* Global smooth transitions for interactive elements */
 @layer base {
+  /* Remove gray tap-flash on Android Chrome */
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Stable rendering and overscroll control for non-iOS */
+  html, body {
+    overscroll-behavior: none; /* Prevent pull-to-refresh interfering with the app */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
   button, a, input, select, textarea {
     @apply transition-all duration-200 ease-out;
+  }
+
+  /* Eliminate 300ms tap delay on Android/Chrome without breaking scroll */
+  button, a, [role="button"] {
+    touch-action: manipulation;
   }
 
   /* ISO 25010 Usability: Keyboard Navigation — Focus-Visible Ring */
@@ -86,6 +109,12 @@
   @media (pointer: coarse) {
     button, a, select, [role="button"] {
       min-height: 36px;
+    }
+
+    /* Prevent Android Chrome from auto-zooming into inputs with font-size < 16px.
+       text-sm = 14px triggers zoom; floor to 16px on touch devices. */
+    input, select, textarea {
+      font-size: max(16px, 1em);
     }
   }
 
@@ -314,4 +343,29 @@
 /* ── Font mono blocks (code/terminal) keep dark ── */
 [data-theme="light"] .font-mono {
   /* Terminal areas intentionally keep their dark aesthetic */
+}
+
+/* ══════════════════════════════════════════════════════
+   NON-iOS / CROSS-BROWSER FIXES
+   ══════════════════════════════════════════════════════ */
+
+/* Dynamic Viewport Height — fixes content clipping on Android Chrome.
+   100vh = layout viewport (includes the browser chrome/address bar area).
+   100dvh = actual visible area, updating as the address bar shows/hides.
+   Without this, h-screen on Android Chrome can extend behind the address bar,
+   cutting off the bottom of full-screen views like the login screen.
+   iOS Safari already handles vh correctly; this only applies where dvh is
+   supported (Chrome 108+, Firefox 101+, Safari 15.4+). */
+@supports (height: 100dvh) {
+  .h-screen {
+    height: 100dvh;
+  }
+  .min-h-screen {
+    min-height: 100dvh;
+  }
+}
+
+/* Firefox scrollbar for light mode */
+[data-theme="light"] .custom-scrollbar {
+  scrollbar-color: #94a3b8 transparent;
 }
