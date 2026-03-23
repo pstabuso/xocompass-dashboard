@@ -14,10 +14,20 @@ if (!supabaseUrl || !supabaseAnonKey) {
   );
 }
 
-// Create Supabase client — no custom headers (they cause CORS preflight failures).
-// Security relies on Supabase RLS policies + authenticated user JWT.
+// Create Supabase client — auth engine disabled (we use custom Soft Auth).
+// persistSession: false → Web Locks API never acquired for session storage,
+//   eliminating the lock-contention timeout on desktop Chrome/Firefox.
+// autoRefreshToken: false → no background polling for token refresh.
+// detectSessionInUrl: false → no URL hash parsing on load (OAuth not used).
+// Security relies on Supabase RLS policies + in-memory JWT for the active session.
 export const supabase = (supabaseUrl && supabaseAnonKey)
-  ? createClient(supabaseUrl, supabaseAnonKey)
+  ? createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        persistSession: false,     // kills Web Locks API usage — root-cause fix
+        autoRefreshToken: false,   // stops background token-refresh polling
+        detectSessionInUrl: false, // stops URL parsing for OAuth callbacks
+      },
+    })
   : null;
 
 export const isCloudEnabled = !!supabase;

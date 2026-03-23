@@ -277,15 +277,20 @@ export const AppProvider = ({ children }) => {
     return () => clearTimeout(timer);
   }, [syncError]);
 
-  // Only show "Restoring session…" if there's a cached user to restore.
-  // No cached user → show login screen immediately (zero delay).
-  const [authLoading, setAuthLoading] = useState(() => {
-    if (!isCloudEnabled) return false;
-    return !!readLocal('xo_user', null);
-  });
+  // persistSession: false means no Supabase session survives a page reload.
+  // There is never anything to restore, so always show the login screen immediately.
+  const [authLoading, setAuthLoading] = useState(false);
 
-  // ── State: initialised from localStorage (instant), then overwritten by Supabase ──
+  // ── State: user ──
+  // Cloud mode (persistSession: false): sessions are in-memory only and don't
+  // survive page reloads. Never pre-populate from localStorage — there is no
+  // valid Supabase session backing it. Starting null prevents a stale-user flash
+  // (app briefly renders as "logged in" then snaps back to login on INITIAL_SESSION).
+  // The SIGNED_IN event is the sole source of truth for cloud sessions.
+  //
+  // Local mode: no Supabase session at all; restore from localStorage as before.
   const [user, setUser] = useState(() => {
+    if (isCloudEnabled) return null;
     const parsed = readLocal('xo_user', null);
     if (!parsed) return null;
     // Re-derive permissions from roleKey; infer from old role string if missing
