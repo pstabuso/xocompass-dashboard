@@ -11,7 +11,7 @@ const Defense = () => {
   ];
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6 animate-enter">
+    <div className="max-w-3xl mx-auto px-2 space-y-6 animate-enter">
        <div className="text-center py-8">
            <Shield size={48} className="mx-auto text-sky-400 mb-4"/>
            <h2 className="text-3xl font-bold text-slate-100">Defense Preparation</h2>

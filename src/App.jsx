@@ -160,8 +160,8 @@ const Sidebar = ({ mobileOpen, setMobileOpen }) => {
 
   return (
     <>
-      {/* Desktop sidebar — always visible */}
-      <div className="hidden lg:flex w-64 h-screen bg-slate-900 border-r border-slate-800 text-slate-300 fixed left-0 top-0 flex-col z-50">
+      {/* Desktop sidebar — narrower on tablet landscape, full on desktop */}
+      <div className="hidden lg:flex lg:w-52 xl:w-64 h-screen bg-slate-900 border-r border-slate-800 text-slate-300 fixed left-0 top-0 flex-col z-50">
         {sidebarContent}
       </div>
 
@@ -620,7 +620,7 @@ const AppContent = () => {
           </div>
         </div>
 
-        <main className="flex-1 lg:ml-64 pt-14 lg:pt-0 p-4 sm:p-6 lg:p-8 overflow-y-auto min-h-screen">
+        <main className="flex-1 lg:ml-52 xl:ml-64 pt-14 lg:pt-0 p-4 sm:p-6 lg:p-6 xl:p-8 overflow-y-auto min-h-screen">
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/model" element={<GuardedRoute path="/model" element={<ModelLab />} />} />

@@ -95,7 +95,7 @@ const Schedule = () => {
   const selectedItems = selectedDate ? getItemsForDay(parseInt(selectedDate.split('-')[2])) : [];
 
   return (
-    <div className="flex flex-col lg:flex-row h-auto lg:h-[calc(100vh-100px)] gap-4 sm:gap-6 animate-enter">
+    <div className="flex flex-col md:flex-row h-auto md:h-[calc(100vh-100px)] gap-4 sm:gap-6 animate-enter">
       {!canCreate && (
         <div className="w-full p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center gap-3 shrink-0">
           <LockKeyhole size={16} className="text-amber-400 shrink-0" />
@@ -155,7 +155,7 @@ const Schedule = () => {
       </div>
 
       {/* RIGHT SIDEBAR: Upcoming Agenda — below calendar on mobile, beside on desktop */}
-      <div className="w-full lg:w-80 bg-slate-900/50 rounded-xl border border-slate-800 flex flex-col overflow-hidden max-h-[400px] lg:max-h-none">
+      <div className="w-full md:w-72 lg:w-80 bg-slate-900/50 rounded-xl border border-slate-800 flex flex-col overflow-hidden max-h-[400px] md:max-h-none shrink-0">
          <div className="p-3 sm:p-4 border-b border-slate-800 bg-slate-800/30"><h3 className="font-bold text-slate-100 text-sm sm:text-base">Upcoming Agenda</h3></div>
          <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 sm:space-y-4 custom-scrollbar">
             {events.length > 0 && (

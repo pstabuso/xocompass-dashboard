@@ -178,10 +178,10 @@ const Dashboard = () => {
       </div>
 
       {/* 3. MAIN DASHBOARD GRID */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-6 mb-8">
 
         {/* LEFT COL: Charts */}
-        <div className="lg:col-span-2 space-y-3 sm:space-y-6">
+        <div className="md:col-span-2 space-y-3 sm:space-y-6">
 
             {/* Velocity Chart */}
             <div className="bg-slate-900 rounded-2xl p-3 sm:p-6 border border-slate-800 shadow-xl">
@@ -189,7 +189,7 @@ const Dashboard = () => {
                     <h3 className="font-bold text-white text-base sm:text-lg">Work Velocity</h3>
                     <span className="text-[10px] sm:text-xs font-bold text-emerald-400 bg-emerald-900/30 border border-emerald-500/30 px-2 sm:px-3 py-1 rounded-full">Avg: {avgVelocity}/Day</span>
                 </div>
-                <div className="h-[200px] sm:h-[280px]">
+                <div className="h-[200px] sm:h-[280px] lg:h-[260px] xl:h-[280px]">
                     <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={velocityData}>
                         <defs>

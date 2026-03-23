@@ -127,7 +127,7 @@ const TaskTracker = () => {
 
   // --- Renderers ---
   const renderKanbanColumn = (title, status, bgClass, headerColorClass, items) => (
-    <div className="flex-1 min-w-[260px] sm:min-w-[300px] bg-slate-900/50 rounded-xl border border-slate-800 flex flex-col h-full max-h-[500px] sm:max-h-[600px] animate-enter">
+    <div className="flex-1 min-w-[220px] sm:min-w-[260px] lg:min-w-[280px] bg-slate-900/50 rounded-xl border border-slate-800 flex flex-col h-full max-h-[500px] sm:max-h-[600px] lg:max-h-[700px] animate-enter">
         <div className={`p-4 border-b border-slate-800 font-bold flex justify-between items-center`}>
             <span className={status === 'Not Started' ? 'text-red-400' : status === 'On-going' ? 'text-amber-400' : 'text-emerald-400'}>{title}</span>
             <span className="bg-slate-800 px-2 py-0.5 rounded-full text-xs border border-slate-700 text-slate-400">{items.length}</span>

@@ -881,9 +881,9 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
         </div>
       </div>
 
-      <div className="px-3 sm:px-6 grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
+      <div className="px-3 sm:px-6 grid grid-cols-1 md:grid-cols-12 gap-4 sm:gap-6">
         {/* LEFT CONTROL PANEL */}
-        <div className="lg:col-span-3 space-y-6">
+        <div className="md:col-span-4 lg:col-span-3 space-y-6">
             <div className="bg-slate-900/60 backdrop-blur rounded-2xl p-4 sm:p-6 border border-slate-800 shadow-xl">
               <h3 className="font-bold text-white mb-3 sm:mb-4 flex items-center gap-2 text-sm sm:text-base">
                 <Settings size={16} className="text-sky-400 shrink-0"/> System Parameters
@@ -933,7 +933,7 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
         </div>
 
         {/* RIGHT MAIN PANEL */}
-        <div className="lg:col-span-9">
+        <div className="md:col-span-8 lg:col-span-9">
             
             {/* ========================================================= */}
             {/* --- 1. EXPLORATORY DATA ANALYSIS (EDA) & INGESTION --- */}
@@ -942,7 +942,7 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                 <div className="animate-in fade-in slide-in-from-bottom-4 space-y-6">
                     
                     {/* KPI Dashboard */}
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-4">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 sm:gap-4">
                         <div className="bg-slate-900/80 border border-slate-800 rounded-xl sm:rounded-2xl p-3 sm:p-4 shadow-lg">
                             <h4 className="text-[9px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 flex items-center gap-1"><Database size={10} className="shrink-0"/> Total Demand</h4>
                             <div className="text-lg sm:text-2xl font-black text-white">{totalDemandUnits.toLocaleString()}</div>
@@ -1000,7 +1000,7 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                              <RuleInsight 
                                 title="Macro-Economic Aggregation"
@@ -1140,7 +1140,7 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
                         <div className="bg-slate-900/60 border border-rose-500/20 rounded-2xl p-4 sm:p-5 shadow-lg hover:border-rose-500/40 transition-colors">
                             <div className="flex items-center gap-2 mb-4 border-b border-rose-500/20 pb-3">
                                 <div className="p-1.5 bg-rose-500/10 rounded-lg text-rose-400"><XOctagon size={18}/></div>
@@ -1192,7 +1192,7 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                             <span className="text-[10px] uppercase font-bold text-slate-500 tracking-widest bg-slate-950 px-2 py-1 rounded border border-slate-800 sm:ml-auto shadow-inner shrink-0">d = 1</span>
                         </div>
                         
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 relative z-10">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 relative z-10">
                             <div className="space-y-4">
                                 <p className="text-sm text-slate-300 leading-relaxed">
                                     Time series models explicitly require the mean and variance to remain constant. Because the business's 12-year demand volume exhibits an exponential growth trend, directly inputting raw data violates this constraint.
@@ -1230,7 +1230,7 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                         <div className="p-3 border-b border-slate-800 bg-slate-950 flex justify-center items-center">
                             <h4 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Intensive Implication Matrix</h4>
                         </div>
-                        <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-slate-800">
+                        <div className="grid grid-cols-1 md:grid-cols-2 divide-y lg:divide-y-0 lg:divide-x divide-slate-800">
                             {/* Data Scientist Side */}
                             <div className="p-6 bg-transparent hover:bg-slate-900/40 transition-colors">
                                 <div className="flex items-center gap-3 mb-5 border-b border-slate-800 pb-3">
@@ -1323,8 +1323,8 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
 
                     {/* TIER 2: Extracted Macro Trend */}
                     <div className="bg-slate-900/60 backdrop-blur rounded-2xl border border-slate-800 shadow-xl overflow-hidden hover:border-sky-500/40 transition-colors">
-                        <div className="grid grid-cols-1 lg:grid-cols-12 divide-y lg:divide-y-0 lg:divide-x divide-slate-800">
-                            <div className="lg:col-span-8 p-6">
+                        <div className="grid grid-cols-1 md:grid-cols-12 divide-y md:divide-y-0 md:divide-x divide-slate-800">
+                            <div className="md:col-span-8 p-6">
                                 <div className="flex items-center gap-3 mb-4">
                                     <TrendingUp size={24} className="text-sky-400"/>
                                     <h3 className="text-xl font-bold text-white tracking-tight">Extracted Macro Trend</h3>
@@ -1340,7 +1340,7 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                                     </ResponsiveContainer>
                                 </div>
                             </div>
-                            <div className="lg:col-span-4 p-6 bg-slate-900/40 flex flex-col justify-center space-y-4">
+                            <div className="md:col-span-4 p-6 bg-slate-900/40 flex flex-col justify-center space-y-4">
                                 <div className="inline-flex items-center gap-2 bg-sky-900/20 text-sky-400 border border-sky-500/30 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest self-start">
                                     <Crosshair size={12}/> XoCompass DSS Directive
                                 </div>
@@ -1359,8 +1359,8 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
 
                     {/* TIER 3: Isolated Seasonality */}
                     <div className="bg-slate-900/60 backdrop-blur rounded-2xl border border-slate-800 shadow-xl overflow-hidden hover:border-purple-500/40 transition-colors">
-                        <div className="grid grid-cols-1 lg:grid-cols-12 divide-y lg:divide-y-0 lg:divide-x divide-slate-800">
-                            <div className="lg:col-span-8 p-6">
+                        <div className="grid grid-cols-1 md:grid-cols-12 divide-y md:divide-y-0 md:divide-x divide-slate-800">
+                            <div className="md:col-span-8 p-6">
                                 <div className="flex items-center gap-3 mb-4">
                                     <Calendar size={24} className="text-purple-400"/>
                                     <h3 className="text-xl font-bold text-white tracking-tight">Isolated Seasonality</h3>
@@ -1376,7 +1376,7 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                                     </ResponsiveContainer>
                                 </div>
                             </div>
-                            <div className="lg:col-span-4 p-6 bg-slate-900/40 flex flex-col justify-center space-y-4">
+                            <div className="md:col-span-4 p-6 bg-slate-900/40 flex flex-col justify-center space-y-4">
                                 <div className="inline-flex items-center gap-2 bg-purple-900/20 text-purple-400 border border-purple-500/30 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest self-start">
                                     <Crosshair size={12}/> XoCompass DSS Directive
                                 </div>
@@ -1395,8 +1395,8 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
 
                     {/* TIER 4: Residual Noise */}
                     <div className="bg-slate-900/60 backdrop-blur rounded-2xl border border-slate-800 shadow-xl overflow-hidden hover:border-pink-500/40 transition-colors">
-                        <div className="grid grid-cols-1 lg:grid-cols-12 divide-y lg:divide-y-0 lg:divide-x divide-slate-800">
-                            <div className="lg:col-span-8 p-6">
+                        <div className="grid grid-cols-1 md:grid-cols-12 divide-y md:divide-y-0 md:divide-x divide-slate-800">
+                            <div className="md:col-span-8 p-6">
                                 <div className="flex items-center gap-3 mb-4">
                                     <AlertTriangle size={24} className="text-pink-400"/>
                                     <h3 className="text-xl font-bold text-white tracking-tight">Residual Noise</h3>
@@ -1412,7 +1412,7 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                                     </ResponsiveContainer>
                                 </div>
                             </div>
-                            <div className="lg:col-span-4 p-6 bg-slate-900/40 flex flex-col justify-center space-y-4">
+                            <div className="md:col-span-4 p-6 bg-slate-900/40 flex flex-col justify-center space-y-4">
                                 <div className="inline-flex items-center gap-2 bg-pink-900/20 text-pink-400 border border-pink-500/30 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest self-start">
                                     <Crosshair size={12}/> XoCompass DSS Directive
                                 </div>
@@ -1564,7 +1564,7 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                     </div>
 
                     {/* DENSE GRID SYNTHESIS */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         
                         {/* 1. DESCRIPTIVE (CYAN) */}
                         <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col h-full hover:border-cyan-500/40 transition-colors duration-500 group relative overflow-hidden">
@@ -1616,7 +1616,7 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                         </div>
 
                         {/* 3. PREDICTIVE (INDIGO) */}
-                        <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 shadow-xl lg:col-span-2 hover:border-indigo-500/40 transition-colors duration-500 group relative overflow-hidden">
+                        <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 shadow-xl md:col-span-2 hover:border-indigo-500/40 transition-colors duration-500 group relative overflow-hidden">
                              <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none transition-transform group-hover:scale-110"></div>
                              <div className="flex items-center gap-3 mb-4 border-b border-slate-800 pb-3 relative z-10">
                                 <span className="bg-indigo-950 text-indigo-400 border border-indigo-800 text-[9px] font-black uppercase px-2 py-1 rounded tracking-widest">3. Predictive</span>
@@ -1675,9 +1675,9 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                                 </div>
                             </div>
                             
-                            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-8 mb-6 sm:mb-8">
+                            <div className="grid grid-cols-1 md:grid-cols-12 gap-4 sm:gap-8 mb-6 sm:mb-8">
                                 {/* Storytelling Column */}
-                                <div className="lg:col-span-4 space-y-3 sm:space-y-4">
+                                <div className="md:col-span-4 space-y-3 sm:space-y-4">
                                     <p className="text-sm text-slate-200 font-bold tracking-wide">
                                         Data Science must evolve into Strategic Decision Engineering. We don't just "expect" these numbers; we act on them.
                                     </p>
@@ -1702,7 +1702,7 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                                 </div>
 
                                 {/* Heavy Visualization Column */}
-                                <div className="lg:col-span-8 bg-slate-950 rounded-2xl border border-slate-800 p-3 sm:p-6 shadow-inner relative">
+                                <div className="md:col-span-8 bg-slate-950 rounded-2xl border border-slate-800 p-3 sm:p-6 shadow-inner relative">
                                     <h4 className="text-xs sm:text-sm font-bold text-white text-center mb-1 uppercase tracking-widest">2026 Resource Allocation Matrix</h4>
                                     <p className="text-[9px] sm:text-[10px] text-slate-500 text-center mb-4 sm:mb-6 uppercase tracking-widest font-bold">Actionable Tier Architecture</p>
 
