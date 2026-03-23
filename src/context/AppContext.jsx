@@ -359,7 +359,10 @@ export const AppProvider = ({ children }) => {
     return () => { cancelled = true; };
   }, [authSettled]);
 
-  // ── Supabase: real-time subscriptions (wait for auth to settle) ──
+  // ── Supabase: real-time subscriptions with auto-reconnect ──
+  // Chrome/Edge/Firefox throttle background tabs, killing WebSocket heartbeats.
+  // iOS Safari is less aggressive, which is why iOS appears to stay "live".
+  // Fix: monitor channel status + reconnect on visibility change.
   useEffect(() => {
     if (!isCloudEnabled || !authSettled) return;
 
@@ -372,7 +375,6 @@ export const AppProvider = ({ children }) => {
 
           setter(prev => {
             if (eventType === 'INSERT') {
-              // Avoid duplicates (we may have optimistically added it)
               if (prev.some(item => item.id === row.id)) return prev;
               return [row, ...prev];
             }
@@ -385,21 +387,59 @@ export const AppProvider = ({ children }) => {
             return prev;
           });
         })
-        .subscribe();
+        .subscribe((status) => {
+          if (status === 'TIMED_OUT') {
+            console.warn(`[XoCompass] Realtime ${table} timed out — reconnecting...`);
+            channel.subscribe();
+          }
+        });
 
       return channel;
     };
 
-    subscriptionsRef.current = [
-      subscribe(TABLES.tasks, setTasks),
-      subscribe(TABLES.events, setEvents),
-      subscribe(TABLES.minutes, setMinutes),
-      subscribe(TABLES.datasets, setDatasets),
-      subscribe(TABLES.activity_log, setActivityLog),
-      subscribe(TABLES.notifications, setNotifications, enrichNotification),
-    ];
+    const setupSubscriptions = () => {
+      // Tear down any existing channels first
+      subscriptionsRef.current.forEach(ch => supabase.removeChannel(ch));
+      subscriptionsRef.current = [
+        subscribe(TABLES.tasks, setTasks),
+        subscribe(TABLES.events, setEvents),
+        subscribe(TABLES.minutes, setMinutes),
+        subscribe(TABLES.datasets, setDatasets),
+        subscribe(TABLES.activity_log, setActivityLog),
+        subscribe(TABLES.notifications, setNotifications, enrichNotification),
+      ];
+    };
+
+    setupSubscriptions();
+
+    // Re-subscribe when tab regains focus (handles browser throttling)
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        // Check if any channel is disconnected; if so, rebuild all
+        const anyDead = subscriptionsRef.current.some(
+          ch => ch.state !== 'joined' && ch.state !== 'joining'
+        );
+        if (anyDead) {
+          console.log('[XoCompass] Tab refocused — reconnecting realtime channels');
+          setupSubscriptions();
+          // Re-fetch latest data to catch anything missed while backgrounded
+          Promise.all([
+            fetchTable(TABLES.tasks),    fetchTable(TABLES.events),
+            fetchTable(TABLES.minutes),  fetchTable(TABLES.datasets),
+            fetchTable(TABLES.activity_log), fetchTable(TABLES.notifications),
+          ]).then(([t, e, m, d, a, n]) => {
+            if (t) setTasks(t);   if (e) setEvents(e);
+            if (m) setMinutes(m); if (d) setDatasets(d);
+            if (a) setActivityLog(a);
+            if (n) setNotifications(n.map(enrichNotification));
+          }).catch(() => {});
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
 
     return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
       subscriptionsRef.current.forEach(ch => supabase.removeChannel(ch));
       subscriptionsRef.current = [];
     };
