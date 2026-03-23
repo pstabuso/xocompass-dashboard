@@ -124,9 +124,10 @@ const AdminPanel = () => {
         <button
           onClick={loadData}
           disabled={loading}
+          aria-label="Refresh data"
           className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-slate-800 border border-slate-700 text-slate-300 rounded-lg font-bold hover:bg-slate-700 transition active:scale-95 disabled:opacity-50 text-sm"
         >
-          <RefreshCw size={16} className={loading ? 'animate-spin' : ''} /> Refresh
+          <RefreshCw size={16} className={loading ? 'animate-spin' : ''} /> <span className="hidden sm:inline">Refresh</span>
         </button>
       </div>
 

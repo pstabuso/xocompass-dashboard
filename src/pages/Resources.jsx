@@ -47,7 +47,8 @@ const Resources = () => {
             {/* Red X Button (Absolute Position) */}
             <button
                 onClick={() => setIsMatrixOpen(false)}
-                className="absolute top-3 right-3 sm:top-4 sm:right-4 z-50 p-1.5 sm:p-2 bg-slate-800/80 backdrop-blur text-slate-400 rounded-full hover:bg-red-500/15 hover:text-red-400 transition-all shadow-sm border border-slate-700"
+                className="absolute top-3 right-3 sm:top-4 sm:right-4 z-50 p-2 sm:p-2.5 bg-slate-800/80 backdrop-blur text-slate-400 rounded-full hover:bg-red-500/15 hover:text-red-400 transition-all shadow-sm border border-slate-700"
+                aria-label="Close comparison"
             >
                 <X size={20} />
             </button>

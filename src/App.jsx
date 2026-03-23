@@ -25,6 +25,7 @@ const ThemeToggle = () => {
       onClick={toggleTheme}
       className="w-full flex items-center justify-center gap-2 px-4 py-2 mb-2 rounded-lg border border-slate-700 hover:border-sky-500/30 transition-all duration-200 group"
       title={isLight ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
+      aria-label={isLight ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
     >
       {isLight ? <Moon size={15} className="text-sky-400" /> : <Sun size={15} className="text-amber-400" />}
       <span className="text-xs font-medium text-slate-400 group-hover:text-slate-200">{isLight ? 'Dark Mode' : 'Light Mode'}</span>
@@ -77,7 +78,7 @@ const Sidebar = ({ mobileOpen, setMobileOpen }) => {
           </div>
         </div>
         {/* Close button — mobile only */}
-        <button onClick={() => setMobileOpen(false)} className="lg:hidden p-1 text-slate-400 hover:text-white">
+        <button onClick={() => setMobileOpen(false)} className="lg:hidden p-2 text-slate-400 hover:text-white" aria-label="Close sidebar">
           <X size={22} />
         </button>
       </div>
@@ -605,7 +606,7 @@ const AppContent = () => {
 
         {/* Mobile top bar */}
         <div className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-sm border-b border-slate-800 px-4 py-3 flex items-center justify-between">
-          <button onClick={() => setMobileOpen(true)} className="p-1 text-slate-300 hover:text-white">
+          <button onClick={() => setMobileOpen(true)} className="p-2 text-slate-300 hover:text-white" aria-label="Open menu">
             <Menu size={24} />
           </button>
           <h1 className="text-lg font-bold text-sky-400">XoCompass</h1>

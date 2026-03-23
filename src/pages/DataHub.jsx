@@ -45,9 +45,25 @@ const DataHub = () => {
     setDeleteConfirmId(null);
   };
 
-  // --- FILE HANDLING LOGIC ---
+  /* ISO 25010 Security: File type validation + error handling */
+  const ALLOWED_EXTENSIONS = ['.csv', '.tsv', '.txt', '.json', '.xlsx', '.xls'];
+  const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
+
   const processFile = (file) => {
     if (!file) return;
+
+    // Validate file extension
+    const ext = '.' + file.name.split('.').pop().toLowerCase();
+    if (!ALLOWED_EXTENSIONS.includes(ext)) {
+      alert(`Unsupported file type: ${ext}\nAllowed: ${ALLOWED_EXTENSIONS.join(', ')}`);
+      return;
+    }
+
+    // Validate file size
+    if (file.size > MAX_FILE_SIZE) {
+      alert('File exceeds 50 MB limit.');
+      return;
+    }
 
     // 1. Get Size
     let size = file.size / 1024;
@@ -55,18 +71,21 @@ const DataHub = () => {
     if (size > 1024) { size /= 1024; unit = 'MB'; }
     const sizeStr = `${size.toFixed(2)} ${unit}`;
 
-    // 2. Read Rows (Simple Line Counter)
+    // 2. Read Rows (Simple Line Counter) — only for text-parseable files
+    if (['.xlsx', '.xls'].includes(ext)) {
+      setFormData(prev => ({ ...prev, name: file.name, size: sizeStr, rows: 0 }));
+      return;
+    }
+
     const reader = new FileReader();
     reader.onload = (e) => {
         const text = e.target.result;
         const lineCount = Math.max(0, text.split('\n').length - 1);
-        // Use functional updater to avoid stale closure; store rows as number for Supabase INTEGER column
-        setFormData(prev => ({
-            ...prev,
-            name: file.name,
-            size: sizeStr,
-            rows: lineCount,
-        }));
+        setFormData(prev => ({ ...prev, name: file.name, size: sizeStr, rows: lineCount }));
+    };
+    reader.onerror = () => {
+      alert('Failed to read file. Please try again.');
+      setFormData(prev => ({ ...prev, name: file.name, size: sizeStr, rows: 0 }));
     };
     reader.readAsText(file);
   };
@@ -187,10 +206,10 @@ const DataHub = () => {
                         <td className="p-4"><span className="text-xs font-bold text-emerald-400 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> {d.status}</span></td>
                         <td className="p-4 flex justify-end gap-2">
                             {canCreate && (
-                              <button onClick={() => handleEdit(d)} className="p-2 text-slate-500 hover:text-amber-400 hover:bg-amber-500/10 rounded-lg transition"><Edit2 size={18}/></button>
+                              <button onClick={() => handleEdit(d)} className="p-2 text-slate-500 hover:text-amber-400 hover:bg-amber-500/10 rounded-lg transition" aria-label="Edit dataset"><Edit2 size={18}/></button>
                             )}
                             {canDelete && (
-                              <button onClick={() => setDeleteConfirmId(d.id)} className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition"><Trash2 size={18}/></button>
+                              <button onClick={() => setDeleteConfirmId(d.id)} className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition" aria-label="Delete dataset"><Trash2 size={18}/></button>
                             )}
                         </td>
                     </tr>
@@ -218,10 +237,10 @@ const DataHub = () => {
               </div>
               <div className="flex gap-1 shrink-0">
                 {canCreate && (
-                  <button onClick={() => handleEdit(d)} className="p-1.5 text-slate-500 hover:text-amber-400 hover:bg-amber-500/10 rounded-lg transition"><Edit2 size={14}/></button>
+                  <button onClick={() => handleEdit(d)} className="p-2 text-slate-500 hover:text-amber-400 hover:bg-amber-500/10 rounded-lg transition" aria-label="Edit dataset"><Edit2 size={14}/></button>
                 )}
                 {canDelete && (
-                  <button onClick={() => setDeleteConfirmId(d.id)} className="p-1.5 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition"><Trash2 size={14}/></button>
+                  <button onClick={() => setDeleteConfirmId(d.id)} className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition" aria-label="Delete dataset"><Trash2 size={14}/></button>
                 )}
               </div>
             </div>

@@ -133,6 +133,12 @@ const TaskTracker = () => {
             <span className="bg-slate-800 px-2 py-0.5 rounded-full text-xs border border-slate-700 text-slate-400">{items.length}</span>
         </div>
         <div className="p-3 space-y-3 overflow-y-auto flex-1 custom-scrollbar">
+            {items.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-8 text-slate-600 text-xs">
+                <span className="text-2xl mb-2 opacity-50">{status === 'Not Started' ? '📋' : status === 'On-going' ? '⏳' : '✅'}</span>
+                No tasks {status === 'Not Started' ? 'to start' : status === 'On-going' ? 'in progress' : 'completed'}
+              </div>
+            )}
             {items.map(task => (
                 <div key={task.id} onClick={() => handleSelectTask(task)} className="bg-slate-800/50 p-4 rounded-lg border border-slate-700 cursor-pointer transition-all duration-300 ease-in-out hover:shadow-xl hover:-translate-y-1 hover:border-slate-600 group relative">
                     <div className="flex justify-between items-start mb-2">
@@ -169,9 +175,9 @@ const TaskTracker = () => {
               ))}
             </select>
             <div className="flex bg-slate-800 p-0.5 sm:p-1 rounded-lg border border-slate-700 shrink-0">
-                <button onClick={() => setViewMode('list')} className={`p-1 sm:p-1.5 rounded-md transition-all duration-200 ${viewMode === 'list' ? 'bg-slate-700 shadow text-slate-100 scale-105' : 'text-slate-500 hover:text-slate-300'}`}><List size={16}/></button>
-                <button onClick={() => setViewMode('board')} className={`p-1 sm:p-1.5 rounded-md transition-all duration-200 ${viewMode === 'board' ? 'bg-slate-700 shadow text-slate-100 scale-105' : 'text-slate-500 hover:text-slate-300'}`}><Layout size={16}/></button>
-                <button onClick={() => setViewMode('gantt')} className={`p-1 sm:p-1.5 rounded-md transition-all duration-200 ${viewMode === 'gantt' ? 'bg-slate-700 shadow text-slate-100 scale-105' : 'text-slate-500 hover:text-slate-300'}`}><GanttIcon size={16}/></button>
+                <button onClick={() => setViewMode('list')} aria-label="List view" className={`p-1.5 sm:p-2 rounded-md transition-all duration-200 ${viewMode === 'list' ? 'bg-slate-700 shadow text-slate-100 scale-105' : 'text-slate-500 hover:text-slate-300'}`}><List size={16}/></button>
+                <button onClick={() => setViewMode('board')} aria-label="Board view" className={`p-1.5 sm:p-2 rounded-md transition-all duration-200 ${viewMode === 'board' ? 'bg-slate-700 shadow text-slate-100 scale-105' : 'text-slate-500 hover:text-slate-300'}`}><Layout size={16}/></button>
+                <button onClick={() => setViewMode('gantt')} aria-label="Gantt view" className={`p-1.5 sm:p-2 rounded-md transition-all duration-200 ${viewMode === 'gantt' ? 'bg-slate-700 shadow text-slate-100 scale-105' : 'text-slate-500 hover:text-slate-300'}`}><GanttIcon size={16}/></button>
             </div>
             {canCreate && (
               <button onClick={() => setIsModalOpen(true)} className="flex items-center space-x-1.5 sm:space-x-2 bg-sky-600 text-white px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg hover:bg-sky-500 hover:scale-105 active:scale-95 transition-all duration-200 shadow-md whitespace-nowrap shrink-0">

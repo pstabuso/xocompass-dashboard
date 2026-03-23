@@ -69,6 +69,36 @@
   button, a, input, select, textarea {
     @apply transition-all duration-200 ease-out;
   }
+
+  /* ISO 25010 Usability: Keyboard Navigation — Focus-Visible Ring */
+  button:focus-visible,
+  a:focus-visible,
+  select:focus-visible,
+  [role="button"]:focus-visible {
+    @apply outline-none ring-2 ring-sky-500/70 ring-offset-1 ring-offset-slate-950;
+  }
+  input:focus-visible,
+  textarea:focus-visible {
+    @apply outline-none ring-2 ring-sky-500/50;
+  }
+
+  /* ISO 25010 Usability: Minimum touch target for mobile */
+  @media (pointer: coarse) {
+    button, a, select, [role="button"] {
+      min-height: 36px;
+    }
+  }
+
+  /* Active press feedback for all buttons */
+  button:active:not(:disabled),
+  [role="button"]:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+
+  /* Disabled state consistency */
+  button:disabled, select:disabled, input:disabled {
+    @apply opacity-50 cursor-not-allowed;
+  }
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -79,6 +109,12 @@
 
 [data-theme="light"] {
   color-scheme: light;
+  background-color: #f1f5f9 !important;
+}
+
+/* Override arbitrary radial-gradient bg on login/signup page */
+[data-theme="light"] .bg-\[radial-gradient\(ellipse_at_top\2c _var\(--tw-gradient-stops\)\)\] {
+  background: radial-gradient(ellipse at top, rgba(186,210,243,0.2), #f1f5f9, #f1f5f9) !important;
 }
 
 /* ── Backgrounds ── */
@@ -101,8 +137,105 @@
 
 /* Modal / overlay backdrops stay dark (intentional) */
 
+/* ── Colored dark backgrounds → light tints ── */
+[data-theme="light"] .bg-emerald-900\/10 { background-color: rgba(16,185,129,0.08) !important; }
+[data-theme="light"] .bg-emerald-900\/20 { background-color: rgba(16,185,129,0.10) !important; }
+[data-theme="light"] .bg-emerald-900\/30 { background-color: rgba(16,185,129,0.12) !important; }
+[data-theme="light"] .bg-emerald-950     { background-color: #ecfdf5 !important; }
+[data-theme="light"] .bg-blue-900\/10    { background-color: rgba(59,130,246,0.08) !important; }
+[data-theme="light"] .bg-blue-900\/20    { background-color: rgba(59,130,246,0.10) !important; }
+[data-theme="light"] .bg-blue-900\/30    { background-color: rgba(59,130,246,0.12) !important; }
+[data-theme="light"] .bg-red-900\/10     { background-color: rgba(239,68,68,0.08) !important; }
+[data-theme="light"] .bg-red-900\/20     { background-color: rgba(239,68,68,0.10) !important; }
+[data-theme="light"] .bg-red-900\/30     { background-color: rgba(239,68,68,0.12) !important; }
+[data-theme="light"] .bg-red-900\/90     { background-color: rgba(239,68,68,0.12) !important; }
+[data-theme="light"] .bg-amber-900\/10   { background-color: rgba(245,158,11,0.08) !important; }
+[data-theme="light"] .bg-amber-900\/30   { background-color: rgba(245,158,11,0.12) !important; }
+[data-theme="light"] .bg-sky-900\/10     { background-color: rgba(14,165,233,0.07) !important; }
+[data-theme="light"] .bg-sky-900\/20     { background-color: rgba(14,165,233,0.10) !important; }
+[data-theme="light"] .bg-sky-900\/30     { background-color: rgba(14,165,233,0.12) !important; }
+[data-theme="light"] .bg-indigo-900\/30  { background-color: rgba(99,102,241,0.10) !important; }
+[data-theme="light"] .bg-indigo-950      { background-color: #eef2ff !important; }
+[data-theme="light"] .bg-indigo-950\/40  { background-color: rgba(99,102,241,0.08) !important; }
+[data-theme="light"] .bg-purple-900\/20  { background-color: rgba(168,85,247,0.10) !important; }
+[data-theme="light"] .bg-cyan-950        { background-color: #ecfeff !important; }
+
+/* ── Colored text → darker shades for light mode readability ── */
+[data-theme="light"] .text-emerald-400   { color: #047857 !important; }
+[data-theme="light"] .text-blue-400      { color: #1d4ed8 !important; }
+[data-theme="light"] .text-sky-400       { color: #0369a1 !important; }
+[data-theme="light"] .text-red-400       { color: #b91c1c !important; }
+[data-theme="light"] .text-amber-400     { color: #b45309 !important; }
+[data-theme="light"] .text-indigo-400    { color: #4338ca !important; }
+[data-theme="light"] .text-purple-400    { color: #7e22ce !important; }
+[data-theme="light"] .text-cyan-400      { color: #0e7490 !important; }
+[data-theme="light"] .text-orange-400    { color: #c2410c !important; }
+[data-theme="light"] .text-pink-400      { color: #be185d !important; }
+[data-theme="light"] .text-yellow-400    { color: #a16207 !important; }
+[data-theme="light"] .text-sky-300       { color: #0284c7 !important; }
+[data-theme="light"] .text-emerald-300   { color: #059669 !important; }
+[data-theme="light"] .text-red-300       { color: #dc2626 !important; }
+[data-theme="light"] .text-amber-300     { color: #d97706 !important; }
+[data-theme="light"] .text-blue-300      { color: #2563eb !important; }
+[data-theme="light"] .text-red-500       { color: #b91c1c !important; }
+
+/* ── Colored borders → softer for light mode ── */
+[data-theme="light"] .border-emerald-500\/20 { border-color: rgba(16,185,129,0.25) !important; }
+[data-theme="light"] .border-emerald-500\/30 { border-color: rgba(16,185,129,0.30) !important; }
+[data-theme="light"] .border-emerald-500\/50 { border-color: rgba(16,185,129,0.40) !important; }
+[data-theme="light"] .border-emerald-800     { border-color: #a7f3d0 !important; }
+[data-theme="light"] .border-blue-500\/20    { border-color: rgba(59,130,246,0.25) !important; }
+[data-theme="light"] .border-blue-500\/30    { border-color: rgba(59,130,246,0.30) !important; }
+[data-theme="light"] .border-red-500\/20     { border-color: rgba(239,68,68,0.25) !important; }
+[data-theme="light"] .border-red-500\/30     { border-color: rgba(239,68,68,0.30) !important; }
+[data-theme="light"] .border-amber-500\/30   { border-color: rgba(245,158,11,0.30) !important; }
+[data-theme="light"] .border-sky-500\/20     { border-color: rgba(14,165,233,0.25) !important; }
+[data-theme="light"] .border-sky-500\/30     { border-color: rgba(14,165,233,0.30) !important; }
+[data-theme="light"] .border-indigo-500\/20  { border-color: rgba(99,102,241,0.25) !important; }
+[data-theme="light"] .border-indigo-800      { border-color: #c7d2fe !important; }
+[data-theme="light"] .border-purple-500\/30  { border-color: rgba(168,85,247,0.30) !important; }
+[data-theme="light"] .border-cyan-800        { border-color: #a5f3fc !important; }
+[data-theme="light"] .border-l-emerald-500   { border-left-color: #10b981 !important; }
+[data-theme="light"] .border-l-sky-500       { border-left-color: #0ea5e9 !important; }
+
+/* ── Colored hover states for light mode ── */
+[data-theme="light"] .hover\:bg-emerald-900\/20:hover { background-color: rgba(16,185,129,0.12) !important; }
+[data-theme="light"] .hover\:bg-sky-900\/20:hover     { background-color: rgba(14,165,233,0.12) !important; }
+[data-theme="light"] .hover\:border-sky-500\/30:hover  { border-color: rgba(14,165,233,0.35) !important; }
+
 /* ── Text colors ── */
+/* Remap white→dark ONLY on light/neutral backgrounds; preserve white on colored buttons/badges */
 [data-theme="light"] .text-white   { color: #0f172a !important; }
+[data-theme="light"] .bg-sky-600 .text-white,
+[data-theme="light"] .bg-sky-600.text-white,
+[data-theme="light"] .bg-sky-500 .text-white,
+[data-theme="light"] .bg-sky-500.text-white,
+[data-theme="light"] .bg-blue-600 .text-white,
+[data-theme="light"] .bg-blue-600.text-white,
+[data-theme="light"] .bg-red-600 .text-white,
+[data-theme="light"] .bg-red-600.text-white,
+[data-theme="light"] .bg-red-700 .text-white,
+[data-theme="light"] .bg-red-700.text-white,
+[data-theme="light"] .bg-emerald-600 .text-white,
+[data-theme="light"] .bg-emerald-600.text-white,
+[data-theme="light"] .bg-emerald-500 .text-white,
+[data-theme="light"] .bg-emerald-500.text-white,
+[data-theme="light"] .bg-indigo-600 .text-white,
+[data-theme="light"] .bg-indigo-600.text-white,
+[data-theme="light"] .bg-gradient-to-tr .text-white,
+[data-theme="light"] .bg-gradient-to-tr.text-white,
+[data-theme="light"] .bg-gradient-to-br .text-white,
+[data-theme="light"] .bg-gradient-to-br.text-white { color: #ffffff !important; }
+
+/* Buttons/elements that ARE the colored bg themselves with text-white */
+[data-theme="light"] button.bg-sky-600,
+[data-theme="light"] button.bg-blue-600,
+[data-theme="light"] button.bg-red-600,
+[data-theme="light"] button.bg-emerald-600,
+[data-theme="light"] button.bg-indigo-600,
+[data-theme="light"] a.bg-sky-600,
+[data-theme="light"] a.bg-blue-600 { color: #ffffff !important; }
+
 [data-theme="light"] .text-slate-100 { color: #1e293b !important; }
 [data-theme="light"] .text-slate-200 { color: #1e293b !important; }
 [data-theme="light"] .text-slate-300 { color: #334155 !important; }
@@ -156,6 +289,12 @@
 
 /* ── Ring / Focus states ── */
 [data-theme="light"] .focus\:ring-sky-500:focus { --tw-ring-color: rgba(14,165,233,0.4) !important; }
+[data-theme="light"] button:focus-visible,
+[data-theme="light"] a:focus-visible,
+[data-theme="light"] select:focus-visible,
+[data-theme="light"] [role="button"]:focus-visible {
+  --tw-ring-offset-color: #f8fafc !important;
+}
 
 /* ── Selection ── */
 [data-theme="light"] .selection\:bg-sky-500\/30 ::selection { background-color: rgba(14,165,233,0.15) !important; }

@@ -2,11 +2,14 @@ import React, { useState, useMemo } from 'react';
 import { useAppContext } from '../context/AppContext';
 import { Plus, FileText, ExternalLink, X, Trash2, Edit2, AlertTriangle, LockKeyhole, Send } from 'lucide-react';
 
+/* ISO 25010 Security: Strict URL allowlist — only http(s) schemes permitted */
 const safeUrl = (url) => {
   if (!url) return '#';
-  if (url.match(/^https?:\/\//i)) return url;
-  if (url.match(/^javascript:/i)) return '#';
-  return 'https://' + url;
+  const trimmed = url.trim();
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  // Block javascript:, data:, blob:, vbscript:, and all other non-http schemes
+  if (/^[a-z][a-z0-9+.-]*:/i.test(trimmed)) return '#';
+  return 'https://' + trimmed;
 };
 
 const Minutes = () => {
@@ -119,15 +122,16 @@ const Minutes = () => {
                       target="_blank"
                       rel="noreferrer"
                       className="flex items-center space-x-1.5 sm:space-x-2 bg-slate-800/50 text-slate-300 px-2.5 sm:px-4 py-2 rounded-lg font-bold border border-slate-700 transition-all duration-200 hover:bg-emerald-500/10 hover:text-emerald-400 hover:border-emerald-500/30 active:scale-95 text-sm"
+                      aria-label="Open document"
                     >
                         <span className="hidden sm:inline">Open</span>
                         <ExternalLink size={14} />
                     </a>
                     {user?.permissions?.canCreate && (
-                      <button onClick={() => handleEdit(meeting)} className="p-2 text-slate-600 hover:text-sky-400 hover:bg-sky-500/10 rounded-lg transition-all"><Edit2 size={16}/></button>
+                      <button onClick={() => handleEdit(meeting)} className="p-2 text-slate-600 hover:text-sky-400 hover:bg-sky-500/10 rounded-lg transition-all" aria-label="Edit meeting"><Edit2 size={16}/></button>
                     )}
                     {user?.permissions?.canDelete && (
-                      <button onClick={() => handleDeleteClick(meeting.id)} className="p-2 text-slate-600 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all"><Trash2 size={16}/></button>
+                      <button onClick={() => handleDeleteClick(meeting.id)} className="p-2 text-slate-600 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all" aria-label="Delete meeting"><Trash2 size={16}/></button>
                     )}
                 </div>
             </div>

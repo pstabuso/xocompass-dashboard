@@ -118,9 +118,9 @@ const Schedule = () => {
           <div className="flex items-center gap-2 sm:gap-4">
              <button onClick={goToToday} className="text-xs font-bold text-slate-500 hover:text-sky-400 px-2 transition-colors">Today</button>
              <div className="flex items-center bg-slate-800 rounded-lg p-1 border border-slate-700">
-                <button onClick={prevMonth} className="p-1 hover:bg-slate-700 rounded transition-all active:scale-95"><ChevronLeft size={18} className="text-slate-400"/></button>
+                <button onClick={prevMonth} className="p-1.5 hover:bg-slate-700 rounded transition-all active:scale-95" aria-label="Previous month"><ChevronLeft size={18} className="text-slate-400"/></button>
                 <div className="px-2 sm:px-4 font-bold text-slate-300 w-24 sm:w-32 text-center text-xs sm:text-sm">{monthNames[month]} {year}</div>
-                <button onClick={nextMonth} className="p-1 hover:bg-slate-700 rounded transition-all active:scale-95"><ChevronRight size={18} className="text-slate-400"/></button>
+                <button onClick={nextMonth} className="p-1.5 hover:bg-slate-700 rounded transition-all active:scale-95" aria-label="Next month"><ChevronRight size={18} className="text-slate-400"/></button>
              </div>
           </div>
         </div>
