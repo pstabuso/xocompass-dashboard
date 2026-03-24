@@ -47,7 +47,7 @@ const ACTION_ICONS = {
 };
 
 const AdminPanel = () => {
-  const { user, activityLog, notifications, clearNotifications } = useAppContext();
+  const { user, activityLog, notifications, clearNotifications, refreshActivityLog } = useAppContext();
   const [tab, setTab] = useState('users');
   const [profiles, setProfiles] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -60,10 +60,12 @@ const AdminPanel = () => {
   const loadData = useCallback(async () => {
     if (!isCloudEnabled) return;
     setLoading(true);
-    const p = await fetchAllProfiles();
+    // Refresh profiles AND activity log so the Actions counter reflects the
+    // true server count, not whatever happened to arrive on this device.
+    const [p] = await Promise.all([fetchAllProfiles(), refreshActivityLog()]);
     if (p) setProfiles(p);
     setLoading(false);
-  }, []);
+  }, [refreshActivityLog]);
 
   useEffect(() => {
     if (isAdmin) loadData();

@@ -269,6 +269,13 @@ export const AppProvider = ({ children }) => {
   const subscriptionsRef = useRef([]);
   const authSettledRef = useRef(false); // tracks whether initial auth has resolved
   const [authSettled, setAuthSettled] = useState(false); // triggers hydration after auth lock is released
+  // Monotonically-increasing fetch generation counter.
+  // INITIAL_SESSION (no JWT) triggers hydration with anon access.
+  // SIGNED_IN triggers a second fetch with the real JWT (sees all RLS rows).
+  // On slow networks the anon hydration can complete AFTER the authenticated
+  // re-fetch and silently overwrite the correct data.  Each fetch stamps its
+  // own generation; only the highest-numbered fetch is allowed to commit.
+  const fetchGenRef = useRef(0);
 
   // Auto-clear sync errors after 5 seconds
   useEffect(() => {
@@ -330,6 +337,9 @@ export const AppProvider = ({ children }) => {
   useEffect(() => {
     if (!isCloudEnabled || !authSettled) return;
     let cancelled = false;
+    // Stamp this fetch with the current generation so a later SIGNED_IN
+    // re-fetch (higher gen) can invalidate it before it commits.
+    const myGen = ++fetchGenRef.current;
 
     const hydrate = async () => {
       try {
@@ -342,7 +352,10 @@ export const AppProvider = ({ children }) => {
           fetchTable(TABLES.notifications),
         ]);
 
-        if (cancelled) return;
+        // Bail if unmounted OR if a later fetch (SIGNED_IN re-fetch with JWT)
+        // already committed fresher data — prevents anon results overwriting
+        // authenticated results on slow networks.
+        if (cancelled || fetchGenRef.current !== myGen) return;
 
         // Cloud data wins over localStorage (source of truth)
         if (cloudTasks) setTasks(cloudTasks);
@@ -371,7 +384,7 @@ export const AppProvider = ({ children }) => {
   useEffect(() => {
     if (!isCloudEnabled || !authSettled) return;
 
-    const subscribe = (table, setter, transform = null) => {
+    const subscribe = (table, setter, transform = null, insertCap = 0) => {
       const channel = supabase
         .channel(`realtime-${table}`)
         .on('postgres_changes', { event: '*', schema: 'public', table }, (payload) => {
@@ -381,7 +394,12 @@ export const AppProvider = ({ children }) => {
           setter(prev => {
             if (eventType === 'INSERT') {
               if (prev.some(item => item.id === row.id)) return prev;
-              return [row, ...prev];
+              // Apply the same cap used in logAction so every device stays
+              // consistent.  Without this, the writing device is capped at 200
+              // (via .slice in logAction) while all OTHER devices grow
+              // unbounded via realtime INSERTs, causing permanent divergence.
+              const next = [row, ...prev];
+              return insertCap > 0 ? next.slice(0, insertCap) : next;
             }
             if (eventType === 'UPDATE') {
               return prev.map(item => item.id === row.id ? row : item);
@@ -410,7 +428,7 @@ export const AppProvider = ({ children }) => {
         subscribe(TABLES.events, setEvents),
         subscribe(TABLES.minutes, setMinutes),
         subscribe(TABLES.datasets, setDatasets),
-        subscribe(TABLES.activity_log, setActivityLog),
+        subscribe(TABLES.activity_log, setActivityLog, null, 200), // cap matches logAction
         subscribe(TABLES.notifications, setNotifications, enrichNotification),
       ];
     };
@@ -420,24 +438,30 @@ export const AppProvider = ({ children }) => {
     // Re-subscribe when tab regains focus (handles browser throttling)
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
-        // Check if any channel is disconnected; if so, rebuild all
+        // ALWAYS re-fetch from cloud on focus — do NOT gate behind channel state.
+        // iOS Safari and Chrome background-suspend WebSocket connections into a
+        // zombie state: ch.state stays 'joined' but no messages arrive, so the
+        // old anyDead check always returned false and the re-fetch never ran.
+        // A lightweight full-fetch ensures every device converges on the same
+        // server state after being backgrounded (phone lock, tab switch, etc.).
+        Promise.all([
+          fetchTable(TABLES.tasks),    fetchTable(TABLES.events),
+          fetchTable(TABLES.minutes),  fetchTable(TABLES.datasets),
+          fetchTable(TABLES.activity_log), fetchTable(TABLES.notifications),
+        ]).then(([t, e, m, d, a, n]) => {
+          if (t) setTasks(t);   if (e) setEvents(e);
+          if (m) setMinutes(m); if (d) setDatasets(d);
+          if (a) setActivityLog(a);
+          if (n) setNotifications(n.map(enrichNotification));
+        }).catch(() => {});
+
+        // Additionally reconnect any channels that are genuinely dead
         const anyDead = subscriptionsRef.current.some(
           ch => ch.state !== 'joined' && ch.state !== 'joining'
         );
         if (anyDead) {
-          console.log('[XoCompass] Tab refocused — reconnecting realtime channels');
+          console.log('[XoCompass] Tab refocused — reconnecting dead realtime channels');
           setupSubscriptions();
-          // Re-fetch latest data to catch anything missed while backgrounded
-          Promise.all([
-            fetchTable(TABLES.tasks),    fetchTable(TABLES.events),
-            fetchTable(TABLES.minutes),  fetchTable(TABLES.datasets),
-            fetchTable(TABLES.activity_log), fetchTable(TABLES.notifications),
-          ]).then(([t, e, m, d, a, n]) => {
-            if (t) setTasks(t);   if (e) setEvents(e);
-            if (m) setMinutes(m); if (d) setDatasets(d);
-            if (a) setActivityLog(a);
-            if (n) setNotifications(n.map(enrichNotification));
-          }).catch(() => {});
         }
       }
     };
@@ -866,11 +890,15 @@ export const AppProvider = ({ children }) => {
             // no JWT, so the initial hydration runs under anon-key access only.
             // Re-fetch all tables now that the in-memory JWT is live so RLS-protected
             // rows (e.g. activity_log) are visible and every device sees the same data.
+            // Stamp a higher generation so the concurrent anon hydration (lower gen)
+            // cannot overwrite this result even if it resolves later.
+            const myGen = ++fetchGenRef.current;
             Promise.all([
               fetchTable(TABLES.tasks),        fetchTable(TABLES.events),
               fetchTable(TABLES.minutes),      fetchTable(TABLES.datasets),
               fetchTable(TABLES.activity_log), fetchTable(TABLES.notifications),
             ]).then(([t, e, m, d, a, n]) => {
+              if (fetchGenRef.current !== myGen) return; // superseded by a newer fetch
               if (t) setTasks(t);        if (e) setEvents(e);
               if (m) setMinutes(m);      if (d) setDatasets(d);
               if (a) setActivityLog(a);
@@ -1103,6 +1131,14 @@ export const AppProvider = ({ children }) => {
     }
   }, [logAction]);
 
+  // ── Activity log: explicit re-fetch (used by AdminPanel Refresh button) ──
+  // Pulls the latest rows from the DB so the Actions count reflects the true
+  // server state, not just what happened to arrive via realtime on this device.
+  const refreshActivityLog = useCallback(async () => {
+    const data = await fetchTable(TABLES.activity_log);
+    if (data) setActivityLog(data);
+  }, []);
+
   // ── STATS ──
   const getStats = useCallback(() => {
     const total = tasks.length;
@@ -1117,7 +1153,7 @@ export const AppProvider = ({ children }) => {
       user, signIn, signUp, signOut, localSignIn, authLoading,
       tasks, addTask, updateTask, updateTaskStatus, deleteTask, addTaskComment, subtasks,
       events, addEvent, updateEvent, deleteEvent,
-      activityLog, getStats,
+      activityLog, refreshActivityLog, getStats,
       minutes, addMinute, updateMinute, deleteMinute,
       datasets, addDataset, updateDataset, deleteDataset,
       notifications, nudgeUser, clearNotifications, requestAccess,
