@@ -439,6 +439,7 @@ export const AppProvider = ({ children }) => {
   const [notifications, setNotifications] = useState(() => readLocal('notifications'));
   const [minutes, setMinutes] = useState(() => readLocal('minutes'));
   const [datasets, setDatasets] = useState(() => readLocal('datasets'));
+  const [profiles, setProfiles] = useState([]);
 
   // ── localStorage mirror (always active as offline cache) ──
   useEffect(() => { if (user) writeLocal('xo_user', user); else localStorage.removeItem('xo_user'); }, [user]);
@@ -483,6 +484,15 @@ export const AppProvider = ({ children }) => {
         if (cloudDatasets) setDatasets(cloudDatasets);
         if (cloudLog) setActivityLog(cloudLog);
         if (cloudNotif) setNotifications(cloudNotif.map(enrichNotification));
+
+        // Fetch profiles (best-effort — don't block hydration if RLS denies)
+        try {
+          const { data: cloudProfiles } = await supabase
+            .from('profiles')
+            .select('id, name, email, role, avatar_url')
+            .order('name');
+          if (cloudProfiles && cloudProfiles.length > 0) setProfiles(cloudProfiles);
+        } catch (_) { /* silently ignore */ }
 
         setCloudReady(true);
         setSyncStatus('synced');
@@ -1289,7 +1299,7 @@ export const AppProvider = ({ children }) => {
   return (
     <AppContext.Provider value={{
       user, signIn, signUp, signOut, localSignIn, authLoading,
-      tasks, addTask, updateTask, updateTaskStatus, deleteTask, addTaskComment, subtasks,
+      tasks, addTask, updateTask, updateTaskStatus, deleteTask, addTaskComment, subtasks, profiles,
       events, addEvent, updateEvent, deleteEvent,
       activityLog, refreshActivityLog, getStats,
       minutes, addMinute, updateMinute, deleteMinute,

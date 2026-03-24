@@ -22,7 +22,7 @@ const RequestBanner = ({ page }) => {
 };
 
 const TaskTracker = () => {
-  const { tasks, addTask, updateTask, updateTaskStatus, deleteTask, addTaskComment, subtasks, user } = useAppContext();
+  const { tasks, addTask, updateTask, updateTaskStatus, deleteTask, addTaskComment, subtasks, profiles, user } = useAppContext();
   const [viewMode, setViewMode] = useState('board');
   const [filter, setFilter] = useState('All');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -39,8 +39,35 @@ const TaskTracker = () => {
   const [newSubtask, setNewSubtask] = useState('');
   const [newTask, setNewTask] = useState({ task: '', deadline: '', start: '', remarks: '', owner: '', priority: 'Medium', dependency: '' });
 
-  const filteredTasks = filter === 'All' ? tasks : tasks.filter(t => t.owner.includes(filter));
-  const ownerOptions = ['All', ...Array.from(new Set(tasks.map(t => t.owner)))];
+  // Team members from profiles (with fallback to task owners)
+  const teamMembers = profiles.length > 0
+    ? profiles.map(p => p.name).filter(Boolean)
+    : Array.from(new Set([user?.name, ...tasks.map(t => t.owner)].filter(Boolean)));
+
+  const filteredTasks = filter === 'All' ? tasks : tasks.filter(t => t.owner === filter || t.owner?.includes(filter));
+  const ownerOptions = ['All', ...Array.from(new Set([...teamMembers, ...tasks.map(t => t.owner)].filter(Boolean)))];
+
+  const getPriorityClass = (priority, solid = false) => {
+    switch (priority) {
+      case 'Critical': return solid ? 'bg-red-600 text-white' : 'bg-red-500/15 text-red-400 border border-red-500/20';
+      case 'High':     return solid ? 'bg-orange-600 text-white' : 'bg-orange-500/15 text-orange-400 border border-orange-500/20';
+      case 'Medium':   return solid ? 'bg-amber-500 text-white' : 'bg-amber-500/15 text-amber-400 border border-amber-500/20';
+      case 'Low':      return solid ? 'bg-emerald-600 text-white' : 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20';
+      default:         return solid ? 'bg-amber-500 text-white' : 'bg-amber-500/15 text-amber-400 border border-amber-500/20';
+    }
+  };
+
+  const getPriorityBorder = (priority) => {
+    switch (priority) {
+      case 'Critical': return 'border-l-red-500';
+      case 'High':     return 'border-l-orange-500';
+      case 'Medium':   return 'border-l-amber-500';
+      case 'Low':      return 'border-l-emerald-500';
+      default:         return 'border-l-amber-500';
+    }
+  };
+
+  const isOverdue = (task) => task.deadline && task.status !== 'Done' && new Date(task.deadline) < new Date();
 
   const getStatusColor = (status) => {
     switch(status) {
@@ -126,28 +153,40 @@ const TaskTracker = () => {
   };
 
   // --- Renderers ---
-  const renderKanbanColumn = (title, status, bgClass, headerColorClass, items) => (
-    <div className="flex-1 min-w-[220px] sm:min-w-[260px] lg:min-w-[280px] bg-slate-900/50 rounded-xl border border-slate-800 flex flex-col h-full max-h-[500px] sm:max-h-[600px] lg:max-h-[700px] animate-enter">
-        <div className={`p-4 border-b border-slate-800 font-bold flex justify-between items-center`}>
-            <span className={status === 'Not Started' ? 'text-red-400' : status === 'On-going' ? 'text-amber-400' : 'text-emerald-400'}>{title}</span>
+  const columnAccent = { 'Not Started': 'border-t-red-500', 'On-going': 'border-t-amber-500', 'Done': 'border-t-emerald-500' };
+  const columnTextColor = { 'Not Started': 'text-red-400', 'On-going': 'text-amber-400', 'Done': 'text-emerald-400' };
+
+  const renderKanbanColumn = (title, status, _b, _h, items) => (
+    <div className={`flex-1 min-w-[220px] sm:min-w-[260px] lg:min-w-[280px] bg-slate-900/50 rounded-xl border border-slate-800 border-t-2 ${columnAccent[status]} flex flex-col h-full max-h-[500px] sm:max-h-[600px] lg:max-h-[700px] animate-enter`}>
+        <div className="p-4 border-b border-slate-800 font-bold flex justify-between items-center">
+            <span className={columnTextColor[status]}>{title}</span>
             <span className="bg-slate-800 px-2 py-0.5 rounded-full text-xs border border-slate-700 text-slate-400">{items.length}</span>
         </div>
         <div className="p-3 space-y-3 overflow-y-auto flex-1 custom-scrollbar">
             {items.length === 0 && (
-              <div className="flex flex-col items-center justify-center py-8 text-slate-600 text-xs">
-                <span className="text-2xl mb-2 opacity-50">{status === 'Not Started' ? '📋' : status === 'On-going' ? '⏳' : '✅'}</span>
-                No tasks {status === 'Not Started' ? 'to start' : status === 'On-going' ? 'in progress' : 'completed'}
+              <div className="flex flex-col items-center justify-center py-10 text-slate-600 text-xs gap-1">
+                <span className="text-3xl opacity-30 mb-1">{status === 'Not Started' ? '📋' : status === 'On-going' ? '⏳' : '✅'}</span>
+                <span className="text-slate-500">No tasks {status === 'Not Started' ? 'queued' : status === 'On-going' ? 'in progress' : 'completed'}</span>
               </div>
             )}
             {items.map(task => (
-                <div key={task.id} onClick={() => handleSelectTask(task)} className="bg-slate-800/50 p-4 rounded-lg border border-slate-700 cursor-pointer transition-all duration-300 ease-in-out hover:shadow-xl hover:-translate-y-1 hover:border-slate-600 group relative">
-                    <div className="flex justify-between items-start mb-2">
-                        <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider ${task.owner.includes(user.name) ? 'bg-sky-500/15 text-sky-400' : 'bg-slate-700/50 text-slate-500'}`}>{task.owner}</span>
-                        {task.deadline && <span className="text-[10px] text-red-400 font-medium">Due {task.deadline.slice(5)}</span>}
-                    </div>
-                    <h4 className="font-bold text-slate-100 text-sm leading-snug mb-3">{task.task}</h4>
-                    <div className="w-full bg-slate-700 h-1.5 rounded-full overflow-hidden mb-2">
-                        <div className={`h-full rounded-full transition-all duration-500 ${status === 'Done' ? 'bg-emerald-500' : status === 'On-going' ? 'bg-amber-500' : 'bg-red-500'}`} style={{width: `${getProgress(task)}%`}}></div>
+                <div key={task.id} onClick={() => handleSelectTask(task)}
+                  className={`bg-slate-800/60 rounded-lg border border-slate-700/80 border-l-2 ${getPriorityBorder(task.priority)} cursor-pointer transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 hover:bg-slate-800 group`}>
+                    <div className="p-3">
+                      <div className="flex justify-between items-start mb-2 gap-1">
+                          <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider shrink-0 ${task.owner === user?.name ? 'bg-sky-500/15 text-sky-400' : 'bg-slate-700/60 text-slate-500'}`}>{task.owner || 'Unassigned'}</span>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {isOverdue(task) && <span className="text-[9px] font-bold text-red-400 bg-red-500/10 px-1.5 py-0.5 rounded">Overdue</span>}
+                            {task.deadline && <span className="text-[10px] text-slate-500">Due {task.deadline.slice(5)}</span>}
+                          </div>
+                      </div>
+                      <h4 className="font-semibold text-slate-100 text-sm leading-snug mb-3">{task.task}</h4>
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex-1 bg-slate-700/60 h-1 rounded-full overflow-hidden">
+                            <div className={`h-full rounded-full transition-all duration-500 ${status === 'Done' ? 'bg-emerald-500' : status === 'On-going' ? 'bg-amber-500' : 'bg-slate-500'}`} style={{width: `${getProgress(task)}%`}}></div>
+                        </div>
+                        <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold shrink-0 ${getPriorityClass(task.priority)}`}>{task.priority || 'Medium'}</span>
+                      </div>
                     </div>
                 </div>
             ))}
@@ -197,17 +236,26 @@ const TaskTracker = () => {
           )}
 
           {viewMode === 'list' && (
-              <div className="bg-slate-900/50 rounded-xl border border-slate-800 overflow-hidden animate-enter">
+              <div className="bg-slate-900/50 rounded-xl border border-slate-800 overflow-hidden animate-enter overflow-y-auto h-full custom-scrollbar">
+                  {filteredTasks.length === 0 && (
+                    <div className="flex flex-col items-center justify-center py-16 text-slate-500 text-sm gap-2">
+                      <span className="text-4xl opacity-30">📋</span>
+                      No tasks match the current filter.
+                    </div>
+                  )}
                   {filteredTasks.map(task => (
-                      <div key={task.id} onClick={() => handleSelectTask(task)} className="p-4 border-b border-slate-800 hover:bg-slate-800/50 cursor-pointer flex justify-between items-center transition-colors duration-200">
-                          <div>
-                              <p className="font-bold text-slate-100">{task.task}</p>
-                              <div className="flex items-center space-x-2 mt-1">
-                                  <span className="text-xs bg-sky-500/10 text-sky-400 border border-sky-500/20 px-2 py-0.5 rounded">{task.owner}</span>
-                                  <span className="text-xs text-slate-500">Due: {task.deadline}</span>
+                      <div key={task.id} onClick={() => handleSelectTask(task)}
+                        className={`pl-4 pr-4 py-3.5 border-b border-slate-800/80 border-l-2 ${getPriorityBorder(task.priority)} hover:bg-slate-800/40 cursor-pointer flex items-center gap-3 transition-colors duration-150`}>
+                          <div className="flex-1 min-w-0">
+                              <p className="font-semibold text-slate-100 text-sm leading-snug truncate">{task.task}</p>
+                              <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                                  {task.owner && <span className="text-[10px] bg-sky-500/10 text-sky-400 border border-sky-500/20 px-1.5 py-0.5 rounded font-medium">{task.owner}</span>}
+                                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${getPriorityClass(task.priority)}`}>{task.priority || 'Medium'}</span>
+                                  {isOverdue(task) && <span className="text-[10px] font-bold text-red-400 bg-red-500/10 px-1.5 py-0.5 rounded">Overdue</span>}
+                                  {task.deadline && <span className="text-[10px] text-slate-500">Due {task.deadline}</span>}
                               </div>
                           </div>
-                          <div className={`px-3 py-1 rounded-full text-xs font-bold border ${getStatusColor(task.status)}`}>{task.status}</div>
+                          <div className={`px-2.5 py-1 rounded-full text-[10px] font-bold border shrink-0 ${getStatusColor(task.status)}`}>{task.status}</div>
                       </div>
                   ))}
               </div>
@@ -320,10 +368,7 @@ const TaskTracker = () => {
                                             onClick={() => setNewTask({...newTask, priority: p})}
                                             className={`px-3 py-1 rounded-lg text-xs font-bold transition whitespace-nowrap shrink-0 ${
                                                 newTask.priority === p
-                                                    ? p === 'Critical' ? 'bg-red-600 text-white'
-                                                    : p === 'High' ? 'bg-orange-600 text-white'
-                                                    : p === 'Medium' ? 'bg-sky-600 text-white'
-                                                    : 'bg-emerald-600 text-white'
+                                                    ? getPriorityClass(p, true)
                                                     : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
                                             }`}
                                         >{p}</button>
@@ -333,13 +378,16 @@ const TaskTracker = () => {
 
                             <div className="space-y-2">
                                 <label className="text-sm font-bold text-slate-400 uppercase tracking-wider">Assigned To</label>
-                                <input
-                                    type="text"
+                                <select
                                     className="w-full px-3 py-2 bg-slate-800 border border-slate-700 text-white rounded-lg focus:ring-2 focus:ring-sky-500 outline-none transition text-sm"
-                                    placeholder="Enter assignee name"
                                     value={newTask.owner}
                                     onChange={e => setNewTask({...newTask, owner: e.target.value})}
-                                />
+                                >
+                                    <option value="" className="bg-slate-900">— Unassigned —</option>
+                                    {teamMembers.map(name => (
+                                        <option key={name} value={name} className="bg-slate-900">{name}</option>
+                                    ))}
+                                </select>
                             </div>
                             <button className="w-full bg-sky-600 text-white py-3 sm:py-4 rounded-xl font-bold text-base sm:text-lg hover:bg-sky-500 hover:scale-[1.01] active:scale-95 transition-all shadow-xl shadow-sky-900/30">
                                 Create Task
@@ -384,10 +432,7 @@ const TaskTracker = () => {
                                           onClick={() => setEditForm({...editForm, priority: p})}
                                           className={`px-3 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap shrink-0 ${
                                             editForm.priority === p
-                                              ? p === 'Critical' ? 'bg-red-600 text-white'
-                                              : p === 'High' ? 'bg-orange-600 text-white'
-                                              : p === 'Medium' ? 'bg-sky-600 text-white'
-                                              : 'bg-emerald-600 text-white'
+                                              ? getPriorityClass(p, true)
                                               : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
                                           }`}
                                         >{p}</button>
@@ -409,7 +454,16 @@ const TaskTracker = () => {
 
                                 <div className="space-y-2">
                                   <label className="text-xs font-bold text-slate-400 uppercase">Assigned To</label>
-                                  <input type="text" className="w-full bg-slate-800 p-3 rounded-lg border border-slate-700 outline-none focus:ring-2 focus:ring-sky-500 text-white" value={editForm.owner} onChange={e => setEditForm({...editForm, owner: e.target.value})} />
+                                  <select
+                                    className="w-full bg-slate-800 p-3 rounded-lg border border-slate-700 outline-none focus:ring-2 focus:ring-sky-500 text-white"
+                                    value={editForm.owner}
+                                    onChange={e => setEditForm({...editForm, owner: e.target.value})}
+                                  >
+                                    <option value="" className="bg-slate-900">— Unassigned —</option>
+                                    {teamMembers.map(name => (
+                                      <option key={name} value={name} className="bg-slate-900">{name}</option>
+                                    ))}
+                                  </select>
                                 </div>
 
                                 <div className="space-y-2">
@@ -451,12 +505,9 @@ const TaskTracker = () => {
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div className="p-4 bg-slate-800/30 rounded-xl border border-slate-800">
                                         <p className="text-xs font-bold text-slate-500 uppercase">Priority</p>
-                                        <span className={`inline-block mt-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${
-                                            expandedTask.priority === 'Critical' ? 'bg-red-600/20 text-red-400' :
-                                            expandedTask.priority === 'High' ? 'bg-orange-600/20 text-orange-400' :
-                                            expandedTask.priority === 'Medium' ? 'bg-sky-600/20 text-sky-400' :
-                                            'bg-emerald-600/20 text-emerald-400'
-                                        }`}>{expandedTask.priority || 'Medium'}</span>
+                                        <span className={`inline-block mt-1 px-2.5 py-0.5 rounded-full text-xs font-bold ${getPriorityClass(expandedTask.priority || 'Medium')}`}>
+                                          {expandedTask.priority || 'Medium'}
+                                        </span>
                                     </div>
                                     <div className="p-4 bg-slate-800/30 rounded-xl border border-slate-800">
                                         <p className="text-xs font-bold text-slate-500 uppercase">Assigned To</p>

@@ -235,8 +235,12 @@ const Dashboard = () => {
                         <div key={t.id} className="p-3 rounded-lg border border-slate-800 bg-slate-800/30 space-y-2">
                             <div className="flex justify-between items-start gap-2">
                                 <p className="font-medium text-slate-200 text-sm truncate flex-1">{t.task}</p>
-                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold border shrink-0 ${t.priority === 'High' ? 'bg-red-900/20 text-red-400 border-red-500/20' : 'bg-blue-900/20 text-blue-400 border-blue-500/20'}`}>
-                                    {t.priority || 'Normal'}
+                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold border shrink-0 ${
+                                    t.priority === 'Critical' ? 'bg-red-500/15 text-red-400 border-red-500/20' :
+                                    t.priority === 'High' ? 'bg-orange-500/15 text-orange-400 border-orange-500/20' :
+                                    t.priority === 'Low' ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20' :
+                                    'bg-amber-500/15 text-amber-400 border-amber-500/20'}`}>
+                                    {t.priority || 'Medium'}
                                 </span>
                             </div>
                             <div className="flex justify-between items-center text-xs text-slate-400">
@@ -268,8 +272,12 @@ const Dashboard = () => {
                             <td className="p-4 font-medium text-slate-200 group-hover:text-white transition-colors">{t.task}</td>
                             <td className="p-4">{t.deadline}</td>
                             <td className="p-4">
-                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${t.priority === 'High' ? 'bg-red-900/20 text-red-400 border-red-500/20' : 'bg-blue-900/20 text-blue-400 border-blue-500/20'}`}>
-                                {t.priority || 'Normal'}
+                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                                    t.priority === 'Critical' ? 'bg-red-500/15 text-red-400 border-red-500/20' :
+                                    t.priority === 'High' ? 'bg-orange-500/15 text-orange-400 border-orange-500/20' :
+                                    t.priority === 'Low' ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20' :
+                                    'bg-amber-500/15 text-amber-400 border-amber-500/20'}`}>
+                                {t.priority || 'Medium'}
                                 </span>
                             </td>
                             <td className="p-4 text-right">
