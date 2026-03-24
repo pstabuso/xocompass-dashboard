@@ -123,7 +123,7 @@ const AdminPanel = () => {
   // Navigate to a specific tab when arriving via a routed link (e.g. 'Requested Access' → notifications)
   useEffect(() => {
     if (location.state?.tab) setTab(location.state.tab);
-  }, []); // intentionally runs once on mount
+  }, [location.state?.tab]);
 
   const handleRoleChange = async (userId, newRole) => {
     setActionLoading(userId);
