@@ -1292,7 +1292,7 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                     </div>
 
                     {/* TIER 1: The Chaotic Reality */}
-                    <div className="bg-slate-900/60 backdrop-blur rounded-2xl p-4 sm:p-6 border border-slate-800 shadow-xl relative overflow-hidden group hover:border-slate-600 transition-colors">
+                    <div className="bg-slate-900/60 backdrop-blur rounded-2xl p-4 sm:p-6 border border-slate-800 shadow-xl relative group hover:border-slate-600 transition-colors">
                         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-3 sm:mb-4 border-b border-slate-800 pb-3 sm:pb-4">
                             <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                                 <span className="bg-slate-800 text-slate-300 font-mono font-black px-2.5 py-1 rounded-lg shrink-0">1</span>
@@ -1567,7 +1567,7 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         
                         {/* 1. DESCRIPTIVE (CYAN) */}
-                        <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col h-full hover:border-cyan-500/40 transition-colors duration-500 group relative overflow-hidden">
+                        <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col h-full hover:border-cyan-500/40 transition-colors duration-500 group relative">
                             <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500/5 rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none transition-transform group-hover:scale-150"></div>
                             <div className="flex items-center gap-3 mb-4 border-b border-slate-800 pb-3 relative z-10">
                                 <span className="bg-cyan-950 text-cyan-400 border border-cyan-800 text-[9px] font-black uppercase px-2 py-1 rounded tracking-widest">1. Descriptive</span>
@@ -1590,7 +1590,7 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                         </div>
 
                         {/* 2. DIAGNOSTIC (PURPLE) */}
-                        <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col h-full hover:border-fuchsia-500/40 transition-colors duration-500 group relative overflow-hidden">
+                        <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 shadow-xl flex flex-col h-full hover:border-fuchsia-500/40 transition-colors duration-500 group relative">
                             <div className="absolute top-0 right-0 w-32 h-32 bg-fuchsia-500/5 rounded-full blur-2xl -mr-10 -mt-10 pointer-events-none transition-transform group-hover:scale-150"></div>
                             <div className="flex items-center gap-3 mb-4 border-b border-slate-800 pb-3 relative z-10">
                                 <span className="bg-fuchsia-950 text-fuchsia-400 border border-fuchsia-800 text-[9px] font-black uppercase px-2 py-1 rounded tracking-widest">2. Diagnostic</span>
@@ -1616,7 +1616,7 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                         </div>
 
                         {/* 3. PREDICTIVE (INDIGO) */}
-                        <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 shadow-xl md:col-span-2 hover:border-indigo-500/40 transition-colors duration-500 group relative overflow-hidden">
+                        <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 shadow-xl md:col-span-2 hover:border-indigo-500/40 transition-colors duration-500 group relative">
                              <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none transition-transform group-hover:scale-110"></div>
                              <div className="flex items-center gap-3 mb-4 border-b border-slate-800 pb-3 relative z-10">
                                 <span className="bg-indigo-950 text-indigo-400 border border-indigo-800 text-[9px] font-black uppercase px-2 py-1 rounded tracking-widest">3. Predictive</span>

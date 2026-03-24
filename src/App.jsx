@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, CheckSquare, Calendar, Book, FolderOpen, LogOut, User, Database, Shield, BrainCircuit, Users, Cloud, CloudOff, Loader2, Mail, Lock, Eye, EyeOff, Menu, X, Bell, LockKeyhole, Send, ArrowRight, Sun, Moon, AlertTriangle, RefreshCw, WifiOff } from 'lucide-react';
+import { LayoutDashboard, CheckSquare, Calendar, Book, FolderOpen, LogOut, User, Database, Shield, BrainCircuit, Users, Cloud, CloudOff, Loader2, Mail, Lock, Eye, EyeOff, Menu, X, Bell, LockKeyhole, Send, ArrowRight, Sun, Moon, AlertTriangle, RefreshCw, WifiOff, ChevronLeft } from 'lucide-react';
 import { AppProvider, useAppContext, ROLE_ROUTES, isNotificationForUser } from './context/AppContext';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { isCloudEnabled } from './lib/supabase';
@@ -33,12 +33,14 @@ const ThemeToggle = () => {
   );
 };
 
-// Sidebar — responsive: collapsible on mobile
-const Sidebar = ({ mobileOpen, setMobileOpen }) => {
+// Sidebar — collapsible on desktop, drawer on mobile
+const Sidebar = ({ mobileOpen, setMobileOpen, collapsed, setCollapsed }) => {
   const location = useLocation();
   const { user, signOut, syncStatus, notifications, requestAccess } = useAppContext();
+  const { theme, toggleTheme } = useTheme();
   const [requestedPages, setRequestedPages] = useState({});
 
+  const isLight = theme === 'light';
   const myUnread = user?.permissions?.isAdmin
     ? (notifications || []).filter(n => !n.read && isNotificationForUser(n, user)).length
     : 0;
@@ -64,46 +66,59 @@ const Sidebar = ({ mobileOpen, setMobileOpen }) => {
     setRequestedPages(prev => ({ ...prev, [item.path]: true }));
   };
 
-  const sidebarContent = (
+  // Renders sidebar content — isCollapsed=true shows icon-only (desktop collapsed),
+  // isCollapsed=false shows the full expanded layout (desktop expanded or mobile drawer).
+  const renderContent = (isCollapsed) => (
     <>
-      <div className="p-4 sm:p-6 border-b border-slate-800 flex items-center justify-between">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-sky-400 tracking-tight">XoCompass</h1>
-          <div className="flex items-center space-x-2 mt-1">
-            <p className="text-xs text-slate-500">LEAP Thesis 2 Manager</p>
-            {syncStatus === 'synced' && <span title="Cloud synced — real-time"><Cloud size={12} className="text-emerald-400" /></span>}
-            {syncStatus === 'connecting' && <span title="Connecting to cloud..."><Loader2 size={12} className="text-amber-400 animate-spin" /></span>}
-            {syncStatus === 'error' && <span title="Cloud error — using local storage"><CloudOff size={12} className="text-red-400" /></span>}
-            {syncStatus === 'local' && <span title="Local storage only"><CloudOff size={12} className="text-slate-600" /></span>}
+      {/* Header */}
+      <div className={`border-b border-slate-800 flex items-center ${isCollapsed ? 'justify-center p-3' : 'justify-between p-4 sm:p-6'}`}>
+        {!isCollapsed && (
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold text-sky-400 tracking-tight">XoCompass</h1>
+            <div className="flex items-center space-x-2 mt-1">
+              <p className="text-xs text-slate-500">LEAP Thesis 2 Manager</p>
+              {syncStatus === 'synced' && <span title="Cloud synced — real-time"><Cloud size={12} className="text-emerald-400" /></span>}
+              {syncStatus === 'connecting' && <span title="Connecting to cloud..."><Loader2 size={12} className="text-amber-400 animate-spin" /></span>}
+              {syncStatus === 'error' && <span title="Cloud error — using local storage"><CloudOff size={12} className="text-red-400" /></span>}
+              {syncStatus === 'local' && <span title="Local storage only"><CloudOff size={12} className="text-slate-600" /></span>}
+            </div>
           </div>
-        </div>
-        {/* Close button — mobile only */}
+        )}
+        {isCollapsed && <BrainCircuit size={22} className="text-sky-400" />}
         <button onClick={() => setMobileOpen(false)} className="lg:hidden p-2 text-slate-400 hover:text-white" aria-label="Close sidebar">
           <X size={22} />
         </button>
       </div>
 
-      <nav className="flex-1 p-3 sm:p-4 space-y-1 sm:space-y-2 overflow-y-auto">
+      {/* Nav */}
+      <nav className={`flex-1 overflow-y-auto ${isCollapsed ? 'p-2 space-y-1' : 'p-3 sm:p-4 space-y-1 sm:space-y-2'}`}>
         {allMenuItems.map((item) => {
           const locked = isLocked(item.path);
           const requested = requestedPages[item.path];
+          const isActive = location.pathname === item.path;
 
           if (locked) {
             return (
               <button
                 key={item.path}
-                onClick={() => handleLockedClick(item)}
-                className={`w-full flex items-center space-x-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl transition-all duration-200 group ${
-                  requested ? 'opacity-50 cursor-default' : 'opacity-60 hover:opacity-80 hover:bg-slate-800/50 cursor-pointer'
+                onClick={!isCollapsed ? () => handleLockedClick(item) : undefined}
+                title={isCollapsed ? item.label : (requested ? 'Request sent — waiting for PM' : `Request access to ${item.label}`)}
+                className={`w-full transition-all duration-200 rounded-xl ${
+                  isCollapsed
+                    ? 'flex items-center justify-center py-2.5 opacity-40 cursor-default'
+                    : `flex items-center space-x-3 px-3 sm:px-4 py-2.5 sm:py-3 group ${requested ? 'opacity-50 cursor-default' : 'opacity-60 hover:opacity-80 hover:bg-slate-800/50 cursor-pointer'}`
                 }`}
-                title={requested ? 'Request sent — waiting for PM' : `Request access to ${item.label}`}
               >
                 <item.icon size={20} className="text-slate-600 shrink-0" />
-                <span className="font-medium text-sm text-slate-500 flex-1 text-left truncate">{item.label}</span>
-                {requested
-                  ? <span className="text-[9px] px-1.5 py-0.5 bg-emerald-500/15 text-emerald-400 rounded font-bold shrink-0">Sent</span>
-                  : <LockKeyhole size={14} className="text-slate-600 shrink-0" />
-                }
+                {!isCollapsed && (
+                  <>
+                    <span className="font-medium text-sm text-slate-500 flex-1 text-left truncate">{item.label}</span>
+                    {requested
+                      ? <span className="text-[9px] px-1.5 py-0.5 bg-emerald-500/15 text-emerald-400 rounded font-bold shrink-0">Sent</span>
+                      : <LockKeyhole size={14} className="text-slate-600 shrink-0" />
+                    }
+                  </>
+                )}
               </button>
             );
           }
@@ -113,65 +128,99 @@ const Sidebar = ({ mobileOpen, setMobileOpen }) => {
               key={item.path}
               to={item.path}
               onClick={() => setMobileOpen(false)}
-              className={`flex items-center space-x-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl transition-all duration-200 ease-in-out group ${
-                location.pathname === item.path
+              title={isCollapsed ? item.label : undefined}
+              className={`transition-all duration-200 ease-in-out group ${
+                isCollapsed
+                  ? 'flex items-center justify-center py-2.5 rounded-xl'
+                  : 'flex items-center space-x-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl'
+              } ${
+                isActive
                   ? 'bg-sky-600/10 text-sky-400 border border-sky-500/20 shadow-[0_0_15px_rgba(56,189,248,0.1)]'
                   : 'hover:bg-slate-800 hover:text-white'
               }`}
             >
-              <item.icon size={20} className={`shrink-0 ${location.pathname === item.path ? 'text-sky-400' : 'group-hover:scale-110 transition-transform'}`} />
-              <span className="font-medium text-sm truncate">{item.label}</span>
+              <item.icon size={20} className={`shrink-0 ${isActive ? 'text-sky-400' : 'group-hover:scale-110 transition-transform'}`} />
+              {!isCollapsed && <span className="font-medium text-sm truncate">{item.label}</span>}
             </Link>
           );
         })}
       </nav>
 
-      <div className="p-3 sm:p-4 border-t border-slate-800">
-        {/* Notification indicator for PM */}
-        {myUnread > 0 && user?.permissions?.isAdmin && (
-          <Link
-            to="/admin"
-            onClick={() => setMobileOpen(false)}
-            className="flex items-center gap-2 px-3 sm:px-4 py-2 mb-2 bg-amber-500/10 border border-amber-500/20 rounded-lg hover:bg-amber-500/15 transition"
-          >
-            <Bell size={16} className="text-amber-400" />
-            <span className="text-xs font-bold text-amber-300 flex-1">{myUnread} new notification{myUnread > 1 ? 's' : ''}</span>
-            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
-          </Link>
-        )}
-        <div className="flex items-center space-x-3 px-3 sm:px-4 mb-3">
+      {/* Bottom */}
+      {isCollapsed ? (
+        <div className="p-2 border-t border-slate-800 flex flex-col items-center gap-1">
+          {myUnread > 0 && user?.permissions?.isAdmin && (
+            <Link to="/admin" title={`${myUnread} new notification${myUnread > 1 ? 's' : ''}`}
+              className="relative flex items-center justify-center w-10 h-10 rounded-lg hover:bg-amber-500/10 transition">
+              <Bell size={18} className="text-amber-400" />
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+            </Link>
+          )}
+          <div title={user?.name}
+            className="w-8 h-8 rounded-full bg-gradient-to-tr from-sky-500 to-blue-600 flex items-center justify-center font-bold text-white uppercase text-xs my-1 shrink-0">
+            {user?.name?.charAt(0) || '?'}
+          </div>
+          <button onClick={toggleTheme}
+            title={isLight ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
+            className="flex items-center justify-center w-10 h-10 rounded-lg border border-slate-700 hover:border-sky-500/30 transition-all">
+            {isLight ? <Moon size={15} className="text-sky-400" /> : <Sun size={15} className="text-amber-400" />}
+          </button>
+          <button onClick={signOut} title="Sign Out"
+            className="flex items-center justify-center w-10 h-10 rounded-lg text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-all">
+            <LogOut size={18} />
+          </button>
+        </div>
+      ) : (
+        <div className="p-3 sm:p-4 border-t border-slate-800">
+          {myUnread > 0 && user?.permissions?.isAdmin && (
+            <Link to="/admin" onClick={() => setMobileOpen(false)}
+              className="flex items-center gap-2 px-3 sm:px-4 py-2 mb-2 bg-amber-500/10 border border-amber-500/20 rounded-lg hover:bg-amber-500/15 transition">
+              <Bell size={16} className="text-amber-400" />
+              <span className="text-xs font-bold text-amber-300 flex-1">{myUnread} new notification{myUnread > 1 ? 's' : ''}</span>
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+            </Link>
+          )}
+          <div className="flex items-center space-x-3 px-3 sm:px-4 mb-3">
             <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gradient-to-tr from-sky-500 to-blue-600 flex items-center justify-center font-bold text-white uppercase shadow-lg text-sm shrink-0">
-                {user?.name?.charAt(0) || '?'}
+              {user?.name?.charAt(0) || '?'}
             </div>
             <div className="overflow-hidden">
-                <p className="text-sm font-bold truncate text-slate-200">{user?.name}</p>
-                <p className="text-[11px] text-slate-500 truncate">{user?.role}</p>
-                {user?.email && <p className="text-[10px] text-slate-600 truncate">{user.email}</p>}
+              <p className="text-sm font-bold truncate text-slate-200">{user?.name}</p>
+              <p className="text-[11px] text-slate-500 truncate">{user?.role}</p>
+              {user?.email && <p className="text-[10px] text-slate-600 truncate">{user.email}</p>}
             </div>
+          </div>
+          <ThemeToggle />
+          <button onClick={signOut} className="w-full flex items-center justify-center space-x-2 px-4 py-2 text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 rounded-lg cursor-pointer transition-all duration-200">
+            <LogOut size={16} />
+            <span className="text-sm font-medium">Sign Out</span>
+          </button>
         </div>
-        <ThemeToggle />
-        <button onClick={signOut} className="w-full flex items-center justify-center space-x-2 px-4 py-2 text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 rounded-lg cursor-pointer transition-all duration-200">
-          <LogOut size={16} />
-          <span className="text-sm font-medium">Sign Out</span>
-        </button>
-      </div>
+      )}
     </>
   );
 
   return (
     <>
-      {/* Desktop sidebar — narrower on tablet landscape, full on desktop */}
-      <div className="hidden lg:flex lg:w-52 xl:w-64 h-screen bg-slate-900 border-r border-slate-800 text-slate-300 fixed left-0 top-0 flex-col z-50">
-        {sidebarContent}
+      {/* Desktop sidebar — collapsible; w-16 collapsed, w-52/w-64 expanded */}
+      <div className={`hidden lg:flex h-screen bg-slate-900 border-r border-slate-800 text-slate-300 fixed left-0 top-0 flex-col z-50 transition-all duration-300 ${collapsed ? 'w-16' : 'lg:w-52 xl:w-64'}`}>
+        {renderContent(collapsed)}
+        {/* Collapse toggle — half outside the sidebar border */}
+        <button
+          onClick={() => setCollapsed(c => !c)}
+          className="absolute -right-3 top-6 w-6 h-6 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-700 transition-all z-10 shadow-md"
+          title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          <ChevronLeft size={12} className={`transition-transform duration-300 ${collapsed ? 'rotate-180' : ''}`} />
+        </button>
       </div>
 
-      {/* Mobile overlay + drawer — z-[200] sits above all page content (sticky
-          headers, page modals up to z-[110], and the desktop sidebar at z-50) */}
+      {/* Mobile overlay + drawer — z-[200] sits above all page content */}
       {mobileOpen && (
         <div className="lg:hidden fixed inset-0 z-[200]">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
           <div className="absolute left-0 top-0 w-72 h-full bg-slate-900 border-r border-slate-800 text-slate-300 flex flex-col animate-slide-in-left">
-            {sidebarContent}
+            {renderContent(false)}
           </div>
         </div>
       )}
@@ -640,6 +689,13 @@ const AppContent = () => {
   const { user, syncStatus } = useAppContext();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try { return localStorage.getItem('xo_sidebar_collapsed') === 'true'; } catch { return false; }
+  });
+
+  useEffect(() => {
+    try { localStorage.setItem('xo_sidebar_collapsed', String(sidebarCollapsed)); } catch {}
+  }, [sidebarCollapsed]);
 
   // Show onboarding once per session after login
   const prevUser = useRef(null);
@@ -659,7 +715,7 @@ const AppContent = () => {
     <Router>
       {showOnboarding && <OnboardingScreen onContinue={() => setShowOnboarding(false)} />}
       <div className="flex bg-slate-950 min-h-screen font-sans text-slate-200 selection:bg-sky-500/30">
-        <Sidebar mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
+        <Sidebar mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed} />
 
         {/* Mobile top bar */}
         <div className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-sm border-b border-slate-800 px-4 py-3 flex items-center justify-between">
@@ -677,7 +733,7 @@ const AppContent = () => {
           </div>
         </div>
 
-        <main className="flex-1 lg:ml-52 xl:ml-64 pt-14 lg:pt-0 p-4 sm:p-6 lg:p-6 xl:p-8 overflow-y-auto min-h-screen">
+        <main className={`flex-1 transition-[margin] duration-300 ${sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-52 xl:ml-64'} pt-14 lg:pt-0 p-4 sm:p-6 lg:p-6 xl:p-8 overflow-y-auto min-h-screen`}>
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/model" element={<GuardedRoute path="/model" element={<ModelLab />} />} />

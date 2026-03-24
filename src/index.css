@@ -163,6 +163,7 @@
 [data-theme="light"] .bg-slate-950\/60  { background-color: rgba(241,245,249,0.80) !important; }
 [data-theme="light"] .bg-slate-800\/30  { background-color: rgba(241,245,249,0.4) !important; }
 [data-theme="light"] .bg-slate-800\/50  { background-color: rgba(241,245,249,0.6) !important; }
+[data-theme="light"] .bg-slate-800\/60  { background-color: rgba(241,245,249,0.75) !important; }
 [data-theme="light"] .bg-slate-800\/80  { background-color: rgba(241,245,249,0.85) !important; }
 [data-theme="light"] .bg-slate-900\/40  { background-color: rgba(248,250,252,0.6) !important; }
 [data-theme="light"] .bg-slate-900\/95  { background-color: rgba(255,255,255,0.97) !important; }
@@ -205,6 +206,13 @@
 [data-theme="light"] .text-orange-400    { color: #c2410c !important; }
 [data-theme="light"] .text-pink-400      { color: #be185d !important; }
 [data-theme="light"] .text-yellow-400    { color: #a16207 !important; }
+[data-theme="light"] .text-fuchsia-400   { color: #a21caf !important; }
+[data-theme="light"] .text-fuchsia-300   { color: #c026d3 !important; }
+[data-theme="light"] .text-violet-400    { color: #6d28d9 !important; }
+[data-theme="light"] .text-lime-400      { color: #4d7c0f !important; }
+[data-theme="light"] .text-lime-300      { color: #65a30d !important; }
+[data-theme="light"] .text-teal-400      { color: #0f766e !important; }
+[data-theme="light"] .text-rose-400      { color: #be123c !important; }
 [data-theme="light"] .text-sky-300       { color: #0284c7 !important; }
 [data-theme="light"] .text-emerald-300   { color: #059669 !important; }
 [data-theme="light"] .text-red-300       { color: #dc2626 !important; }
@@ -274,7 +282,7 @@
 [data-theme="light"] .text-slate-300 { color: #334155 !important; }
 [data-theme="light"] .text-slate-400 { color: #475569 !important; }
 [data-theme="light"] .text-slate-500 { color: #64748b !important; }
-[data-theme="light"] .text-slate-600 { color: #94a3b8 !important; }
+[data-theme="light"] .text-slate-600 { color: #64748b !important; }
 
 /* ── Border colors ── */
 [data-theme="light"] .border-slate-800 { border-color: #e2e8f0 !important; }
