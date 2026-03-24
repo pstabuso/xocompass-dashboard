@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { useAppContext, isNotificationForUser } from '../context/AppContext';
 import { isCloudEnabled, fetchAllProfiles, updateUserRole } from '../lib/supabase';
-import { Shield, Users, Activity, RefreshCw, AlertTriangle, CheckCircle, XCircle, Ban, FileText, CheckSquare, Database, Calendar, Bell, Edit2, Trash2, MessageSquare, LogIn, LogOut, UserPlus, Send, LockKeyhole } from 'lucide-react';
+import { Shield, Users, Activity, RefreshCw, AlertTriangle, CheckCircle, XCircle, Ban, FileText, CheckSquare, Database, Calendar, Bell, Edit2, Trash2, MessageSquare, LogIn, LogOut, UserPlus, Send, LockKeyhole, ArrowUpRight } from 'lucide-react';
 
 const ROLE_OPTIONS = [
   { value: 'pm', label: 'Project Manager', color: 'text-sky-400' },
@@ -46,14 +47,49 @@ const ACTION_ICONS = {
   'Requested Access':   { icon: LockKeyhole,   color: 'text-amber-400',   bg: 'bg-amber-500/10' },
 };
 
+// ── Activity filter groups ──────────────────────────────────────────────────
+const ACTIVITY_GROUPS = {
+  Task:             ['Created Task', 'Edited Task', 'Moved Task', 'Deleted Task'],
+  Subtask:          ['Added Subtask', 'Completed Subtask', 'Unchecked Subtask'],
+  Event:            ['Created Event', 'Edited Event', 'Deleted Event'],
+  Dataset:          ['Uploaded Dataset', 'Updated Dataset', 'Deleted Dataset'],
+  Meeting:          ['Added Meeting', 'Edited Meeting', 'Deleted Meeting'],
+  'Sign In':        ['Signed In', 'Signed Up'],
+  'Sign Out':       ['Signed Out'],
+  Comment:          ['Commented'],
+  'Access Request': ['Requested Access'],
+};
+
+const STATUS_GROUPS = {
+  Added:   ['Created Task', 'Added Subtask', 'Created Event', 'Uploaded Dataset', 'Added Meeting', 'Signed In', 'Signed Up', 'Nudged Member', 'Imported Backup', 'Requested Access'],
+  Edited:  ['Edited Task', 'Moved Task', 'Completed Subtask', 'Unchecked Subtask', 'Updated Dataset', 'Edited Event', 'Edited Meeting', 'Commented'],
+  Deleted: ['Deleted Task', 'Deleted Event', 'Deleted Dataset', 'Deleted Meeting', 'Cleared Notifications'],
+};
+
+// Map each action to the route it should navigate to when clicked.
+// Actions without a meaningful deep-link are omitted (entry renders as non-clickable).
+const ACTIVITY_LINKS = {
+  'Created Task':      '/tasks',  'Edited Task':       '/tasks',
+  'Moved Task':        '/tasks',  'Deleted Task':      '/tasks',
+  'Added Subtask':     '/tasks',  'Completed Subtask': '/tasks',
+  'Unchecked Subtask': '/tasks',  'Commented':         '/tasks',
+  'Nudged Member':     '/tasks',
+  'Created Event':     '/schedule', 'Edited Event':    '/schedule', 'Deleted Event':   '/schedule',
+  'Uploaded Dataset':  '/data',     'Updated Dataset': '/data',     'Deleted Dataset': '/data',
+  'Added Meeting':     '/minutes',  'Edited Meeting':  '/minutes',  'Deleted Meeting': '/minutes',
+  'Requested Access':  '/admin',   // opens admin notifications tab
+};
+
 const AdminPanel = () => {
   const { user, activityLog, notifications, clearNotifications, refreshActivityLog } = useAppContext();
+  const location = useLocation();
   const [tab, setTab] = useState('users');
   const [profiles, setProfiles] = useState([]);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(null);
   const [confirmAction, setConfirmAction] = useState(null);
-  const [activityFilter, setActivityFilter] = useState('all');
+  const [filterMode, setFilterMode] = useState('all');   // 'all' | 'activity' | 'status'
+  const [subFilter, setSubFilter] = useState(null);      // e.g. 'Task' | 'Added' | null
 
   const isAdmin = user?.permissions?.isAdmin;
   const lastFetchRef = useRef(0);
@@ -84,6 +120,11 @@ const AdminPanel = () => {
     return () => document.removeEventListener('visibilitychange', onVisible);
   }, [isAdmin, loadData]);
 
+  // Navigate to a specific tab when arriving via a routed link (e.g. 'Requested Access' → notifications)
+  useEffect(() => {
+    if (location.state?.tab) setTab(location.state.tab);
+  }, []); // intentionally runs once on mount
+
   const handleRoleChange = async (userId, newRole) => {
     setActionLoading(userId);
     const { error } = await updateUserRole(userId, newRole);
@@ -109,10 +150,14 @@ const AdminPanel = () => {
   };
 
   // Activity log filtering
-  const actionTypes = [...new Set((activityLog || []).map(e => e.action))];
-  const filteredActivity = activityFilter === 'all'
-    ? (activityLog || [])
-    : (activityLog || []).filter(e => e.action === activityFilter);
+  const filteredActivity = useMemo(() => {
+    const log = activityLog || [];
+    if (filterMode === 'all' || !subFilter) return log;
+    const actions = filterMode === 'activity'
+      ? (ACTIVITY_GROUPS[subFilter] || [])
+      : (STATUS_GROUPS[subFilter] || []);
+    return log.filter(e => actions.includes(e.action));
+  }, [activityLog, filterMode, subFilter]);
 
   if (!isAdmin) {
     return (
@@ -434,25 +479,46 @@ const AdminPanel = () => {
 
       {/* ACTIVITY LOG TAB */}
       {tab === 'activity' && (
-        <div className="space-y-4">
-          {/* Filter */}
-          <div className="flex gap-2 overflow-x-auto pb-1 custom-scrollbar -mx-1 px-1">
-            <button
-              onClick={() => setActivityFilter('all')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap shrink-0 ${activityFilter === 'all' ? 'bg-sky-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700 border border-slate-700'}`}
-            >
-              All
-            </button>
-            {actionTypes.map(action => (
+        <div className="space-y-3">
+          {/* Primary filter row */}
+          <div className="flex gap-2">
+            {[
+              { key: 'all',      label: 'All' },
+              { key: 'activity', label: 'Sort by Activity' },
+              { key: 'status',   label: 'Sort by Status' },
+            ].map(({ key, label }) => (
               <button
-                key={action}
-                onClick={() => setActivityFilter(action)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap shrink-0 ${activityFilter === action ? 'bg-sky-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700 border border-slate-700'}`}
+                key={key}
+                onClick={() => { setFilterMode(key); setSubFilter(null); }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap ${
+                  filterMode === key
+                    ? 'bg-sky-600 text-white shadow'
+                    : 'bg-slate-800 text-slate-400 hover:bg-slate-700 border border-slate-700'
+                }`}
               >
-                {action}
+                {label}
               </button>
             ))}
           </div>
+
+          {/* Sub-filter row */}
+          {filterMode !== 'all' && (
+            <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar -mx-1 px-1">
+              {Object.keys(filterMode === 'activity' ? ACTIVITY_GROUPS : STATUS_GROUPS).map(key => (
+                <button
+                  key={key}
+                  onClick={() => setSubFilter(subFilter === key ? null : key)}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition whitespace-nowrap shrink-0 ${
+                    subFilter === key
+                      ? 'bg-sky-500/20 text-sky-300 border border-sky-500/40'
+                      : 'bg-slate-800/60 text-slate-500 hover:text-slate-300 border border-slate-700/50'
+                  }`}
+                >
+                  {key}
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* Log entries */}
           <div className="bg-slate-900/50 rounded-xl border border-slate-800 overflow-hidden">
@@ -467,8 +533,22 @@ const AdminPanel = () => {
                 {filteredActivity.map(entry => {
                   const config = ACTION_ICONS[entry.action] || { icon: Activity, color: 'text-slate-400', bg: 'bg-slate-500/10' };
                   const Icon = config.icon;
+                  const linkPath = ACTIVITY_LINKS[entry.action];
+                  const linkState = entry.action === 'Requested Access' ? { tab: 'notifications' } : undefined;
+                  const EntryEl = linkPath ? Link : 'div';
+                  const entryProps = linkPath
+                    ? { to: linkPath, ...(linkState ? { state: linkState } : {}) }
+                    : {};
                   return (
-                    <div key={entry.id} className="p-3 sm:p-4 flex items-start sm:items-center gap-3 sm:gap-4 hover:bg-slate-800/30 transition">
+                    <EntryEl
+                      key={entry.id}
+                      {...entryProps}
+                      className={`p-3 sm:p-4 flex items-start sm:items-center gap-3 sm:gap-4 transition group/row ${
+                        linkPath
+                          ? 'hover:bg-sky-950/30 cursor-pointer'
+                          : 'hover:bg-slate-800/30'
+                      }`}
+                    >
                       <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full ${config.bg} ${config.color} flex items-center justify-center shrink-0`}>
                         <Icon size={16} className="sm:w-[18px] sm:h-[18px]" />
                       </div>
@@ -484,11 +564,16 @@ const AdminPanel = () => {
                           <p className="text-[10px] sm:text-xs text-slate-500 mt-0.5 truncate">{entry.details}</p>
                         )}
                       </div>
-                      <div className="text-right shrink-0 hidden sm:block">
-                        <p className="text-xs text-slate-500">{timeAgo(entry.created_at)}</p>
-                        <p className="text-[10px] text-slate-600">{entry.time || ''}</p>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <div className="text-right hidden sm:block">
+                          <p className="text-xs text-slate-500">{timeAgo(entry.created_at)}</p>
+                          <p className="text-[10px] text-slate-600">{entry.time || ''}</p>
+                        </div>
+                        {linkPath && (
+                          <ArrowUpRight size={14} className="text-slate-700 group-hover/row:text-sky-400 transition-colors hidden sm:block" />
+                        )}
                       </div>
-                    </div>
+                    </EntryEl>
                   );
                 })}
               </div>
