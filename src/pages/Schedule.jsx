@@ -166,7 +166,12 @@ const Schedule = () => {
                           <div className="min-w-0 flex-1">
                             <p className="font-bold text-sm text-slate-200 truncate">{evt.title}</p>
                             <p className="text-xs text-slate-500">{evt.date} • {evt.time}</p>
-                            <span className={`text-[10px] px-1.5 py-0.5 rounded mt-1 inline-block ${evt.status === 'Done' ? 'bg-emerald-500/15 text-emerald-400' : 'bg-slate-700 text-slate-400'}`}>{evt.status}</span>
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded mt-1 inline-block font-medium ${
+                              evt.status === 'Done' ? 'bg-emerald-500/15 text-emerald-400' :
+                              evt.status === 'On-going' ? 'bg-amber-500/15 text-amber-400' :
+                              evt.status === 'Cancelled' ? 'bg-red-500/15 text-red-400' :
+                              'bg-slate-500/15 text-slate-500'
+                            }`}>{evt.status}</span>
                           </div>
                           <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             {canCreate && (
@@ -183,7 +188,7 @@ const Schedule = () => {
             {tasks.filter(t => t.status !== 'Done').length > 0 && (
               <div><h4 className="text-xs font-bold text-amber-400 uppercase mb-2 mt-4">Pending Deadlines</h4>
                 <div className="space-y-2">{[...tasks].filter(t => t.status !== 'Done').sort((a,b) => new Date(a.deadline) - new Date(b.deadline)).map(t => (
-                    <div key={t.id} className="p-3 rounded-lg border border-slate-800 bg-slate-800/30 hover:border-amber-500/30 transition-all duration-300 hover:shadow-md hover:-translate-y-1"><p className="font-bold text-sm text-slate-200 truncate">{t.task}</p><div className="flex justify-between items-center mt-1"><p className="text-xs text-amber-400 font-medium">Due: {t.deadline}</p><span className="text-[10px] bg-slate-700 text-slate-400 px-1.5 rounded truncate max-w-[80px]">{t.owner}</span></div></div>
+                    <div key={t.id} className="p-3 rounded-lg border border-slate-800 bg-slate-800/30 hover:border-amber-500/30 transition-all duration-300 hover:shadow-md hover:-translate-y-1"><p className="font-bold text-sm text-slate-200 truncate">{t.task}</p><div className="flex justify-between items-center mt-1"><p className="text-xs text-amber-400 font-medium">Due: {t.deadline}</p><span className="text-[10px] bg-sky-500/15 text-sky-400 px-1.5 py-0.5 rounded font-medium truncate max-w-[80px]">{t.owner}</span></div></div>
                   ))}</div></div>
             )}
          </div>

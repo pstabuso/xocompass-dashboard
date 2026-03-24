@@ -154,6 +154,7 @@
 [data-theme="light"] .bg-slate-950 { background-color: #f1f5f9 !important; }
 [data-theme="light"] .bg-slate-900 { background-color: #ffffff !important; }
 [data-theme="light"] .bg-slate-800 { background-color: #f1f5f9 !important; }
+[data-theme="light"] .bg-slate-700 { background-color: #e2e8f0 !important; }
 
 /* Opacity variants — mapped to light surfaces */
 [data-theme="light"] .bg-slate-900\/50  { background-color: rgba(255,255,255,0.85) !important; }
@@ -167,6 +168,7 @@
 [data-theme="light"] .bg-slate-800\/80  { background-color: rgba(241,245,249,0.85) !important; }
 [data-theme="light"] .bg-slate-900\/40  { background-color: rgba(248,250,252,0.6) !important; }
 [data-theme="light"] .bg-slate-900\/95  { background-color: rgba(255,255,255,0.97) !important; }
+[data-theme="light"] .bg-slate-700\/30  { background-color: rgba(226,232,240,0.3) !important; }
 [data-theme="light"] .bg-slate-700\/50  { background-color: rgba(226,232,240,0.5) !important; }
 
 /* Modal / overlay backdrops stay dark (intentional) */

@@ -203,7 +203,7 @@ const TaskTracker = () => {
                           <div>
                               <p className="font-bold text-slate-100">{task.task}</p>
                               <div className="flex items-center space-x-2 mt-1">
-                                  <span className="text-xs bg-slate-800 px-2 py-0.5 rounded text-slate-400 border border-slate-700">{task.owner}</span>
+                                  <span className="text-xs bg-sky-500/10 text-sky-400 border border-sky-500/20 px-2 py-0.5 rounded">{task.owner}</span>
                                   <span className="text-xs text-slate-500">Due: {task.deadline}</span>
                               </div>
                           </div>
