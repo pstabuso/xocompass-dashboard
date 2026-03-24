@@ -117,7 +117,7 @@ const GanttView = ({ tasks, onSelectTask }) => {
           <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 bg-amber-500 rounded-sm opacity-60"></div>In Progress</div>
           <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 bg-emerald-500 rounded-sm opacity-60"></div>Done</div>
           <div className="flex items-center gap-1"><div className="w-0.5 h-3 bg-sky-400"></div>Today</div>
-          <div className="flex items-center gap-1"><div className="w-0.5 h-3 border-l-2 border-dashed border-purple-500/60"></div>Events</div>
+          <div className="flex items-center gap-1"><div className="w-3 h-3 rotate-45 bg-purple-500/40 border border-purple-400/60 rounded-sm"></div>Events</div>
         </div>
       </div>
 
@@ -130,7 +130,7 @@ const GanttView = ({ tasks, onSelectTask }) => {
             {/* Label header */}
             <div className="sticky left-0 z-40 bg-slate-900 border-r border-slate-800 flex items-center px-3"
               style={{ width: LABEL_W, minWidth: LABEL_W, height: 40 }}>
-              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Task</span>
+              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Task / Event</span>
             </div>
             {/* Timeline header */}
             <div className="relative bg-slate-900" style={{ width: timelineWidth, height: 40 }}>
@@ -219,30 +219,58 @@ const GanttView = ({ tasks, onSelectTask }) => {
             );
           })}
 
-          {/* Events row at bottom */}
+          {/* Events — one row each, same structure as tasks */}
           {events.length > 0 && (
-            <div className="flex border-t-2 border-slate-800" style={{ height: ROW_H }}>
-              <div className="sticky left-0 z-20 bg-slate-900 border-r border-slate-800 flex items-center px-3 shrink-0"
-                style={{ width: LABEL_W, minWidth: LABEL_W }}>
-                <span className="text-[10px] font-bold text-purple-400 uppercase tracking-wider">Events</span>
+            <>
+              <div className="flex border-t-2 border-slate-800/80 bg-slate-950/30" style={{ height: 28 }}>
+                <div className="sticky left-0 z-20 bg-slate-950/60 border-r border-slate-800 flex items-center px-3 shrink-0"
+                  style={{ width: LABEL_W, minWidth: LABEL_W }}>
+                  <span className="text-[9px] font-bold text-purple-400/80 uppercase tracking-widest">Events</span>
+                </div>
+                <div className="flex-1" />
               </div>
-              <div className="relative" style={{ width: timelineWidth }}>
-                {events.map(evt => {
-                  const evtLeft = getPos(evt.date);
-                  if (evtLeft < 0 || evtLeft > timelineWidth) return null;
-                  return (
-                    <div key={evt.id}
-                      className="absolute top-1/2 -translate-y-1/2 flex flex-col items-center z-10"
-                      style={{ left: evtLeft }}>
-                      <div className="w-px h-4 bg-purple-500/40 mb-0.5" />
-                      <div className="bg-purple-500/15 border border-purple-500/30 rounded px-1.5 py-0.5 max-w-[120px]">
-                        <p className="text-[9px] font-bold text-purple-300 truncate">{evt.title}</p>
+              {events.map((evt, idx) => {
+                const evtLeft = getPos(evt.date);
+                return (
+                  <div key={evt.id} className={`flex border-b border-slate-800/40 ${idx % 2 === 0 ? 'bg-slate-900/10' : 'bg-purple-950/10'}`}
+                    style={{ height: ROW_H }}>
+                    {/* Sticky label */}
+                    <div className="sticky left-0 z-20 bg-slate-900 border-r border-slate-800 flex items-center px-3 gap-2 shrink-0"
+                      style={{ width: LABEL_W, minWidth: LABEL_W }}>
+                      <div className="w-2 h-2 rounded-full bg-purple-500/60 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-purple-200 truncate leading-tight">{evt.title}</p>
+                        <p className="text-[9px] text-slate-500 truncate">{evt.date}</p>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            </div>
+                    {/* Timeline cell */}
+                    <div className="relative" style={{ width: timelineWidth }}>
+                      {/* Grid lines */}
+                      {Array.from({ length: Math.ceil(timelineWidth / pxPerDay) }).map((_, i) => (
+                        <div key={i} className="absolute top-0 bottom-0 border-r border-slate-800/20" style={{ left: i * pxPerDay }} />
+                      ))}
+                      {/* Today line */}
+                      {todayLeft >= 0 && todayLeft <= timelineWidth && (
+                        <div className="absolute top-0 bottom-0 w-0.5 bg-sky-500/30 z-10" style={{ left: todayLeft }} />
+                      )}
+                      {/* Event milestone marker */}
+                      {evtLeft >= 0 && evtLeft <= timelineWidth && (
+                        <div className="absolute top-1/2 -translate-y-1/2 z-10 flex flex-col items-center"
+                          style={{ left: evtLeft + pxPerDay / 2 - 8 }}>
+                          {/* Diamond shape */}
+                          <div className="w-4 h-4 rotate-45 bg-purple-500/40 border border-purple-400/60 rounded-sm mb-1" />
+                          {pxPerDay >= 20 && (
+                            <div className="bg-purple-500/15 border border-purple-500/30 rounded px-1.5 py-0.5 -mt-0.5 max-w-[100px]">
+                              <p className="text-[8px] font-bold text-purple-300 truncate">{evt.title}</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </>
           )}
         </div>
       </div>
