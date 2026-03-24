@@ -190,12 +190,13 @@ let _notifySessionExpired = null;
 // ── Retry queue for failed writes (ISO 25010 — Reliability) ──
 const RETRY_QUEUE_KEY = 'xo_retry_queue';
 const MAX_RETRIES = 3;
+// Warn at 40 so users have 10 writes of buffer before the hard cap (50).
+const OFFLINE_QUEUE_WARN = 40;
 
 const enqueueRetry = (operation, table, payload) => {
   try {
-    const queue = JSON.parse(localStorage.getItem(RETRY_QUEUE_KEY) || '[]');
+    const queue = readLocal(RETRY_QUEUE_KEY, []);
     queue.push({ operation, table, payload, retries: 0, created_at: Date.now() });
-    // Keep queue bounded (max 50 pending operations)
     if (queue.length > 50) queue.shift();
     localStorage.setItem(RETRY_QUEUE_KEY, JSON.stringify(queue));
   } catch { /* ignore */ }
@@ -262,8 +263,7 @@ const deleteRow = async (table, id) => {
 /** Process retry queue — called on mount and periodically */
 const processRetryQueue = async () => {
   if (!supabase) return;
-  let queue;
-  try { queue = JSON.parse(localStorage.getItem(RETRY_QUEUE_KEY) || '[]'); } catch { return; }
+  const queue = readLocal(RETRY_QUEUE_KEY, []);
   if (queue.length === 0) return;
 
   const remaining = [];
@@ -304,6 +304,7 @@ export const AppProvider = ({ children }) => {
   // re-fetch and silently overwrite the correct data.  Each fetch stamps its
   // own generation; only the highest-numbered fetch is allowed to commit.
   const fetchGenRef = useRef(0);
+  const lastVisibilityFetchRef = useRef(0);
 
   // ── Feature 1: Session expiry state ──────────────────────────────
   // sessionExpiredRef gates re-entry so the banner fires exactly once.
@@ -321,34 +322,30 @@ export const AppProvider = ({ children }) => {
     return () => { _notifySessionExpired = null; };
   }, []);
 
-  const dismissSessionExpiry = useCallback(() => {
-    // Reload is the safest recovery: re-login re-issues a fresh JWT.
+  // Reset the ref so the banner can refire if the browser presents an
+  // "unsaved changes" dialog and the user cancels the reload.
+  const dismissSessionExpiry = () => {
+    sessionExpiredRef.current = false;
     window.location.reload();
-  }, []);
+  };
 
   // ── Feature 2: Online status + offline queue overflow warning ─────
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [offlineQueueFull, setOfflineQueueFull] = useState(false);
-  // Threshold: warn at 40 so the user has 10 writes before the hard cap (50).
-  const OFFLINE_QUEUE_WARN = 40;
 
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
-      setOfflineQueueFull(false); // connection restored — warning no longer relevant
+      setOfflineQueueFull(false);
     };
     const handleOffline = () => setIsOnline(false);
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    // Poll the retry queue size every 3 s — only reads localStorage so it's cheap.
-    // We only show the warning when genuinely offline AND queue >= threshold.
+    // Poll only when offline — reads localStorage, no network cost.
     const checkQueue = () => {
       if (navigator.onLine) return;
-      try {
-        const q = JSON.parse(localStorage.getItem(RETRY_QUEUE_KEY) || '[]');
-        setOfflineQueueFull(q.length >= OFFLINE_QUEUE_WARN);
-      } catch { /* ignore parse errors */ }
+      setOfflineQueueFull(readLocal(RETRY_QUEUE_KEY, []).length >= OFFLINE_QUEUE_WARN);
     };
     const queuePoll = setInterval(checkQueue, 3000);
 
@@ -363,46 +360,34 @@ export const AppProvider = ({ children }) => {
   // The `storage` event fires in every OTHER tab when localStorage changes.
   // This gives us cross-tab logout propagation and zero-refetch data sync.
   useEffect(() => {
+    // Map from localStorage key → React state setter for data arrays.
+    // Kept inside the effect so setters are captured from the stable closure.
+    const dataKeySetters = {
+      tasks: setTasks, events: setEvents, minutes: setMinutes,
+      datasets: setDatasets, activityLog: setActivityLog, notifications: setNotifications,
+    };
+
     const handleStorageSync = (event) => {
-      // Skip same-origin writes that didn't actually change the value.
-      // This breaks the potential echo loop: Tab A writes → Tab B syncs →
-      // Tab B mirror-writes same value → Tab A storage event → skip.
+      // Skip no-op writes (breaks echo loop: Tab A → Tab B syncs → Tab B
+      // mirror-writes same value → Tab A gets same old/new → skip).
       if (event.newValue === event.oldValue) return;
 
-      switch (event.key) {
-        case 'xo_user':
-          if (event.newValue === null) {
-            // Another tab signed out — mirror a full local sign-out without
-            // re-calling supabase.auth.signOut (already done by the other tab).
-            setUser(null);
-            setTasks([]);  setEvents([]);  setMinutes([]);
-            setDatasets([]); setActivityLog([]); setNotifications([]);
-            authSettledRef.current = false;
-            setAuthSettled(false);
-          }
-          break;
-        // For data keys: only sync actual writes (newValue !== null).
-        // null means the key was removed as part of sign-out — xo_user case above
-        // already handles the full state clear.
-        case 'tasks':
-          try { if (event.newValue) setTasks(JSON.parse(event.newValue)); } catch { /* corrupt */ }
-          break;
-        case 'events':
-          try { if (event.newValue) setEvents(JSON.parse(event.newValue)); } catch { /* corrupt */ }
-          break;
-        case 'minutes':
-          try { if (event.newValue) setMinutes(JSON.parse(event.newValue)); } catch { /* corrupt */ }
-          break;
-        case 'datasets':
-          try { if (event.newValue) setDatasets(JSON.parse(event.newValue)); } catch { /* corrupt */ }
-          break;
-        case 'activityLog':
-          try { if (event.newValue) setActivityLog(JSON.parse(event.newValue)); } catch { /* corrupt */ }
-          break;
-        case 'notifications':
-          try { if (event.newValue) setNotifications(JSON.parse(event.newValue)); } catch { /* corrupt */ }
-          break;
-        default: break;
+      if (event.key === 'xo_user') {
+        if (event.newValue === null) {
+          // Another tab signed out — mirror locally without re-calling signOut.
+          setUser(null);
+          setTasks([]); setEvents([]); setMinutes([]);
+          setDatasets([]); setActivityLog([]); setNotifications([]);
+          authSettledRef.current = false;
+          setAuthSettled(false);
+        }
+        return;
+      }
+
+      // Data key: sync write from another tab (null = sign-out removal, handled above).
+      const setter = dataKeySetters[event.key];
+      if (setter && event.newValue) {
+        try { setter(JSON.parse(event.newValue)); } catch { /* corrupt value — ignore */ }
       }
     };
 
@@ -581,6 +566,14 @@ export const AppProvider = ({ children }) => {
         // React's async batching cannot.
         if (!authSettledRef.current) return;
 
+        const now = Date.now();
+        const elapsed = now - lastVisibilityFetchRef.current;
+        const anyDead = subscriptionsRef.current.some(
+          ch => ch.state !== 'joined' && ch.state !== 'joining'
+        );
+        if (elapsed < 30_000 && !anyDead) return;
+        lastVisibilityFetchRef.current = now;
+
         // ALWAYS re-fetch from cloud on focus — do NOT gate behind channel state.
         // iOS Safari and Chrome background-suspend WebSocket connections into a
         // zombie state: ch.state stays 'joined' but no messages arrive, so the
@@ -601,10 +594,6 @@ export const AppProvider = ({ children }) => {
           if (n) setNotifications(n.map(enrichNotification));
         }).catch(() => {});
 
-        // Additionally reconnect any channels that are genuinely dead
-        const anyDead = subscriptionsRef.current.some(
-          ch => ch.state !== 'joined' && ch.state !== 'joining'
-        );
         if (anyDead) {
           console.log('[XoCompass] Tab refocused — reconnecting dead realtime channels');
           setupSubscriptions();
