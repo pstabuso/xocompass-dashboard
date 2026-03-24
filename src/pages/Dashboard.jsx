@@ -156,21 +156,23 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* 2. KPI CARDS (High Contrast) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-6 mb-8">
+      {/* 2. KPI CARDS — always 3 columns so all cards visible at once on mobile */}
+      <div className="grid grid-cols-3 gap-2 sm:gap-6 mb-4 sm:mb-8">
         {metrics.map((m, idx) => (
-          <div key={idx} className={`p-3 sm:p-5 rounded-2xl relative overflow-hidden group border transition-all duration-300 ${m.bg} hover:border-opacity-50`}>
-            <div className={`absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity transform group-hover:scale-110 ${m.color}`}>
-              <m.icon size={80} />
+          <div key={idx} className={`p-2 sm:p-5 rounded-xl sm:rounded-2xl relative overflow-hidden group border transition-all duration-300 ${m.bg} hover:border-opacity-50`}>
+            <div className={`absolute top-0 right-0 p-2 sm:p-4 opacity-10 group-hover:opacity-20 transition-opacity transform group-hover:scale-110 ${m.color}`}>
+              <m.icon size={60} />
             </div>
             <div className="relative z-10">
-              <div className={`w-10 h-10 rounded-lg flex items-center justify-center mb-3 sm:mb-4 bg-slate-950/30 border border-white/10`}>
-                <m.icon size={20} className={m.color} />
+              <div className={`w-7 h-7 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center mb-2 sm:mb-4 bg-slate-950/30 border border-white/10`}>
+                <m.icon size={14} className={`${m.color} sm:hidden`} />
+                <m.icon size={20} className={`${m.color} hidden sm:block`} />
               </div>
-              <p className="text-slate-300 text-xs font-bold uppercase tracking-widest mb-1 opacity-80">{m.label}</p>
-              <h3 className="text-lg sm:text-2xl font-bold text-white tracking-tight">{m.val}</h3>
-              <p className="text-slate-400 text-sm mt-1 sm:mt-2 flex items-center gap-1 font-medium">
-                <Activity size={14} className={m.color}/> {m.sub}
+              <p className="text-slate-300 text-[8px] sm:text-xs font-bold uppercase tracking-wide sm:tracking-widest mb-0.5 sm:mb-1 opacity-80 leading-tight">{m.label}</p>
+              <h3 className="text-base sm:text-2xl font-bold text-white tracking-tight leading-none">{m.val}</h3>
+              <p className="text-slate-400 text-[10px] sm:text-sm mt-1 sm:mt-2 flex items-center gap-0.5 sm:gap-1 font-medium leading-tight">
+                <Activity size={10} className={`${m.color} shrink-0 sm:hidden`}/>
+                <Activity size={14} className={`${m.color} shrink-0 hidden sm:block`}/> <span className="truncate">{m.sub}</span>
               </p>
             </div>
           </div>

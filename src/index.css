@@ -162,6 +162,8 @@
 [data-theme="light"] .bg-slate-900\/80  { background-color: rgba(255,255,255,0.95) !important; }
 [data-theme="light"] .bg-slate-950\/80  { background-color: rgba(241,245,249,0.90) !important; }
 [data-theme="light"] .bg-slate-950\/60  { background-color: rgba(241,245,249,0.80) !important; }
+[data-theme="light"] .bg-slate-950\/30  { background-color: rgba(241,245,249,0.50) !important; }
+[data-theme="light"] .border-white\/10  { border-color: rgba(0,0,0,0.08) !important; }
 [data-theme="light"] .bg-slate-800\/30  { background-color: rgba(241,245,249,0.4) !important; }
 [data-theme="light"] .bg-slate-800\/50  { background-color: rgba(241,245,249,0.6) !important; }
 [data-theme="light"] .bg-slate-800\/60  { background-color: rgba(241,245,249,0.75) !important; }
@@ -221,6 +223,14 @@
 [data-theme="light"] .text-amber-300     { color: #d97706 !important; }
 [data-theme="light"] .text-blue-300      { color: #2563eb !important; }
 [data-theme="light"] .text-red-500       { color: #b91c1c !important; }
+/* -200 shades are near-white in dark mode — remap to deep readable tones for light mode */
+[data-theme="light"] .text-red-200      { color: #991b1b !important; }
+[data-theme="light"] .text-amber-200    { color: #92400e !important; }
+[data-theme="light"] .text-emerald-200  { color: #065f46 !important; }
+[data-theme="light"] .text-blue-200     { color: #1e3a8a !important; }
+[data-theme="light"] .text-sky-200      { color: #075985 !important; }
+[data-theme="light"] .text-purple-200   { color: #581c87 !important; }
+[data-theme="light"] .text-indigo-200   { color: #312e81 !important; }
 
 /* ── Colored borders → softer for light mode ── */
 [data-theme="light"] .border-emerald-500\/20 { border-color: rgba(16,185,129,0.25) !important; }
