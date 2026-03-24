@@ -52,7 +52,7 @@ const Minutes = () => {
       updateMinute(editingId, formData);
     } else {
       // Use snake_case field names to match Supabase schema
-      addMinute({ ...formData, action_point: 'See Doc', items: [], notes: 'Linked via App' });
+      addMinute(formData);
     }
     closeModal();
   };

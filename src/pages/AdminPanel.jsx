@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAppContext, isNotificationForUser } from '../context/AppContext';
 import { isCloudEnabled, fetchAllProfiles, updateUserRole } from '../lib/supabase';
 import { Shield, Users, Activity, RefreshCw, AlertTriangle, CheckCircle, XCircle, Ban, FileText, CheckSquare, Database, Calendar, Bell, Edit2, Trash2, MessageSquare, LogIn, LogOut, UserPlus, Send, LockKeyhole } from 'lucide-react';
@@ -56,9 +56,13 @@ const AdminPanel = () => {
   const [activityFilter, setActivityFilter] = useState('all');
 
   const isAdmin = user?.permissions?.isAdmin;
+  const lastFetchRef = useRef(0);
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async ({ force = false } = {}) => {
     if (!isCloudEnabled) return;
+    const now = Date.now();
+    if (!force && now - lastFetchRef.current < 30_000) return;
+    lastFetchRef.current = now;
     setLoading(true);
     // Refresh profiles AND activity log so the Actions counter reflects the
     // true server count, not whatever happened to arrive on this device.
@@ -67,8 +71,17 @@ const AdminPanel = () => {
     setLoading(false);
   }, [refreshActivityLog]);
 
+  // Initial load on mount
   useEffect(() => {
-    if (isAdmin) loadData();
+    if (isAdmin) loadData({ force: true });
+  }, [isAdmin, loadData]);
+
+  // Re-fetch when tab regains focus so profiles/activity stay current
+  useEffect(() => {
+    if (!isAdmin) return;
+    const onVisible = () => { if (document.visibilityState === 'visible') loadData(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
   }, [isAdmin, loadData]);
 
   const handleRoleChange = async (userId, newRole) => {
@@ -124,7 +137,7 @@ const AdminPanel = () => {
           <p className="text-slate-500 text-xs sm:text-sm">Manage team members and view activity</p>
         </div>
         <button
-          onClick={loadData}
+          onClick={() => loadData({ force: true })}
           disabled={loading}
           aria-label="Refresh data"
           className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-slate-800 border border-slate-700 text-slate-300 rounded-lg font-bold hover:bg-slate-700 transition active:scale-95 disabled:opacity-50 text-sm"
