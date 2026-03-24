@@ -438,6 +438,15 @@ export const AppProvider = ({ children }) => {
     // Re-subscribe when tab regains focus (handles browser throttling)
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
+        // GUARD: authSettledRef.current is set to false SYNCHRONOUSLY at the
+        // very start of signOut(), before any async work or React state updates.
+        // Without this, the event listener (still attached until React processes
+        // setAuthSettled(false)) fires during the sign-out window and re-fetches
+        // with the still-live in-memory JWT — repopulating state that was just
+        // cleared.  The ref check is synchronous so it catches the race that
+        // React's async batching cannot.
+        if (!authSettledRef.current) return;
+
         // ALWAYS re-fetch from cloud on focus — do NOT gate behind channel state.
         // iOS Safari and Chrome background-suspend WebSocket connections into a
         // zombie state: ch.state stays 'joined' but no messages arrive, so the
@@ -449,6 +458,9 @@ export const AppProvider = ({ children }) => {
           fetchTable(TABLES.minutes),  fetchTable(TABLES.datasets),
           fetchTable(TABLES.activity_log), fetchTable(TABLES.notifications),
         ]).then(([t, e, m, d, a, n]) => {
+          // Double-check auth is still settled after the async fetch completes.
+          // Protects against sign-out that happens while the fetch is in-flight.
+          if (!authSettledRef.current) return;
           if (t) setTasks(t);   if (e) setEvents(e);
           if (m) setMinutes(m); if (d) setDatasets(d);
           if (a) setActivityLog(a);
@@ -984,7 +996,10 @@ export const AppProvider = ({ children }) => {
       fetchProfile(data.user.id).then(profile => {
         if (!profile) return;
         if (profile.role === 'restricted') {
-          supabase.auth.signOut();
+          // Use scope:'local' to avoid NavigatorLock contention on desktop
+          // Chrome/Firefox — the default signOut() holds the lock for the full
+          // server round-trip and causes the next signInWithPassword to time out.
+          supabase.auth.signOut({ scope: 'local' }).catch(() => {});
           setUser(null);
           localStorage.removeItem('xo_user');
           return;
