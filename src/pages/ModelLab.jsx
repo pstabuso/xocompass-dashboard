@@ -866,7 +866,7 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-2 no-scrollbar custom-scrollbar">
+        <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1 no-scrollbar">
           {steps.map((s, idx) => (
             <div key={s.id} className="flex items-center shrink-0">
               <button
@@ -942,7 +942,7 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                 <div className="animate-in fade-in slide-in-from-bottom-4 space-y-6">
                     
                     {/* KPI Dashboard */}
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 sm:gap-4">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-2 sm:gap-4">
                         <div className="bg-slate-900/80 border border-slate-800 rounded-xl sm:rounded-2xl p-3 sm:p-4 shadow-lg">
                             <h4 className="text-[9px] sm:text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 flex items-center gap-1"><Database size={10} className="shrink-0"/> Total Demand</h4>
                             <div className="text-lg sm:text-2xl font-black text-white">{totalDemandUnits.toLocaleString()}</div>
