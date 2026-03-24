@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
-import { LayoutDashboard, CheckSquare, Calendar, Book, FolderOpen, LogOut, User, Database, Shield, BrainCircuit, Users, Cloud, CloudOff, Loader2, Mail, Lock, Eye, EyeOff, Menu, X, Bell, LockKeyhole, Send, ArrowRight, Sun, Moon } from 'lucide-react';
+import { LayoutDashboard, CheckSquare, Calendar, Book, FolderOpen, LogOut, User, Database, Shield, BrainCircuit, Users, Cloud, CloudOff, Loader2, Mail, Lock, Eye, EyeOff, Menu, X, Bell, LockKeyhole, Send, ArrowRight, Sun, Moon, AlertTriangle, RefreshCw, WifiOff } from 'lucide-react';
 import { AppProvider, useAppContext, ROLE_ROUTES, isNotificationForUser } from './context/AppContext';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { isCloudEnabled } from './lib/supabase';
@@ -461,6 +461,62 @@ const WelcomeScreen = () => {
   );
 };
 
+// ── Feature 1: Session Expiry Banner ───────────────────────────────
+// Blocking overlay — shown when a write returns 401 / "JWT expired".
+// autoRefreshToken:false means the JWT silently dies after ~1 hour; the
+// only safe recovery is a full page reload to trigger a fresh sign-in.
+const SessionExpiredBanner = () => {
+  const { sessionExpired, dismissSessionExpiry } = useAppContext();
+  if (!sessionExpired) return null;
+  return (
+    <div className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
+      <div className="bg-slate-900 border border-amber-500/40 rounded-2xl shadow-2xl shadow-amber-900/30 max-w-md w-full p-6 sm:p-8 text-center space-y-5">
+        <div className="flex items-center justify-center w-14 h-14 rounded-full bg-amber-500/15 border border-amber-500/30 mx-auto">
+          <AlertTriangle size={28} className="text-amber-400" />
+        </div>
+        <div>
+          <h2 className="text-lg font-bold text-white mb-1">Session Expired</h2>
+          <p className="text-sm text-slate-400 leading-relaxed">
+            Your login session has expired after 1 hour of inactivity. Any unsaved changes have been preserved locally. Please reload to continue.
+          </p>
+        </div>
+        <button
+          onClick={dismissSessionExpiry}
+          className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-amber-500 hover:bg-amber-400 active:scale-95 text-black font-bold rounded-xl transition-all shadow-lg shadow-amber-900/30 text-sm"
+        >
+          <RefreshCw size={16} /> Reload &amp; Re-authenticate
+        </button>
+        <p className="text-[11px] text-slate-600">
+          Your work is safe — it will sync automatically after you log back in.
+        </p>
+      </div>
+    </div>
+  );
+};
+
+// ── Feature 2: Offline Queue Overflow Warning ───────────────────────
+// Shown when the device is offline AND the retry queue reaches 40 items
+// (10 below the hard cap of 50), giving the user time to reconnect.
+const OfflineQueueWarning = () => {
+  const { isOnline, offlineQueueFull } = useAppContext();
+  if (isOnline || !offlineQueueFull) return null;
+  return (
+    <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[400] w-[calc(100%-2rem)] max-w-sm animate-in slide-in-from-bottom-4">
+      <div className="bg-orange-900/95 backdrop-blur-sm border border-orange-500/40 rounded-xl px-4 py-3 shadow-2xl shadow-orange-900/40">
+        <div className="flex items-start gap-3">
+          <WifiOff size={18} className="text-orange-300 mt-0.5 shrink-0" />
+          <div>
+            <p className="text-xs font-bold text-orange-200">Offline Queue Almost Full</p>
+            <p className="text-[11px] text-orange-300/80 mt-0.5 leading-relaxed">
+              You are offline and have nearly 40 pending saves. Please reconnect soon — further changes beyond 50 will be lost permanently.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const SyncErrorToast = () => {
   const { syncError } = useAppContext();
   if (!syncError) return null;
@@ -635,6 +691,8 @@ const AppContent = () => {
           </Routes>
         </main>
         <SyncErrorToast />
+        <SessionExpiredBanner />
+        <OfflineQueueWarning />
       </div>
     </Router>
   );

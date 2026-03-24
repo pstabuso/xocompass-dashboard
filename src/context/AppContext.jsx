@@ -162,6 +162,31 @@ const fetchTable = async (table) => {
   return data;
 };
 
+// ─── SESSION EXPIRY DETECTION ─────────────────────────────────────
+// With autoRefreshToken:false the Supabase JWT silently becomes invalid
+// after ~1 hour.  Any write after that returns HTTP 401 / "JWT expired".
+// We detect this in every write path and surface a blocking banner.
+
+/** True when a Supabase error indicates the JWT is expired or missing */
+const isJwtExpiredError = (error) => {
+  if (!error) return false;
+  const msg = typeof error.message === 'string' ? error.message.toLowerCase() : '';
+  return (
+    error.status === 401 ||
+    error.code === 'PGRST301' ||      // PostgREST JWT validation failure
+    msg.includes('jwt expired') ||
+    msg.includes('invalid jwt') ||
+    msg.includes('jwtexpired') ||
+    msg.includes('not authenticated') ||
+    (msg.includes('jwt') && (msg.includes('expir') || msg.includes('invalid')))
+  );
+};
+
+// Module-level singleton so module-scoped write helpers can reach the
+// provider's state setter without being refactored into useCallbacks.
+// Guaranteed single-instance: AppProvider is mounted exactly once.
+let _notifySessionExpired = null;
+
 // ── Retry queue for failed writes (ISO 25010 — Reliability) ──
 const RETRY_QUEUE_KEY = 'xo_retry_queue';
 const MAX_RETRIES = 3;
@@ -201,6 +226,7 @@ const upsertRow = async (table, row) => {
   const { error } = await supabase.from(table).upsert(cleaned, { onConflict: 'id' });
   if (error) {
     console.error(`[XoCompass] upsert ${table}:`, error.message);
+    if (isJwtExpiredError(error)) { _notifySessionExpired?.(); return { ok: false, error: 'session_expired' }; }
     enqueueRetry('upsert', table, cleaned);
     return { ok: false, error: error.message };
   }
@@ -215,6 +241,7 @@ const insertRow = async (table, row) => {
   const { error } = await supabase.from(table).insert(cleaned);
   if (error) {
     console.error(`[XoCompass] insert ${table}:`, error.message);
+    if (isJwtExpiredError(error)) { _notifySessionExpired?.(); return { ok: false, error: 'session_expired' }; }
     enqueueRetry('insert', table, cleaned);
     return { ok: false, error: error.message };
   }
@@ -227,6 +254,7 @@ const deleteRow = async (table, id) => {
   const { error } = await supabase.from(table).delete().eq('id', id);
   if (error) {
     console.error(`[XoCompass] delete ${table}:`, error.message);
+    if (isJwtExpiredError(error)) { _notifySessionExpired?.(); return; }
     enqueueRetry('delete', table, { id });
   }
 };
@@ -276,6 +304,112 @@ export const AppProvider = ({ children }) => {
   // re-fetch and silently overwrite the correct data.  Each fetch stamps its
   // own generation; only the highest-numbered fetch is allowed to commit.
   const fetchGenRef = useRef(0);
+
+  // ── Feature 1: Session expiry state ──────────────────────────────
+  // sessionExpiredRef gates re-entry so the banner fires exactly once.
+  const [sessionExpired, setSessionExpired] = useState(false);
+  const sessionExpiredRef = useRef(false);
+
+  // Register the module-level singleton so insertRow/upsertRow/deleteRow can
+  // reach this setter.  Cleans up on unmount so stale closures never fire.
+  useEffect(() => {
+    _notifySessionExpired = () => {
+      if (sessionExpiredRef.current) return;
+      sessionExpiredRef.current = true;
+      setSessionExpired(true);
+    };
+    return () => { _notifySessionExpired = null; };
+  }, []);
+
+  const dismissSessionExpiry = useCallback(() => {
+    // Reload is the safest recovery: re-login re-issues a fresh JWT.
+    window.location.reload();
+  }, []);
+
+  // ── Feature 2: Online status + offline queue overflow warning ─────
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [offlineQueueFull, setOfflineQueueFull] = useState(false);
+  // Threshold: warn at 40 so the user has 10 writes before the hard cap (50).
+  const OFFLINE_QUEUE_WARN = 40;
+
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+      setOfflineQueueFull(false); // connection restored — warning no longer relevant
+    };
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    // Poll the retry queue size every 3 s — only reads localStorage so it's cheap.
+    // We only show the warning when genuinely offline AND queue >= threshold.
+    const checkQueue = () => {
+      if (navigator.onLine) return;
+      try {
+        const q = JSON.parse(localStorage.getItem(RETRY_QUEUE_KEY) || '[]');
+        setOfflineQueueFull(q.length >= OFFLINE_QUEUE_WARN);
+      } catch { /* ignore parse errors */ }
+    };
+    const queuePoll = setInterval(checkQueue, 3000);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+      clearInterval(queuePoll);
+    };
+  }, []);
+
+  // ── Feature 3: Multi-tab localStorage sync ───────────────────────
+  // The `storage` event fires in every OTHER tab when localStorage changes.
+  // This gives us cross-tab logout propagation and zero-refetch data sync.
+  useEffect(() => {
+    const handleStorageSync = (event) => {
+      // Skip same-origin writes that didn't actually change the value.
+      // This breaks the potential echo loop: Tab A writes → Tab B syncs →
+      // Tab B mirror-writes same value → Tab A storage event → skip.
+      if (event.newValue === event.oldValue) return;
+
+      switch (event.key) {
+        case 'xo_user':
+          if (event.newValue === null) {
+            // Another tab signed out — mirror a full local sign-out without
+            // re-calling supabase.auth.signOut (already done by the other tab).
+            setUser(null);
+            setTasks([]);  setEvents([]);  setMinutes([]);
+            setDatasets([]); setActivityLog([]); setNotifications([]);
+            authSettledRef.current = false;
+            setAuthSettled(false);
+          }
+          break;
+        // For data keys: only sync actual writes (newValue !== null).
+        // null means the key was removed as part of sign-out — xo_user case above
+        // already handles the full state clear.
+        case 'tasks':
+          try { if (event.newValue) setTasks(JSON.parse(event.newValue)); } catch { /* corrupt */ }
+          break;
+        case 'events':
+          try { if (event.newValue) setEvents(JSON.parse(event.newValue)); } catch { /* corrupt */ }
+          break;
+        case 'minutes':
+          try { if (event.newValue) setMinutes(JSON.parse(event.newValue)); } catch { /* corrupt */ }
+          break;
+        case 'datasets':
+          try { if (event.newValue) setDatasets(JSON.parse(event.newValue)); } catch { /* corrupt */ }
+          break;
+        case 'activityLog':
+          try { if (event.newValue) setActivityLog(JSON.parse(event.newValue)); } catch { /* corrupt */ }
+          break;
+        case 'notifications':
+          try { if (event.newValue) setNotifications(JSON.parse(event.newValue)); } catch { /* corrupt */ }
+          break;
+        default: break;
+      }
+    };
+
+    window.addEventListener('storage', handleStorageSync);
+    return () => window.removeEventListener('storage', handleStorageSync);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // intentionally empty — setters are stable React dispatch functions
 
   // Auto-clear sync errors after 5 seconds
   useEffect(() => {
@@ -1174,6 +1308,8 @@ export const AppProvider = ({ children }) => {
       notifications, nudgeUser, clearNotifications, requestAccess,
       exportAllData, importAllData,
       syncStatus, syncError, isCloudEnabled, cloudReady,
+      sessionExpired, dismissSessionExpiry,
+      isOnline, offlineQueueFull,
     }}>
       {children}
     </AppContext.Provider>
