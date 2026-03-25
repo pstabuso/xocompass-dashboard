@@ -531,7 +531,7 @@ const TaskTracker = () => {
                                     <span className="text-xs text-slate-500">{getProgress(expandedTask)}%</span>
                                 </div>
                                 <div className="w-full bg-slate-700 h-2 rounded-full overflow-hidden mb-4">
-                                     <div className="bg-sky-500 h-full rounded-full transition-all duration-500" style={{width: `${getProgress(expandedTask)}%`}}></div>
+                                     <div className="bg-emerald-500 h-full rounded-full transition-all duration-500" style={{width: `${getProgress(expandedTask)}%`}}></div>
                                 </div>
                                 <div className="space-y-3">
                                     {(expandedTask.subtasks || []).map(st => (

@@ -172,6 +172,7 @@
 [data-theme="light"] .bg-slate-900\/95  { background-color: rgba(255,255,255,0.97) !important; }
 [data-theme="light"] .bg-slate-700\/30  { background-color: rgba(226,232,240,0.3) !important; }
 [data-theme="light"] .bg-slate-700\/50  { background-color: rgba(226,232,240,0.5) !important; }
+[data-theme="light"] .bg-slate-700\/60  { background-color: rgba(226,232,240,0.6) !important; }
 
 /* Modal / overlay backdrops stay dark (intentional) */
 
@@ -221,6 +222,7 @@
 [data-theme="light"] .text-emerald-300   { color: #059669 !important; }
 [data-theme="light"] .text-red-300       { color: #dc2626 !important; }
 [data-theme="light"] .text-amber-300     { color: #d97706 !important; }
+[data-theme="light"] .text-amber-300\/70 { color: #b45309 !important; }
 [data-theme="light"] .text-blue-300      { color: #2563eb !important; }
 [data-theme="light"] .text-red-500       { color: #b91c1c !important; }
 /* -200 shades are near-white in dark mode — remap to deep readable tones for light mode */
