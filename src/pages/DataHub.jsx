@@ -368,11 +368,15 @@ const DataHub = () => {
                             disabled={!canDownload}>
                             <Download size={16} />
                           </button>
-                          {canCreate && (
+                          {canCreate ? (
                             <button onClick={() => handleEdit(d)} className="p-2 text-slate-500 hover:text-amber-400 hover:bg-amber-500/10 rounded-lg transition" aria-label="Edit"><Edit2 size={16} /></button>
+                          ) : (
+                            <button disabled title="Request edit access" className="p-2 text-slate-700 cursor-not-allowed rounded-lg"><LockKeyhole size={15} /></button>
                           )}
-                          {canDelete && (
+                          {canDelete ? (
                             <button onClick={() => setDeleteConfirmId(d.id)} className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition" aria-label="Delete"><Trash2 size={16} /></button>
+                          ) : (
+                            <button disabled title="Request delete access" className="p-2 text-slate-700 cursor-not-allowed rounded-lg"><LockKeyhole size={15} /></button>
                           )}
                         </div>
                       </td>
@@ -410,11 +414,15 @@ const DataHub = () => {
                         disabled={!canDownload}>
                         <Download size={13} />
                       </button>
-                      {canCreate && (
+                      {canCreate ? (
                         <button onClick={() => handleEdit(d)} className="p-2 text-slate-500 hover:text-amber-400 hover:bg-amber-500/10 rounded-lg transition"><Edit2 size={13} /></button>
+                      ) : (
+                        <button disabled title="Request edit access" className="p-2 text-slate-700 cursor-not-allowed rounded-lg"><LockKeyhole size={13} /></button>
                       )}
-                      {canDelete && (
+                      {canDelete ? (
                         <button onClick={() => setDeleteConfirmId(d.id)} className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition"><Trash2 size={13} /></button>
+                      ) : (
+                        <button disabled title="Request delete access" className="p-2 text-slate-700 cursor-not-allowed rounded-lg"><LockKeyhole size={13} /></button>
                       )}
                     </div>
                   </div>

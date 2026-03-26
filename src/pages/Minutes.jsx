@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { Plus, FileText, ExternalLink, X, Trash2, Edit2, AlertTriangle, LockKeyhole, Send } from 'lucide-react';
+import { Plus, FileText, ExternalLink, X, Trash2, Edit2, AlertTriangle, LockKeyhole, Send, Search, ChevronUp, ChevronDown } from 'lucide-react';
 
 /* ISO 25010 Security: Strict URL allowlist — only http(s) schemes permitted */
 const safeUrl = (url) => {
@@ -20,12 +20,18 @@ const Minutes = () => {
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({ date: '', topic: '', link: '' });
   const [accessSent, setAccessSent] = useState(false);
+  const [search, setSearch] = useState('');
+  const [sortDir, setSortDir] = useState('desc');
 
-  // Sorted list derived from context — no duplicate state
-  const sortedMinutes = useMemo(
-    () => [...(minutes || [])].sort((a, b) => new Date(b.date) - new Date(a.date)),
-    [minutes]
-  );
+  const sortedMinutes = useMemo(() => {
+    let list = [...(minutes || [])];
+    if (search.trim()) list = list.filter(m => m.topic?.toLowerCase().includes(search.trim().toLowerCase()));
+    list.sort((a, b) => {
+      const diff = new Date(a.date) - new Date(b.date);
+      return sortDir === 'desc' ? -diff : diff;
+    });
+    return list;
+  }, [minutes, search, sortDir]);
 
   const handleEdit = (meeting) => {
     if (!user?.permissions?.canCreate) return;
@@ -83,14 +89,40 @@ const Minutes = () => {
            <h2 className="text-xl sm:text-2xl font-bold text-slate-100">Minutes of Meeting</h2>
            <p className="text-slate-500 text-xs sm:text-sm">Centralized repository for Google Docs</p>
         </div>
-        {user?.permissions?.canCreate && (
+        {user?.permissions?.canCreate ? (
           <button
             onClick={() => setIsModalOpen(true)}
             className="flex items-center space-x-2 bg-pink-600 text-white px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl font-bold shadow-lg shadow-pink-900/20 transition-all duration-300 ease-in-out hover:bg-pink-500 hover:scale-105 active:scale-95"
           >
             <Plus size={18} /> <span>Log Meeting</span>
           </button>
+        ) : (
+          <button disabled title="Request edit access to log meetings" className="flex items-center space-x-2 bg-slate-800 border border-slate-700 text-slate-600 px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl font-bold cursor-not-allowed">
+            <LockKeyhole size={18} /> <span>Log Meeting</span>
+          </button>
         )}
+      </div>
+
+      {/* Search + Sort bar */}
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1">
+          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+          <input
+            type="text"
+            placeholder="Search meetings..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="w-full bg-slate-800 border border-slate-700 text-slate-300 pl-8 pr-3 py-2 rounded-lg text-sm outline-none focus:ring-2 focus:ring-pink-500 transition placeholder-slate-600"
+          />
+        </div>
+        <button
+          onClick={() => setSortDir(d => d === 'desc' ? 'asc' : 'desc')}
+          className="flex items-center gap-1.5 px-3 py-2 bg-slate-800 border border-slate-700 rounded-lg text-xs font-bold text-slate-400 hover:text-pink-400 transition shrink-0"
+          title={sortDir === 'desc' ? 'Newest first' : 'Oldest first'}
+        >
+          {sortDir === 'desc' ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+          <span className="hidden sm:inline">{sortDir === 'desc' ? 'Newest' : 'Oldest'}</span>
+        </button>
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:gap-4">
@@ -127,11 +159,15 @@ const Minutes = () => {
                         <span className="hidden sm:inline">Open</span>
                         <ExternalLink size={14} />
                     </a>
-                    {user?.permissions?.canCreate && (
+                    {user?.permissions?.canCreate ? (
                       <button onClick={() => handleEdit(meeting)} className="p-2 text-slate-600 hover:text-pink-400 hover:bg-pink-500/10 rounded-lg transition-all" aria-label="Edit meeting"><Edit2 size={16}/></button>
+                    ) : (
+                      <button disabled title="Request edit access" className="p-2 text-slate-700 cursor-not-allowed rounded-lg"><LockKeyhole size={16}/></button>
                     )}
-                    {user?.permissions?.canDelete && (
+                    {user?.permissions?.canDelete ? (
                       <button onClick={() => handleDeleteClick(meeting.id)} className="p-2 text-slate-600 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all" aria-label="Delete meeting"><Trash2 size={16}/></button>
+                    ) : (
+                      <button disabled title="Request delete access" className="p-2 text-slate-700 cursor-not-allowed rounded-lg"><LockKeyhole size={16}/></button>
                     )}
                 </div>
             </div>

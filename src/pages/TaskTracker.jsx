@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useAppContext } from '../context/AppContext';
-import { Plus, Trash2, X, MessageSquare, List, BarChart as GanttIcon, Layout, CheckSquare, AlertTriangle, Send, Edit2, Save, LockKeyhole } from 'lucide-react';
+import { Plus, Trash2, X, MessageSquare, List, BarChart as GanttIcon, Layout, CheckSquare, AlertTriangle, Send, Edit2, Save, LockKeyhole, ChevronUp, ChevronDown, ArrowUpDown } from 'lucide-react';
 import GanttView from '../components/GanttView';
 
 const RequestBanner = ({ page }) => {
@@ -25,6 +25,8 @@ const TaskTracker = () => {
   const { tasks, addTask, updateTask, updateTaskStatus, deleteTask, addTaskComment, subtasks, profiles, user } = useAppContext();
   const [viewMode, setViewMode] = useState('board');
   const [filter, setFilter] = useState('All');
+  const [sortBy, setSortBy] = useState('deadline');
+  const [sortDir, setSortDir] = useState('asc');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [expandedTask, setExpandedTask] = useState(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
@@ -44,8 +46,25 @@ const TaskTracker = () => {
     ? profiles.map(p => p.name).filter(Boolean)
     : Array.from(new Set([user?.name, ...tasks.map(t => t.owner)].filter(Boolean)));
 
-  const filteredTasks = filter === 'All' ? tasks : tasks.filter(t => t.owner === filter || t.owner?.includes(filter));
-  const ownerOptions = ['All', ...Array.from(new Set([...teamMembers, ...tasks.map(t => t.owner)].filter(Boolean)))];
+  const PRIORITY_ORDER = { Critical: 0, High: 1, Medium: 2, Low: 3 };
+  const STATUS_ORDER = { 'Not Started': 0, 'On-going': 1, 'Done': 2 };
+
+  const filteredTasks = useMemo(() => {
+    let list = filter === 'All' ? [...tasks] : tasks.filter(t => t.owner === filter || t.owner?.includes(filter));
+    list.sort((a, b) => {
+      let va, vb;
+      if (sortBy === 'deadline')     { va = a.deadline || '9999'; vb = b.deadline || '9999'; }
+      else if (sortBy === 'priority') { va = PRIORITY_ORDER[a.priority] ?? 2; vb = PRIORITY_ORDER[b.priority] ?? 2; }
+      else if (sortBy === 'status')   { va = STATUS_ORDER[a.status] ?? 0; vb = STATUS_ORDER[b.status] ?? 0; }
+      else                            { va = (a.task || '').toLowerCase(); vb = (b.task || '').toLowerCase(); }
+      if (va < vb) return sortDir === 'asc' ? -1 : 1;
+      if (va > vb) return sortDir === 'asc' ? 1 : -1;
+      return 0;
+    });
+    return list;
+  }, [tasks, filter, sortBy, sortDir]);
+
+  const ownerOptions = ['All', ...Array.from(new Set([...teamMembers, ...tasks.map(t => t.owner)].filter(Boolean))).sort()];
 
   const getPriorityClass = (priority, solid = false) => {
     switch (priority) {
@@ -203,24 +222,51 @@ const TaskTracker = () => {
            <h2 className="text-xl sm:text-2xl font-bold text-slate-100">Task Tracker</h2>
            <p className="text-xs sm:text-sm text-slate-500">View: <span className="font-bold capitalize text-pink-400">{viewMode}</span></p>
         </div>
-        <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
+            {/* Owner filter */}
             <select
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
-              className="bg-slate-800 border border-slate-700 rounded-lg px-2 sm:px-3 py-1.5 text-sm text-slate-300 font-medium outline-none focus:ring-2 focus:ring-pink-500 focus:border-pink-500 transition whitespace-nowrap shrink-0"
+              className="bg-slate-800 border border-slate-700 rounded-lg px-2 sm:px-3 py-1.5 text-sm text-slate-300 font-medium outline-none focus:ring-2 focus:ring-pink-500 transition whitespace-nowrap shrink-0"
             >
               {ownerOptions.map(opt => (
                 <option key={opt} value={opt} className="bg-slate-900">{opt === 'All' ? 'All Owners' : opt}</option>
               ))}
             </select>
+
+            {/* Sort */}
+            <div className="flex items-center gap-1 shrink-0">
+              <select
+                value={sortBy}
+                onChange={e => setSortBy(e.target.value)}
+                className="bg-slate-800 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-slate-300 font-medium outline-none focus:ring-2 focus:ring-pink-500 transition"
+              >
+                <option value="deadline">Due Date</option>
+                <option value="priority">Priority</option>
+                <option value="status">Status</option>
+                <option value="name">Name</option>
+              </select>
+              <button
+                onClick={() => setSortDir(d => d === 'asc' ? 'desc' : 'asc')}
+                className="p-1.5 bg-slate-800 border border-slate-700 rounded-lg text-slate-400 hover:text-pink-400 transition"
+                title={sortDir === 'asc' ? 'Ascending' : 'Descending'}
+              >
+                {sortDir === 'asc' ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+              </button>
+            </div>
+
             <div className="flex bg-slate-800 p-0.5 sm:p-1 rounded-lg border border-slate-700 shrink-0">
                 <button onClick={() => setViewMode('list')} aria-label="List view" className={`p-1.5 sm:p-2 rounded-md transition-all duration-200 ${viewMode === 'list' ? 'bg-slate-700 shadow text-slate-100 scale-105' : 'text-slate-500 hover:text-slate-300'}`}><List size={16}/></button>
                 <button onClick={() => setViewMode('board')} aria-label="Board view" className={`p-1.5 sm:p-2 rounded-md transition-all duration-200 ${viewMode === 'board' ? 'bg-slate-700 shadow text-slate-100 scale-105' : 'text-slate-500 hover:text-slate-300'}`}><Layout size={16}/></button>
                 <button onClick={() => setViewMode('gantt')} aria-label="Gantt view" className={`p-1.5 sm:p-2 rounded-md transition-all duration-200 ${viewMode === 'gantt' ? 'bg-slate-700 shadow text-slate-100 scale-105' : 'text-slate-500 hover:text-slate-300'}`}><GanttIcon size={16}/></button>
             </div>
-            {canCreate && (
+            {canCreate ? (
               <button onClick={() => setIsModalOpen(true)} className="flex items-center space-x-1.5 sm:space-x-2 bg-pink-600 text-white px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg hover:bg-pink-500 hover:scale-105 active:scale-95 transition-all duration-200 shadow-md whitespace-nowrap shrink-0">
-                  <Plus size={16} /> <span className="hidden sm:inline">Add Task</span>
+                <Plus size={16} /> <span className="hidden sm:inline">Add Task</span>
+              </button>
+            ) : (
+              <button disabled title="Request edit access to add tasks" className="flex items-center space-x-1.5 sm:space-x-2 bg-slate-800 border border-slate-700 text-slate-600 px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg cursor-not-allowed whitespace-nowrap shrink-0">
+                <LockKeyhole size={16} /> <span className="hidden sm:inline">Add Task</span>
               </button>
             )}
         </div>
@@ -300,13 +346,23 @@ const TaskTracker = () => {
                     </p>
                 </div>
                 <div className="flex items-center gap-2 sm:gap-3 shrink-0 ml-2">
-                    {expandedTask && !isEditing && canCreate && (
-                      <button
-                        onClick={startEditing}
-                        className="flex items-center gap-1.5 px-3 sm:px-4 py-2 border border-pink-500/40 text-pink-400 rounded-lg font-bold hover:bg-pink-500/10 hover:border-pink-500/70 transition-all active:scale-95 text-sm"
-                      >
-                        <Edit2 size={14} /> Edit
-                      </button>
+                    {expandedTask && !isEditing && (
+                      canCreate ? (
+                        <button
+                          onClick={startEditing}
+                          className="flex items-center gap-1.5 px-3 sm:px-4 py-2 border border-pink-500/40 text-pink-400 rounded-lg font-bold hover:bg-pink-500/10 hover:border-pink-500/70 transition-all active:scale-95 text-sm"
+                        >
+                          <Edit2 size={14} /> Edit
+                        </button>
+                      ) : (
+                        <button
+                          disabled
+                          title="Request edit access to modify tasks"
+                          className="flex items-center gap-1.5 px-3 sm:px-4 py-2 border border-slate-700 text-slate-600 rounded-lg font-bold cursor-not-allowed text-sm"
+                        >
+                          <LockKeyhole size={14} /> Edit
+                        </button>
+                      )
                     )}
                     {isEditing && (
                       <>
@@ -576,12 +632,18 @@ const TaskTracker = () => {
                                 </div>
                             </div>
 
-                            {/* Delete button — only for users with canDelete */}
-                            {canDelete && (
-                              <div className="flex justify-end pt-4">
-                                  <button onClick={() => handleDeleteRequest(expandedTask.id)} className="text-red-400 font-bold flex items-center gap-2 hover:bg-red-600/10 p-3 rounded-lg transition-colors"><Trash2/> Delete Task</button>
-                              </div>
-                            )}
+                            {/* Delete button */}
+                            <div className="flex justify-end pt-4">
+                              {canDelete ? (
+                                <button onClick={() => handleDeleteRequest(expandedTask.id)} className="text-red-400 font-bold flex items-center gap-2 hover:bg-red-600/10 p-3 rounded-lg transition-colors">
+                                  <Trash2 size={18} /> Delete Task
+                                </button>
+                              ) : (
+                                <button disabled title="Request delete access" className="text-slate-700 font-bold flex items-center gap-2 p-3 rounded-lg cursor-not-allowed">
+                                  <LockKeyhole size={18} /> Delete Task
+                                </button>
+                              )}
+                            </div>
                         </div>
                     )}
                 </div>
