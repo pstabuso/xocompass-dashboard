@@ -49,21 +49,21 @@ const TaskTracker = () => {
 
   const getPriorityClass = (priority, solid = false) => {
     switch (priority) {
-      case 'Critical': return solid ? 'bg-red-600 text-white' : 'bg-red-500/15 text-red-400 border border-red-500/20';
+      case 'Critical': return solid ? 'bg-rose-600 text-white' : 'bg-rose-500/15 text-rose-400 border border-rose-500/20';
       case 'High':     return solid ? 'bg-orange-600 text-white' : 'bg-orange-500/15 text-orange-400 border border-orange-500/20';
-      case 'Medium':   return solid ? 'bg-amber-500 text-white' : 'bg-amber-500/15 text-amber-400 border border-amber-500/20';
-      case 'Low':      return solid ? 'bg-emerald-600 text-white' : 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20';
-      default:         return solid ? 'bg-amber-500 text-white' : 'bg-amber-500/15 text-amber-400 border border-amber-500/20';
+      case 'Medium':   return solid ? 'bg-sky-600 text-white' : 'bg-sky-500/15 text-sky-400 border border-sky-500/20';
+      case 'Low':      return solid ? 'bg-slate-600 text-white' : 'bg-slate-500/15 text-slate-400 border border-slate-500/20';
+      default:         return solid ? 'bg-sky-600 text-white' : 'bg-sky-500/15 text-sky-400 border border-sky-500/20';
     }
   };
 
   const getPriorityBorder = (priority) => {
     switch (priority) {
-      case 'Critical': return 'border-l-red-500';
+      case 'Critical': return 'border-l-rose-500';
       case 'High':     return 'border-l-orange-500';
-      case 'Medium':   return 'border-l-amber-500';
-      case 'Low':      return 'border-l-emerald-500';
-      default:         return 'border-l-amber-500';
+      case 'Medium':   return 'border-l-sky-500';
+      case 'Low':      return 'border-l-slate-500';
+      default:         return 'border-l-sky-500';
     }
   };
 
@@ -183,7 +183,7 @@ const TaskTracker = () => {
                       <h4 className="font-semibold text-slate-100 text-sm leading-snug mb-3">{task.task}</h4>
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex-1 bg-slate-700/60 h-1 rounded-full overflow-hidden">
-                            <div className={`h-full rounded-full transition-all duration-500 ${status === 'Done' ? 'bg-emerald-500' : status === 'On-going' ? 'bg-amber-500' : 'bg-slate-500'}`} style={{width: `${getProgress(task)}%`}}></div>
+                            <div className={`h-full rounded-full transition-all duration-500 ${status === 'Done' ? 'bg-emerald-500' : status === 'On-going' ? 'bg-sky-500' : 'bg-slate-500'}`} style={{width: `${getProgress(task)}%`}}></div>
                         </div>
                         <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold shrink-0 ${getPriorityClass(task.priority)}`}>{task.priority || 'Medium'}</span>
                       </div>
@@ -531,7 +531,7 @@ const TaskTracker = () => {
                                     <span className="text-xs text-slate-500">{getProgress(expandedTask)}%</span>
                                 </div>
                                 <div className="w-full bg-slate-700 h-2 rounded-full overflow-hidden mb-4">
-                                     <div className="bg-sky-500 h-full rounded-full transition-all duration-500" style={{width: `${getProgress(expandedTask)}%`}}></div>
+                                     <div className="bg-emerald-500 h-full rounded-full transition-all duration-500" style={{width: `${getProgress(expandedTask)}%`}}></div>
                                 </div>
                                 <div className="space-y-3">
                                     {(expandedTask.subtasks || []).map(st => (

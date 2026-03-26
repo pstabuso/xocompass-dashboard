@@ -733,7 +733,7 @@ const AppContent = () => {
           </div>
         </div>
 
-        <main className={`flex-1 transition-[margin] duration-300 ${sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-52 xl:ml-64'} pt-14 lg:pt-0 p-4 sm:p-6 lg:p-6 xl:p-8 overflow-y-auto min-h-screen`}>
+        <main className={`flex-1 transition-[margin] duration-300 ${sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-52 xl:ml-64'} pt-14 p-4 pb-24 sm:px-6 sm:pb-8 lg:p-6 xl:p-8 overflow-y-auto min-h-screen`}>
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/model" element={<GuardedRoute path="/model" element={<ModelLab />} />} />
