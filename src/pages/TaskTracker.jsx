@@ -79,7 +79,7 @@ const TaskTracker = () => {
 
   const getProgress = (task) => {
     if (task.status === 'Done') return 100;
-    if (!task.subtasks || task.subtasks.length === 0) return task.status === 'On-going' ? 25 : 0;
+    if (!task.subtasks || task.subtasks.length === 0) return 0;
     const done = task.subtasks.filter(st => st.done).length;
     return Math.round((done / task.subtasks.length) * 100);
   };
@@ -303,9 +303,9 @@ const TaskTracker = () => {
                     {expandedTask && !isEditing && canCreate && (
                       <button
                         onClick={startEditing}
-                        className="flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 bg-pink-600 text-white rounded-lg font-bold hover:bg-pink-500 transition-all active:scale-95 shadow-md text-sm"
+                        className="flex items-center gap-1.5 px-3 sm:px-4 py-2 border border-pink-500/40 text-pink-400 rounded-lg font-bold hover:bg-pink-500/10 hover:border-pink-500/70 transition-all active:scale-95 text-sm"
                       >
-                        <Edit2 size={14} /> <span className="hidden sm:inline">Edit</span>
+                        <Edit2 size={14} /> Edit
                       </button>
                     )}
                     {isEditing && (
@@ -389,7 +389,7 @@ const TaskTracker = () => {
                                     ))}
                                 </select>
                             </div>
-                            <button className="w-full bg-pink-600 text-white py-3 sm:py-4 rounded-xl font-bold text-base sm:text-lg hover:bg-pink-500 hover:scale-[1.01] active:scale-95 transition-all shadow-xl shadow-pink-900/30">
+                            <button type="submit" className="w-full bg-pink-600 text-white py-3 sm:py-4 rounded-xl font-bold text-base sm:text-lg hover:bg-pink-500 hover:scale-[1.01] active:scale-95 transition-all shadow-xl shadow-pink-900/30">
                                 Create Task
                             </button>
                         </form>

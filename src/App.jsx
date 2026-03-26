@@ -16,20 +16,35 @@ import Defense from './pages/Defense';
 import ModelLab from './pages/ModelLab';
 import AdminPanel from './pages/AdminPanel';
 
-// Theme toggle pill — persists to localStorage
+// Theme + color scheme toggles
 const ThemeToggle = () => {
-  const { theme, toggleTheme } = useTheme();
+  const { theme, toggleTheme, colorScheme, toggleColorScheme } = useTheme();
   const isLight = theme === 'light';
+  const isNavy = colorScheme === 'navy';
   return (
-    <button
-      onClick={toggleTheme}
-      className="w-full flex items-center justify-center gap-2 px-4 py-2 mb-2 rounded-lg border border-slate-700 hover:border-pink-500/30 transition-all duration-200 group"
-      title={isLight ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
-      aria-label={isLight ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
-    >
-      {isLight ? <Moon size={15} className="text-pink-400" /> : <Sun size={15} className="text-amber-400" />}
-      <span className="text-xs font-medium text-slate-400 group-hover:text-slate-200">{isLight ? 'Dark Mode' : 'Light Mode'}</span>
-    </button>
+    <div className="space-y-1.5 mb-2">
+      <button
+        onClick={toggleTheme}
+        className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-slate-700 hover:border-pink-500/30 transition-all duration-200 group"
+        title={isLight ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
+        aria-label={isLight ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
+      >
+        {isLight ? <Moon size={15} className="text-pink-400" /> : <Sun size={15} className="text-amber-400" />}
+        <span className="text-xs font-medium text-slate-400 group-hover:text-slate-200">{isLight ? 'Dark Mode' : 'Light Mode'}</span>
+      </button>
+      <button
+        onClick={toggleColorScheme}
+        className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-slate-700 hover:border-pink-500/30 transition-all duration-200 group"
+        title={isNavy ? 'Switch to Pink' : 'Switch to Navy'}
+        aria-label={isNavy ? 'Switch to Pink theme' : 'Switch to Navy theme'}
+      >
+        <span className="flex gap-1.5 items-center">
+          <span className={`w-3 h-3 rounded-full border-2 transition-all ${isNavy ? 'border-slate-600 bg-transparent' : 'border-pink-400 bg-pink-400'}`} />
+          <span className={`w-3 h-3 rounded-full border-2 transition-all ${isNavy ? 'border-sky-400 bg-sky-400' : 'border-slate-600 bg-transparent'}`} />
+        </span>
+        <span className="text-xs font-medium text-slate-400 group-hover:text-slate-200">{isNavy ? 'Pink Theme' : 'Navy Theme'}</span>
+      </button>
+    </div>
   );
 };
 
@@ -37,7 +52,8 @@ const ThemeToggle = () => {
 const Sidebar = ({ mobileOpen, setMobileOpen, collapsed, setCollapsed }) => {
   const location = useLocation();
   const { user, signOut, syncStatus, notifications, requestAccess } = useAppContext();
-  const { theme, toggleTheme } = useTheme();
+  const { theme, toggleTheme, colorScheme, toggleColorScheme } = useTheme();
+  const isNavy = colorScheme === 'navy';
   const [requestedPages, setRequestedPages] = useState({});
 
   const isLight = theme === 'light';
@@ -164,6 +180,12 @@ const Sidebar = ({ mobileOpen, setMobileOpen, collapsed, setCollapsed }) => {
             title={isLight ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
             className="flex items-center justify-center w-10 h-10 rounded-lg border border-slate-700 hover:border-pink-500/30 transition-all">
             {isLight ? <Moon size={15} className="text-pink-400" /> : <Sun size={15} className="text-amber-400" />}
+          </button>
+          <button onClick={toggleColorScheme}
+            title={isNavy ? 'Switch to Pink Theme' : 'Switch to Navy Theme'}
+            className="flex items-center justify-center w-10 h-10 rounded-lg border border-slate-700 hover:border-pink-500/30 transition-all gap-0.5">
+            <span className={`w-2.5 h-2.5 rounded-full ${isNavy ? 'bg-slate-600' : 'bg-pink-400'}`} />
+            <span className={`w-2.5 h-2.5 rounded-full ${isNavy ? 'bg-sky-400' : 'bg-slate-600'}`} />
           </button>
           <button onClick={signOut} title="Sign Out"
             className="flex items-center justify-center w-10 h-10 rounded-lg text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-all">
