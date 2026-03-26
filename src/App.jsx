@@ -639,17 +639,27 @@ const AppContent = () => {
   );
 };
 
+const IS_DEV = import.meta.env.DEV;
+
 class ErrorBoundary extends React.Component {
   constructor(props) { super(props); this.state = { error: null }; }
   static getDerivedStateFromError(error) { return { error }; }
-  componentDidCatch(error, info) { console.error('[XoCompass ErrorBoundary]', error.message, error.stack); }
+  componentDidCatch(error, info) { console.error('[XoCompass ErrorBoundary]', error.message, IS_DEV ? error.stack : '(stack hidden in production)'); }
   render() {
     if (this.state.error) {
       return (
         <div style={{ padding: 40, color: '#f87171', background: '#0f172a', minHeight: '100vh', fontFamily: 'monospace' }}>
           <h1 style={{ fontSize: 24, marginBottom: 16 }}>Something went wrong</h1>
-          <pre style={{ whiteSpace: 'pre-wrap', fontSize: 14, color: '#fbbf24' }}>{this.state.error.message}</pre>
-          <pre style={{ whiteSpace: 'pre-wrap', fontSize: 12, color: '#94a3b8', marginTop: 12 }}>{this.state.error.stack}</pre>
+          <p style={{ fontSize: 14, color: '#fbbf24' }}>{IS_DEV ? this.state.error.message : 'An unexpected error occurred. Please refresh the page.'}</p>
+          {IS_DEV && (
+            <pre style={{ whiteSpace: 'pre-wrap', fontSize: 12, color: '#94a3b8', marginTop: 12 }}>{this.state.error.stack}</pre>
+          )}
+          <button
+            onClick={() => window.location.reload()}
+            style={{ marginTop: 24, padding: '8px 20px', background: '#0ea5e9', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 'bold' }}
+          >
+            Reload Page
+          </button>
         </div>
       );
     }

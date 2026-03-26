@@ -10,11 +10,31 @@ The frontend calls POST /predict with historical booking data + exogenous vars.
 This service fits a SARIMAX model and returns 12-month forecasts with CIs.
 """
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 import numpy as np
+import time
+import collections
 from typing import Optional
+
+# ── Simple in-process rate limiter ──────────────────────────────────────
+_RATE_LIMIT_CALLS = 10       # max requests
+_RATE_LIMIT_WINDOW = 60      # per N seconds
+_rate_buckets: dict[str, collections.deque] = {}
+
+def _check_rate_limit(client_ip: str) -> None:
+    now = time.monotonic()
+    bucket = _rate_buckets.setdefault(client_ip, collections.deque())
+    # Drop timestamps outside the window
+    while bucket and now - bucket[0] > _RATE_LIMIT_WINDOW:
+        bucket.popleft()
+    if len(bucket) >= _RATE_LIMIT_CALLS:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Rate limit exceeded: max {_RATE_LIMIT_CALLS} requests per {_RATE_LIMIT_WINDOW}s.",
+        )
+    bucket.append(now)
 
 # ── Conditional statsmodels import ──────────────────────────────────────
 # Falls back to a naive seasonal forecast if statsmodels is not installed.
@@ -36,7 +56,7 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:5173",       # Vite dev
         "http://localhost:4173",       # Vite preview
-        "https://xocompass.vercel.app", # Production
+        "https://paotabs.vercel.app",    # Production
     ],
     allow_methods=["POST", "GET", "OPTIONS"],
     allow_headers=["*"],
@@ -115,7 +135,8 @@ def _naive_forecast(
 # ── Main Prediction Endpoint ────────────────────────────────────────────
 
 @app.post("/predict", response_model=PredictResponse)
-def predict(req: PredictRequest):
+def predict(req: PredictRequest, request: Request):
+    _check_rate_limit(request.client.host)
     if len(req.data) < 24:
         raise HTTPException(
             status_code=422,

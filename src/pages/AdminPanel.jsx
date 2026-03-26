@@ -53,6 +53,7 @@ const AdminPanel = () => {
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(null);
   const [confirmAction, setConfirmAction] = useState(null);
+  const [actionError, setActionError] = useState('');
   const [activityFilter, setActivityFilter] = useState('all');
 
   const isAdmin = user?.permissions?.isAdmin;
@@ -73,7 +74,8 @@ const AdminPanel = () => {
     setActionLoading(userId);
     const { error } = await updateUserRole(userId, newRole);
     if (error) {
-      alert(`Failed to update role: ${error}`);
+      setActionError(`Failed to update role: ${error}`);
+      setTimeout(() => setActionError(''), 5000);
     } else {
       setProfiles(prev => prev.map(p => p.id === userId ? { ...p, role: newRole } : p));
     }
@@ -146,6 +148,14 @@ const AdminPanel = () => {
           <p className="text-lg sm:text-2xl font-bold text-emerald-400">{(activityLog || []).length}</p>
         </div>
       </div>
+
+      {/* Action error toast */}
+      {actionError && (
+        <div className="flex items-center gap-2 px-4 py-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm">
+          <AlertTriangle size={16} className="shrink-0" />
+          {actionError}
+        </div>
+      )}
 
       {/* Tab Switcher */}
       <div className="grid grid-cols-3 sm:flex sm:w-fit gap-1 bg-slate-900/50 p-1 rounded-lg border border-slate-800">
