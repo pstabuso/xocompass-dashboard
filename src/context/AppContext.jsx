@@ -863,7 +863,7 @@ export const AppProvider = ({ children }) => {
     const sanitized = sanitizeRow(dataset);
     if (sanitized.type && !VALID_DATASET_TYPES.includes(sanitized.type)) sanitized.type = 'Primary';
     if (sanitized.status && !VALID_DATASET_STATUSES.includes(sanitized.status)) sanitized.status = 'Raw';
-    const d = { ...sanitized, id: crypto.randomUUID(), uploadedAt: new Date().toISOString(), created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+    const d = { id: crypto.randomUUID(), ...sanitized, uploadedAt: new Date().toISOString(), created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
     setDatasets(prev => [...prev, d]);
     insertRow(TABLES.datasets, d).then(r => showWriteError('add dataset', r));
     logAction('Uploaded Dataset', `"${sanitized.name}" (${sanitized.type}, ${sanitized.rows || 0} rows)`);
