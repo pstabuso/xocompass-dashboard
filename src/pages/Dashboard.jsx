@@ -191,7 +191,7 @@ const Dashboard = () => {
                     <h3 className="font-bold text-white text-base sm:text-lg">Work Velocity</h3>
                     <span className="text-[10px] sm:text-xs font-bold text-emerald-400 bg-emerald-900/30 border border-emerald-500/30 px-2 sm:px-3 py-1 rounded-full">Avg: {avgVelocity}/Day</span>
                 </div>
-                <div className="h-[200px] sm:h-[280px] lg:h-[260px] xl:h-[280px]">
+                <div className="h-[150px] sm:h-[280px] lg:h-[260px] xl:h-[280px]">
                     <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={velocityData}>
                         <defs>
