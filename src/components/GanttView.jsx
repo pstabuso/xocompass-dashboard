@@ -84,7 +84,7 @@ const GanttView = ({ tasks, onSelectTask }) => {
 
       headers.push(
         <div key={i}
-          className={`absolute border-l h-full flex flex-col items-center justify-end pb-1.5 text-[10px] font-medium ${isToday ? 'border-sky-500/60 text-sky-400' : 'border-slate-800 text-slate-500'}`}
+          className={`absolute border-l h-full flex flex-col items-center justify-end pb-1.5 text-[10px] font-medium ${isToday ? 'border-pink-500/60 text-pink-400' : 'border-slate-800 text-slate-500'}`}
           style={{ left: i * pxPerDay, width: config[viewMode].step * pxPerDay }}>
           {monthLabel && (
             <span className="absolute top-1 left-1 font-bold text-slate-400 uppercase text-[9px] bg-slate-800/80 px-1 py-0.5 rounded">
@@ -108,7 +108,7 @@ const GanttView = ({ tasks, onSelectTask }) => {
           <span className="text-xs font-bold text-slate-500 mr-1">Zoom:</span>
           {['Day', 'Week', 'Month'].map(m => (
             <button key={m} onClick={() => setViewMode(m)}
-              className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all ${viewMode === m ? 'bg-sky-600 text-white shadow-md' : 'bg-slate-800 border border-slate-700 text-slate-400 hover:bg-slate-700'}`}>
+              className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all ${viewMode === m ? 'bg-pink-600 text-white shadow-md' : 'bg-slate-800 border border-slate-700 text-slate-400 hover:bg-slate-700'}`}>
               {m}
             </button>
           ))}
@@ -116,7 +116,7 @@ const GanttView = ({ tasks, onSelectTask }) => {
         <div className="flex items-center gap-3 text-[10px] text-slate-500 font-medium">
           <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 bg-amber-500 rounded-sm opacity-60"></div>In Progress</div>
           <div className="flex items-center gap-1"><div className="w-2.5 h-2.5 bg-emerald-500 rounded-sm opacity-60"></div>Done</div>
-          <div className="flex items-center gap-1"><div className="w-0.5 h-3 bg-sky-400"></div>Today</div>
+          <div className="flex items-center gap-1"><div className="w-0.5 h-3 bg-pink-400"></div>Today</div>
           <div className="flex items-center gap-1"><div className="w-3 h-3 rotate-45 bg-purple-500/40 border border-purple-400/60 rounded-sm"></div>Events</div>
         </div>
       </div>
@@ -190,7 +190,7 @@ const GanttView = ({ tasks, onSelectTask }) => {
 
                   {/* Today line */}
                   {todayLeft >= 0 && todayLeft <= timelineWidth && (
-                    <div className="absolute top-0 bottom-0 w-0.5 bg-sky-500/50 z-10" style={{ left: todayLeft }} />
+                    <div className="absolute top-0 bottom-0 w-0.5 bg-pink-500/50 z-10" style={{ left: todayLeft }} />
                   )}
 
                   {/* Event markers */}
@@ -251,7 +251,7 @@ const GanttView = ({ tasks, onSelectTask }) => {
                       ))}
                       {/* Today line */}
                       {todayLeft >= 0 && todayLeft <= timelineWidth && (
-                        <div className="absolute top-0 bottom-0 w-0.5 bg-sky-500/30 z-10" style={{ left: todayLeft }} />
+                        <div className="absolute top-0 bottom-0 w-0.5 bg-pink-500/30 z-10" style={{ left: todayLeft }} />
                       )}
                       {/* Event milestone marker */}
                       {evtLeft >= 0 && evtLeft <= timelineWidth && (

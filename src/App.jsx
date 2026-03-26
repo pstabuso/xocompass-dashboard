@@ -23,11 +23,11 @@ const ThemeToggle = () => {
   return (
     <button
       onClick={toggleTheme}
-      className="w-full flex items-center justify-center gap-2 px-4 py-2 mb-2 rounded-lg border border-slate-700 hover:border-sky-500/30 transition-all duration-200 group"
+      className="w-full flex items-center justify-center gap-2 px-4 py-2 mb-2 rounded-lg border border-slate-700 hover:border-pink-500/30 transition-all duration-200 group"
       title={isLight ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
       aria-label={isLight ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
     >
-      {isLight ? <Moon size={15} className="text-sky-400" /> : <Sun size={15} className="text-amber-400" />}
+      {isLight ? <Moon size={15} className="text-pink-400" /> : <Sun size={15} className="text-amber-400" />}
       <span className="text-xs font-medium text-slate-400 group-hover:text-slate-200">{isLight ? 'Dark Mode' : 'Light Mode'}</span>
     </button>
   );
@@ -74,7 +74,7 @@ const Sidebar = ({ mobileOpen, setMobileOpen, collapsed, setCollapsed }) => {
       <div className={`border-b border-slate-800 flex items-center ${isCollapsed ? 'justify-center p-3' : 'justify-between p-4 sm:p-6'}`}>
         {!isCollapsed && (
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-sky-400 tracking-tight">XoCompass</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-pink-400 tracking-tight">XoCompass</h1>
             <div className="flex items-center space-x-2 mt-1">
               <p className="text-xs text-slate-500">LEAP Thesis 2 Manager</p>
               {syncStatus === 'synced' && <span title="Cloud synced — real-time"><Cloud size={12} className="text-emerald-400" /></span>}
@@ -84,7 +84,7 @@ const Sidebar = ({ mobileOpen, setMobileOpen, collapsed, setCollapsed }) => {
             </div>
           </div>
         )}
-        {isCollapsed && <BrainCircuit size={22} className="text-sky-400" />}
+        {isCollapsed && <BrainCircuit size={22} className="text-pink-400" />}
         <button onClick={() => setMobileOpen(false)} className="lg:hidden p-2 text-slate-400 hover:text-white" aria-label="Close sidebar">
           <X size={22} />
         </button>
@@ -135,11 +135,11 @@ const Sidebar = ({ mobileOpen, setMobileOpen, collapsed, setCollapsed }) => {
                   : 'flex items-center space-x-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-xl'
               } ${
                 isActive
-                  ? 'bg-sky-600/10 text-sky-400 border border-sky-500/20 shadow-[0_0_15px_rgba(56,189,248,0.1)]'
+                  ? 'bg-pink-600/10 text-pink-400 border border-pink-500/20 shadow-[0_0_15px_rgba(56,189,248,0.1)]'
                   : 'hover:bg-slate-800 hover:text-white'
               }`}
             >
-              <item.icon size={20} className={`shrink-0 ${isActive ? 'text-sky-400' : 'group-hover:scale-110 transition-transform'}`} />
+              <item.icon size={20} className={`shrink-0 ${isActive ? 'text-pink-400' : 'group-hover:scale-110 transition-transform'}`} />
               {!isCollapsed && <span className="font-medium text-sm truncate">{item.label}</span>}
             </Link>
           );
@@ -157,13 +157,13 @@ const Sidebar = ({ mobileOpen, setMobileOpen, collapsed, setCollapsed }) => {
             </Link>
           )}
           <div title={user?.name}
-            className="w-8 h-8 rounded-full bg-gradient-to-tr from-sky-500 to-blue-600 flex items-center justify-center font-bold text-white uppercase text-xs my-1 shrink-0">
+            className="w-8 h-8 rounded-full bg-gradient-to-tr from-pink-500 to-fuchsia-600 flex items-center justify-center font-bold text-white uppercase text-xs my-1 shrink-0">
             {user?.name?.charAt(0) || '?'}
           </div>
           <button onClick={toggleTheme}
             title={isLight ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
-            className="flex items-center justify-center w-10 h-10 rounded-lg border border-slate-700 hover:border-sky-500/30 transition-all">
-            {isLight ? <Moon size={15} className="text-sky-400" /> : <Sun size={15} className="text-amber-400" />}
+            className="flex items-center justify-center w-10 h-10 rounded-lg border border-slate-700 hover:border-pink-500/30 transition-all">
+            {isLight ? <Moon size={15} className="text-pink-400" /> : <Sun size={15} className="text-amber-400" />}
           </button>
           <button onClick={signOut} title="Sign Out"
             className="flex items-center justify-center w-10 h-10 rounded-lg text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 transition-all">
@@ -181,7 +181,7 @@ const Sidebar = ({ mobileOpen, setMobileOpen, collapsed, setCollapsed }) => {
             </Link>
           )}
           <div className="flex items-center space-x-3 px-3 sm:px-4 mb-3">
-            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gradient-to-tr from-sky-500 to-blue-600 flex items-center justify-center font-bold text-white uppercase shadow-lg text-sm shrink-0">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gradient-to-tr from-pink-500 to-fuchsia-600 flex items-center justify-center font-bold text-white uppercase shadow-lg text-sm shrink-0">
               {user?.name?.charAt(0) || '?'}
             </div>
             <div className="overflow-hidden">
@@ -302,7 +302,7 @@ const WelcomeScreen = () => {
     return (
       <div className="h-screen flex items-center justify-center bg-slate-950">
         <div className="text-center">
-          <Loader2 size={40} className="text-sky-400 animate-spin mx-auto mb-4" />
+          <Loader2 size={40} className="text-pink-400 animate-spin mx-auto mb-4" />
           <p className="text-slate-400 text-sm">Restoring session...</p>
         </div>
       </div>
@@ -314,7 +314,7 @@ const WelcomeScreen = () => {
 
   return (
     <div className="h-screen flex items-center justify-center bg-slate-950 relative overflow-hidden">
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-900/20 via-slate-950 to-slate-950 pointer-events-none"></div>
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-pink-900/20 via-slate-950 to-slate-950 pointer-events-none"></div>
       <div className="bg-slate-900/50 backdrop-blur-xl p-5 sm:p-8 rounded-2xl shadow-2xl w-[calc(100%-2rem)] max-w-[480px] border border-slate-800 relative z-10">
         <div className="text-center mb-6">
           <h1 className="text-3xl font-bold text-white">XoCompass</h1>
@@ -352,7 +352,7 @@ const WelcomeScreen = () => {
                 <User className="absolute left-3 top-2.5 text-slate-500" size={18} />
                 <input
                   type="text"
-                  className="w-full pl-10 pr-4 py-2 bg-slate-800 border border-slate-700 text-white rounded-lg outline-none transition focus:ring-2 focus:ring-sky-500"
+                  className="w-full pl-10 pr-4 py-2 bg-slate-800 border border-slate-700 text-white rounded-lg outline-none transition focus:ring-2 focus:ring-pink-500"
                   placeholder="Enter your name"
                   value={displayName}
                   onChange={e => { if (e.target.value.length <= MAX_NAME_LENGTH + 5) setDisplayName(e.target.value); }}
@@ -362,13 +362,13 @@ const WelcomeScreen = () => {
               </div>
             </div>
 
-            <div className="mb-4 p-3 bg-sky-500/10 border border-sky-500/20 rounded-lg">
-              <p className="text-xs text-sky-400">You'll join as a <span className="font-bold">Guest</span>. The Project Manager can assign your role.</p>
+            <div className="mb-4 p-3 bg-pink-500/10 border border-pink-500/20 rounded-lg">
+              <p className="text-xs text-pink-400">You'll join as a <span className="font-bold">Guest</span>. The Project Manager can assign your role.</p>
             </div>
 
             <button
               onClick={handleLocalEnter}
-              className="w-full bg-sky-600 text-white py-3 rounded-lg font-bold hover:bg-sky-500 transition shadow-lg shadow-sky-900/20 active:scale-95"
+              className="w-full bg-pink-600 text-white py-3 rounded-lg font-bold hover:bg-pink-500 transition shadow-lg shadow-pink-900/20 active:scale-95"
             >
               Enter Workspace
             </button>
@@ -383,7 +383,7 @@ const WelcomeScreen = () => {
                   <Mail className="absolute left-3 top-2.5 text-slate-500" size={18} />
                   <input
                     type="email"
-                    className="w-full pl-10 pr-4 py-2 bg-slate-800 border border-slate-700 text-white rounded-lg outline-none transition focus:ring-2 focus:ring-sky-500"
+                    className="w-full pl-10 pr-4 py-2 bg-slate-800 border border-slate-700 text-white rounded-lg outline-none transition focus:ring-2 focus:ring-pink-500"
                     placeholder="you@example.com"
                     value={email}
                     onChange={e => setEmail(e.target.value)}
@@ -399,7 +399,7 @@ const WelcomeScreen = () => {
                   <Lock className="absolute left-3 top-2.5 text-slate-500" size={18} />
                   <input
                     type={showPassword ? 'text' : 'password'}
-                    className="w-full pl-10 pr-10 py-2 bg-slate-800 border border-slate-700 text-white rounded-lg outline-none transition focus:ring-2 focus:ring-sky-500"
+                    className="w-full pl-10 pr-10 py-2 bg-slate-800 border border-slate-700 text-white rounded-lg outline-none transition focus:ring-2 focus:ring-pink-500"
                     placeholder="Your password"
                     value={password}
                     onChange={e => setPassword(e.target.value)}
@@ -415,7 +415,7 @@ const WelcomeScreen = () => {
             <button
               onClick={handleLogin}
               disabled={loading}
-              className="w-full bg-sky-600 text-white py-3 rounded-lg font-bold hover:bg-sky-500 transition shadow-lg shadow-sky-900/20 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full bg-pink-600 text-white py-3 rounded-lg font-bold hover:bg-pink-500 transition shadow-lg shadow-pink-900/20 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {loading && <Loader2 size={18} className="animate-spin" />}
               Sign In
@@ -423,7 +423,7 @@ const WelcomeScreen = () => {
 
             <p className="text-center text-sm text-slate-500 mt-4">
               Don't have an account?{' '}
-              <button onClick={() => { setMode('signup'); setError(''); }} className="text-sky-400 hover:text-sky-300 font-bold transition">
+              <button onClick={() => { setMode('signup'); setError(''); }} className="text-pink-400 hover:text-pink-300 font-bold transition">
                 Sign Up
               </button>
             </p>
@@ -438,7 +438,7 @@ const WelcomeScreen = () => {
                   <Mail className="absolute left-3 top-2.5 text-slate-500" size={18} />
                   <input
                     type="email"
-                    className="w-full pl-10 pr-4 py-2 bg-slate-800 border border-slate-700 text-white rounded-lg outline-none transition focus:ring-2 focus:ring-sky-500"
+                    className="w-full pl-10 pr-4 py-2 bg-slate-800 border border-slate-700 text-white rounded-lg outline-none transition focus:ring-2 focus:ring-pink-500"
                     placeholder="you@example.com"
                     value={email}
                     onChange={e => setEmail(e.target.value)}
@@ -453,7 +453,7 @@ const WelcomeScreen = () => {
                   <Lock className="absolute left-3 top-2.5 text-slate-500" size={18} />
                   <input
                     type={showPassword ? 'text' : 'password'}
-                    className="w-full pl-10 pr-10 py-2 bg-slate-800 border border-slate-700 text-white rounded-lg outline-none transition focus:ring-2 focus:ring-sky-500"
+                    className="w-full pl-10 pr-10 py-2 bg-slate-800 border border-slate-700 text-white rounded-lg outline-none transition focus:ring-2 focus:ring-pink-500"
                     placeholder="Min. 6 characters"
                     value={password}
                     onChange={e => setPassword(e.target.value)}
@@ -475,7 +475,7 @@ const WelcomeScreen = () => {
                   <User className="absolute left-3 top-2.5 text-slate-500" size={18} />
                   <input
                     type="text"
-                    className="w-full pl-10 pr-4 py-2 bg-slate-800 border border-slate-700 text-white rounded-lg outline-none transition focus:ring-2 focus:ring-sky-500"
+                    className="w-full pl-10 pr-4 py-2 bg-slate-800 border border-slate-700 text-white rounded-lg outline-none transition focus:ring-2 focus:ring-pink-500"
                     placeholder="Your display name"
                     value={displayName}
                     onChange={e => { if (e.target.value.length <= MAX_NAME_LENGTH + 5) setDisplayName(e.target.value); }}
@@ -484,14 +484,14 @@ const WelcomeScreen = () => {
               </div>
             </div>
 
-            <div className="mb-4 p-3 bg-sky-500/10 border border-sky-500/20 rounded-lg">
-              <p className="text-xs text-sky-400">You'll join as a <span className="font-bold">Guest</span>. The Project Manager will assign your role after you sign up.</p>
+            <div className="mb-4 p-3 bg-pink-500/10 border border-pink-500/20 rounded-lg">
+              <p className="text-xs text-pink-400">You'll join as a <span className="font-bold">Guest</span>. The Project Manager will assign your role after you sign up.</p>
             </div>
 
             <button
               onClick={handleSignUp}
               disabled={loading}
-              className="w-full bg-sky-600 text-white py-3 rounded-lg font-bold hover:bg-sky-500 transition shadow-lg shadow-sky-900/20 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full bg-pink-600 text-white py-3 rounded-lg font-bold hover:bg-pink-500 transition shadow-lg shadow-pink-900/20 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {loading && <Loader2 size={18} className="animate-spin" />}
               Create Account
@@ -499,7 +499,7 @@ const WelcomeScreen = () => {
 
             <p className="text-center text-sm text-slate-500 mt-4">
               Already have an account?{' '}
-              <button onClick={() => { setMode('login'); setError(''); }} className="text-sky-400 hover:text-sky-300 font-bold transition">
+              <button onClick={() => { setMode('login'); setError(''); }} className="text-pink-400 hover:text-pink-300 font-bold transition">
                 Sign In
               </button>
             </p>
@@ -611,7 +611,7 @@ const GuardedRoute = ({ element, path }) => {
           ) : (
             <button
               onClick={() => { requestAccess(pageName, 'page'); setRequested(true); }}
-              className="inline-flex items-center gap-2 px-5 py-2.5 bg-sky-600 text-white rounded-xl font-bold hover:bg-sky-500 transition-all active:scale-95 shadow-lg shadow-sky-900/30"
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-pink-600 text-white rounded-xl font-bold hover:bg-pink-500 transition-all active:scale-95 shadow-lg shadow-pink-900/30"
             >
               <Send size={16} /> Request Access
             </button>
@@ -636,7 +636,7 @@ const OnboardingScreen = ({ onContinue }) => {
 
         <div className="space-y-4 mb-6">
           <div className="flex gap-3 items-start">
-            <div className="w-8 h-8 rounded-lg bg-sky-600/15 text-sky-400 flex items-center justify-center shrink-0 mt-0.5"><Eye size={16} /></div>
+            <div className="w-8 h-8 rounded-lg bg-pink-600/15 text-pink-400 flex items-center justify-center shrink-0 mt-0.5"><Eye size={16} /></div>
             <div>
               <p className="text-sm font-bold text-slate-200">View-Only by Default</p>
               <p className="text-xs text-slate-500">All team members can browse every unlocked page. Only the PM can create, edit, or delete anything.</p>
@@ -676,7 +676,7 @@ const OnboardingScreen = ({ onContinue }) => {
 
         <button
           onClick={onContinue}
-          className="w-full flex items-center justify-center gap-2 bg-sky-600 text-white py-3 rounded-xl font-bold hover:bg-sky-500 transition-all active:scale-95 shadow-lg shadow-sky-900/30"
+          className="w-full flex items-center justify-center gap-2 bg-pink-600 text-white py-3 rounded-xl font-bold hover:bg-pink-500 transition-all active:scale-95 shadow-lg shadow-pink-900/30"
         >
           Go to Dashboard <ArrowRight size={16} />
         </button>
@@ -714,7 +714,7 @@ const AppContent = () => {
   return (
     <Router>
       {showOnboarding && <OnboardingScreen onContinue={() => setShowOnboarding(false)} />}
-      <div className="flex bg-slate-950 min-h-screen font-sans text-slate-200 selection:bg-sky-500/30">
+      <div className="flex bg-slate-950 min-h-screen font-sans text-slate-200 selection:bg-pink-500/30">
         <Sidebar mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} collapsed={sidebarCollapsed} setCollapsed={setSidebarCollapsed} />
 
         {/* Mobile top bar */}
@@ -722,12 +722,12 @@ const AppContent = () => {
           <button onClick={() => setMobileOpen(true)} className="p-2 text-slate-300 hover:text-white" aria-label="Open menu">
             <Menu size={24} />
           </button>
-          <h1 className="text-lg font-bold text-sky-400">XoCompass</h1>
+          <h1 className="text-lg font-bold text-pink-400">XoCompass</h1>
           <div className="flex items-center gap-2">
             {syncStatus === 'synced' && <Cloud size={14} className="text-emerald-400" />}
             {syncStatus === 'connecting' && <Loader2 size={14} className="text-amber-400 animate-spin" />}
             {syncStatus === 'error' && <CloudOff size={14} className="text-red-400" />}
-            <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-sky-500 to-blue-600 flex items-center justify-center font-bold text-white uppercase text-xs">
+            <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-pink-500 to-fuchsia-600 flex items-center justify-center font-bold text-white uppercase text-xs">
               {user?.name?.charAt(0) || '?'}
             </div>
           </div>

@@ -9,7 +9,7 @@ export default {
     extend: {
       colors: {
         'brand-blue': '#0f172a',
-        'brand-accent': '#38bdf8',
+        'brand-accent': '#f472b6',
       }
     },
   },

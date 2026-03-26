@@ -14,7 +14,7 @@ const Resources = () => {
   const getIcon = (type) => {
     if (type === 'Video') return <Video size={20} className="text-red-400" />;
     if (type === 'Tool') return <Code size={20} className="text-emerald-400" />;
-    return <BrainCircuit size={20} className="text-sky-400" />;
+    return <BrainCircuit size={20} className="text-pink-400" />;
   };
 
   return (
@@ -25,15 +25,15 @@ const Resources = () => {
           <div
             key={idx}
             onClick={res.action ? res.action : () => window.open(res.link, '_blank')}
-            className="group block bg-slate-900/50 p-4 sm:p-6 rounded-xl border border-slate-800 cursor-pointer transition-all duration-300 ease-in-out hover:shadow-xl hover:-translate-y-1 hover:border-sky-500/30 active:scale-95"
+            className="group block bg-slate-900/50 p-4 sm:p-6 rounded-xl border border-slate-800 cursor-pointer transition-all duration-300 ease-in-out hover:shadow-xl hover:-translate-y-1 hover:border-pink-500/30 active:scale-95"
           >
             <div className="flex justify-between items-start mb-4">
-              <div className="p-3 bg-slate-800/50 rounded-lg group-hover:bg-sky-600/15 transition-colors duration-300">
+              <div className="p-3 bg-slate-800/50 rounded-lg group-hover:bg-pink-600/15 transition-colors duration-300">
                 {getIcon(res.type)}
               </div>
-              <Link2 size={18} className="text-slate-600 group-hover:text-sky-400 transition-colors duration-300" />
+              <Link2 size={18} className="text-slate-600 group-hover:text-pink-400 transition-colors duration-300" />
             </div>
-            <h3 className="font-bold text-slate-100 mb-2 group-hover:text-sky-400 transition-colors">{res.name}</h3>
+            <h3 className="font-bold text-slate-100 mb-2 group-hover:text-pink-400 transition-colors">{res.name}</h3>
             <p className="text-sm text-slate-400">{res.desc}</p>
           </div>
         ))}
@@ -72,7 +72,7 @@ const Resources = () => {
                    <p className="text-[10px] text-slate-500">Standard Univariate</p>
                 </div>
                 <div className="col-span-1 p-4 sm:p-6 bg-slate-900 border-b border-r border-slate-700 text-center sticky top-0 z-10">
-                   <h4 className="font-bold text-base sm:text-lg text-sky-400">SARIMA</h4>
+                   <h4 className="font-bold text-base sm:text-lg text-pink-400">SARIMA</h4>
                    <p className="text-[10px] text-slate-500">Seasonal Univariate</p>
                 </div>
                 <div className="col-span-1 sm:col-span-2 lg:col-span-1 p-4 sm:p-6 bg-slate-950 border-b border-slate-700 text-center sticky top-0 z-10 shadow-xl">

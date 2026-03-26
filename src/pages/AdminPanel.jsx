@@ -5,7 +5,7 @@ import { isCloudEnabled, fetchAllProfiles, updateUserRole } from '../lib/supabas
 import { Shield, Users, Activity, RefreshCw, AlertTriangle, CheckCircle, XCircle, Ban, FileText, CheckSquare, Database, Calendar, Bell, Edit2, Trash2, MessageSquare, LogIn, LogOut, UserPlus, Send, LockKeyhole, ArrowUpRight } from 'lucide-react';
 
 const ROLE_OPTIONS = [
-  { value: 'pm', label: 'Project Manager', color: 'text-sky-400' },
+  { value: 'pm', label: 'Project Manager', color: 'text-pink-400' },
   { value: 'backend', label: 'Backend Dev', color: 'text-emerald-400' },
   { value: 'frontend', label: 'Frontend Dev', color: 'text-amber-400' },
   { value: 'guest', label: 'Guest', color: 'text-slate-400' },
@@ -15,20 +15,20 @@ const ROLE_OPTIONS = [
 const ACTION_ICONS = {
   // Tasks
   'Created Task':       { icon: CheckSquare,   color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
-  'Edited Task':        { icon: Edit2,         color: 'text-sky-400',     bg: 'bg-sky-500/10' },
+  'Edited Task':        { icon: Edit2,         color: 'text-pink-400',     bg: 'bg-pink-500/10' },
   'Moved Task':         { icon: Activity,      color: 'text-amber-400',   bg: 'bg-amber-500/10' },
   'Deleted Task':       { icon: Trash2,        color: 'text-red-400',     bg: 'bg-red-500/10' },
-  'Commented':          { icon: MessageSquare, color: 'text-sky-400',     bg: 'bg-sky-500/10' },
+  'Commented':          { icon: MessageSquare, color: 'text-pink-400',     bg: 'bg-pink-500/10' },
   'Added Subtask':      { icon: CheckSquare,   color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
   'Completed Subtask':  { icon: CheckCircle,   color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
   'Unchecked Subtask':  { icon: XCircle,       color: 'text-slate-400',   bg: 'bg-slate-500/10' },
   // Events
   'Created Event':      { icon: Calendar,      color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
-  'Edited Event':       { icon: Edit2,         color: 'text-sky-400',     bg: 'bg-sky-500/10' },
+  'Edited Event':       { icon: Edit2,         color: 'text-pink-400',     bg: 'bg-pink-500/10' },
   'Deleted Event':      { icon: Trash2,        color: 'text-red-400',     bg: 'bg-red-500/10' },
   // Minutes
-  'Added Meeting':      { icon: FileText,      color: 'text-sky-400',     bg: 'bg-sky-500/10' },
-  'Edited Meeting':     { icon: Edit2,         color: 'text-sky-400',     bg: 'bg-sky-500/10' },
+  'Added Meeting':      { icon: FileText,      color: 'text-pink-400',     bg: 'bg-pink-500/10' },
+  'Edited Meeting':     { icon: Edit2,         color: 'text-pink-400',     bg: 'bg-pink-500/10' },
   'Deleted Meeting':    { icon: Trash2,        color: 'text-red-400',     bg: 'bg-red-500/10' },
   // Datasets
   'Uploaded Dataset':   { icon: Database,      color: 'text-purple-400',  bg: 'bg-purple-500/10' },
@@ -40,9 +40,9 @@ const ACTION_ICONS = {
   // Auth
   'Signed In':          { icon: LogIn,         color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
   'Signed Out':         { icon: LogOut,        color: 'text-slate-400',   bg: 'bg-slate-500/10' },
-  'Signed Up':          { icon: UserPlus,      color: 'text-sky-400',     bg: 'bg-sky-500/10' },
+  'Signed Up':          { icon: UserPlus,      color: 'text-pink-400',     bg: 'bg-pink-500/10' },
   // System
-  'Imported Backup':    { icon: RefreshCw,     color: 'text-sky-400',     bg: 'bg-sky-500/10' },
+  'Imported Backup':    { icon: RefreshCw,     color: 'text-pink-400',     bg: 'bg-pink-500/10' },
   // Access requests
   'Requested Access':   { icon: LockKeyhole,   color: 'text-amber-400',   bg: 'bg-amber-500/10' },
 };
@@ -177,7 +177,7 @@ const AdminPanel = () => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div>
           <h2 className="text-xl sm:text-2xl font-bold text-slate-100 flex items-center gap-2 sm:gap-3">
-            <Shield className="text-sky-400" size={24} /> Admin Panel
+            <Shield className="text-pink-400" size={24} /> Admin Panel
           </h2>
           <p className="text-slate-500 text-xs sm:text-sm">Manage team members and view activity</p>
         </div>
@@ -211,13 +211,13 @@ const AdminPanel = () => {
       <div className="grid grid-cols-3 sm:flex sm:w-fit gap-1 bg-slate-900/50 p-1 rounded-lg border border-slate-800">
         <button
           onClick={() => setTab('users')}
-          className={`px-2 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-bold transition flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap ${tab === 'users' ? 'bg-sky-600 text-white shadow' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}
+          className={`px-2 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-bold transition flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap ${tab === 'users' ? 'bg-pink-600 text-white shadow' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}
         >
           <Users size={14} className="sm:w-4 sm:h-4" /> <span className="hidden xs:inline">Users</span><span className="xs:hidden">Users</span>
         </button>
         <button
           onClick={() => setTab('notifications')}
-          className={`px-2 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-bold transition flex items-center justify-center gap-1.5 sm:gap-2 relative whitespace-nowrap ${tab === 'notifications' ? 'bg-sky-600 text-white shadow' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}
+          className={`px-2 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-bold transition flex items-center justify-center gap-1.5 sm:gap-2 relative whitespace-nowrap ${tab === 'notifications' ? 'bg-pink-600 text-white shadow' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}
         >
           <Bell size={14} className="sm:w-4 sm:h-4" /> <span className="hidden sm:inline">Notifications</span><span className="sm:hidden">Notifs</span>
           {(() => {
@@ -227,7 +227,7 @@ const AdminPanel = () => {
         </button>
         <button
           onClick={() => setTab('activity')}
-          className={`px-2 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-bold transition flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap ${tab === 'activity' ? 'bg-sky-600 text-white shadow' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}
+          className={`px-2 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-bold transition flex items-center justify-center gap-1.5 sm:gap-2 whitespace-nowrap ${tab === 'activity' ? 'bg-pink-600 text-white shadow' : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`}
         >
           <Activity size={14} className="sm:w-4 sm:h-4" /> Activity
         </button>
@@ -266,10 +266,10 @@ const AdminPanel = () => {
                         <tr key={p.id} className={`hover:bg-slate-800/50 transition ${p.role === 'restricted' ? 'opacity-60' : ''}`}>
                           <td className="p-4">
                             <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-sky-500 to-blue-600 flex items-center justify-center font-bold text-white text-xs uppercase shrink-0">
+                              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-pink-500 to-fuchsia-600 flex items-center justify-center font-bold text-white text-xs uppercase shrink-0">
                                 {p.name?.charAt(0) || '?'}
                               </div>
-                              <p className="font-bold text-slate-200 text-sm truncate max-w-[140px]">{p.name}{isSelf && <span className="text-sky-400 text-[10px] ml-1">(you)</span>}</p>
+                              <p className="font-bold text-slate-200 text-sm truncate max-w-[140px]">{p.name}{isSelf && <span className="text-pink-400 text-[10px] ml-1">(you)</span>}</p>
                             </div>
                           </td>
                           <td className="p-4 text-slate-400 text-xs font-mono truncate max-w-[200px]">{p.email}</td>
@@ -329,12 +329,12 @@ const AdminPanel = () => {
                     <div key={p.id} className={`bg-slate-900/50 rounded-xl border border-slate-800 p-4 space-y-3 ${p.role === 'restricted' ? 'opacity-60' : ''}`}>
                       {/* User header */}
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-sky-500 to-blue-600 flex items-center justify-center font-bold text-white text-sm uppercase shrink-0">
+                        <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-pink-500 to-fuchsia-600 flex items-center justify-center font-bold text-white text-sm uppercase shrink-0">
                           {p.name?.charAt(0) || '?'}
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="font-bold text-slate-200 text-sm truncate">
-                            {p.name}{isSelf && <span className="text-sky-400 text-[10px] ml-1">(you)</span>}
+                            {p.name}{isSelf && <span className="text-pink-400 text-[10px] ml-1">(you)</span>}
                           </p>
                           <p className="text-slate-400 text-xs font-mono truncate">{p.email}</p>
                         </div>
@@ -448,7 +448,7 @@ const AdminPanel = () => {
               <div className="bg-slate-900/50 rounded-xl border border-slate-800 divide-y divide-slate-800">
                 {otherNotifs.map(n => (
                   <div key={n.id} className="p-4 flex items-start gap-3">
-                    <div className="w-9 h-9 rounded-full bg-sky-500/10 text-sky-400 flex items-center justify-center shrink-0">
+                    <div className="w-9 h-9 rounded-full bg-pink-500/10 text-pink-400 flex items-center justify-center shrink-0">
                       <Bell size={16} />
                     </div>
                     <div className="flex-1 min-w-0">
@@ -492,7 +492,7 @@ const AdminPanel = () => {
                 onClick={() => { setFilterMode(key); setSubFilter(null); }}
                 className={`px-3 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap ${
                   filterMode === key
-                    ? 'bg-sky-600 text-white shadow'
+                    ? 'bg-pink-600 text-white shadow'
                     : 'bg-slate-800 text-slate-400 hover:bg-slate-700 border border-slate-700'
                 }`}
               >
@@ -510,7 +510,7 @@ const AdminPanel = () => {
                   onClick={() => setSubFilter(subFilter === key ? null : key)}
                   className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition whitespace-nowrap shrink-0 ${
                     subFilter === key
-                      ? 'bg-sky-500/20 text-sky-300 border border-sky-500/40'
+                      ? 'bg-pink-500/20 text-pink-300 border border-pink-500/40'
                       : 'bg-slate-800/60 text-slate-500 hover:text-slate-300 border border-slate-700/50'
                   }`}
                 >
@@ -545,7 +545,7 @@ const AdminPanel = () => {
                       {...entryProps}
                       className={`p-3 sm:p-4 flex items-start sm:items-center gap-3 sm:gap-4 transition group/row ${
                         linkPath
-                          ? 'hover:bg-sky-950/30 cursor-pointer'
+                          ? 'hover:bg-pink-950/30 cursor-pointer'
                           : 'hover:bg-slate-800/30'
                       }`}
                     >
@@ -570,7 +570,7 @@ const AdminPanel = () => {
                           <p className="text-[10px] text-slate-600">{entry.time || ''}</p>
                         </div>
                         {linkPath && (
-                          <ArrowUpRight size={14} className="text-slate-700 group-hover/row:text-sky-400 transition-colors hidden sm:block" />
+                          <ArrowUpRight size={14} className="text-slate-700 group-hover/row:text-pink-400 transition-colors hidden sm:block" />
                         )}
                       </div>
                     </EntryEl>
@@ -597,7 +597,7 @@ const AdminPanel = () => {
                 ? <><span className="font-bold text-white">{confirmAction.name}</span> will be blocked from accessing the workspace.</>
                 : confirmAction.action === 'admit'
                 ? <><span className="font-bold text-white">{confirmAction.name}</span> will be given guest access to the workspace.</>
-                : <><span className="font-bold text-white">{confirmAction.name}</span>'s role will be changed to <span className="font-bold text-sky-400">{confirmAction.newRole}</span>.</>
+                : <><span className="font-bold text-white">{confirmAction.name}</span>'s role will be changed to <span className="font-bold text-pink-400">{confirmAction.newRole}</span>.</>
               }
             </p>
             <div className="flex gap-3 justify-center">

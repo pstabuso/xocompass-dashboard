@@ -72,7 +72,7 @@ const Minutes = () => {
           {accessSent ? (
             <span className="text-[10px] px-2 py-1 bg-emerald-500/15 text-emerald-400 rounded font-bold shrink-0 flex items-center gap-1"><Send size={10} /> Sent</span>
           ) : (
-            <button onClick={() => { requestAccess('Edit on Minutes of Meeting', 'action'); setAccessSent(true); }} className="text-[10px] px-2.5 py-1 bg-sky-600 text-white rounded font-bold hover:bg-sky-500 transition shrink-0">
+            <button onClick={() => { requestAccess('Edit on Minutes of Meeting', 'action'); setAccessSent(true); }} className="text-[10px] px-2.5 py-1 bg-pink-600 text-white rounded font-bold hover:bg-pink-500 transition shrink-0">
               Request
             </button>
           )}
@@ -86,7 +86,7 @@ const Minutes = () => {
         {user?.permissions?.canCreate && (
           <button
             onClick={() => setIsModalOpen(true)}
-            className="flex items-center space-x-2 bg-sky-600 text-white px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl font-bold shadow-lg shadow-sky-900/20 transition-all duration-300 ease-in-out hover:bg-sky-500 hover:scale-105 active:scale-95"
+            className="flex items-center space-x-2 bg-pink-600 text-white px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl font-bold shadow-lg shadow-pink-900/20 transition-all duration-300 ease-in-out hover:bg-pink-500 hover:scale-105 active:scale-95"
           >
             <Plus size={18} /> <span>Log Meeting</span>
           </button>
@@ -103,11 +103,11 @@ const Minutes = () => {
             sortedMinutes.map((meeting) => (
             <div key={meeting.id} className="bg-slate-900/50 border border-slate-800 rounded-xl p-4 sm:p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 hover:border-slate-700 transition-all duration-300 group">
                 <div className="flex items-start space-x-3 sm:space-x-4 min-w-0 flex-1">
-                    <div className="bg-sky-600/15 p-2 sm:p-3 rounded-lg text-sky-400 group-hover:scale-110 transition-transform duration-300 shrink-0">
+                    <div className="bg-pink-600/15 p-2 sm:p-3 rounded-lg text-pink-400 group-hover:scale-110 transition-transform duration-300 shrink-0">
                         <FileText size={20} />
                     </div>
                     <div className="min-w-0">
-                        <h3 className="font-bold text-slate-100 text-base sm:text-lg group-hover:text-sky-400 transition-colors truncate">{meeting.topic}</h3>
+                        <h3 className="font-bold text-slate-100 text-base sm:text-lg group-hover:text-pink-400 transition-colors truncate">{meeting.topic}</h3>
                         <p className="text-slate-500 text-xs sm:text-sm flex items-center gap-2">
                             <span>{meeting.date}</span>
                             <span className="w-1 h-1 rounded-full bg-slate-600 hidden sm:block"></span>
@@ -128,7 +128,7 @@ const Minutes = () => {
                         <ExternalLink size={14} />
                     </a>
                     {user?.permissions?.canCreate && (
-                      <button onClick={() => handleEdit(meeting)} className="p-2 text-slate-600 hover:text-sky-400 hover:bg-sky-500/10 rounded-lg transition-all" aria-label="Edit meeting"><Edit2 size={16}/></button>
+                      <button onClick={() => handleEdit(meeting)} className="p-2 text-slate-600 hover:text-pink-400 hover:bg-pink-500/10 rounded-lg transition-all" aria-label="Edit meeting"><Edit2 size={16}/></button>
                     )}
                     {user?.permissions?.canDelete && (
                       <button onClick={() => handleDeleteClick(meeting.id)} className="p-2 text-slate-600 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all" aria-label="Delete meeting"><Trash2 size={16}/></button>
@@ -167,20 +167,20 @@ const Minutes = () => {
              <form onSubmit={handleSubmit} className="space-y-5">
                 <div>
                     <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Date</label>
-                    <input required type="date" className="w-full bg-slate-800 border border-slate-700 text-white p-3 rounded-xl outline-none focus:ring-2 focus:ring-sky-500 transition-all" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} />
+                    <input required type="date" className="w-full bg-slate-800 border border-slate-700 text-white p-3 rounded-xl outline-none focus:ring-2 focus:ring-pink-500 transition-all" value={formData.date} onChange={e => setFormData({...formData, date: e.target.value})} />
                 </div>
                 <div>
                     <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Meeting Topic</label>
-                    <input required placeholder="e.g. Chapter 1 Revisions" className="w-full bg-slate-800 border border-slate-700 text-white p-3 rounded-xl outline-none focus:ring-2 focus:ring-sky-500 transition-all placeholder-slate-500" value={formData.topic} onChange={e => setFormData({...formData, topic: e.target.value})} />
+                    <input required placeholder="e.g. Chapter 1 Revisions" className="w-full bg-slate-800 border border-slate-700 text-white p-3 rounded-xl outline-none focus:ring-2 focus:ring-pink-500 transition-all placeholder-slate-500" value={formData.topic} onChange={e => setFormData({...formData, topic: e.target.value})} />
                 </div>
                 <div>
                     <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Google Docs Link</label>
                     <div className="relative">
                         <ExternalLink size={18} className="absolute left-3 top-3.5 text-slate-500"/>
-                        <input required placeholder="https://docs.google.com/document/d/..." className="w-full bg-slate-800 border border-slate-700 text-white pl-10 pr-3 py-3 rounded-xl outline-none focus:ring-2 focus:ring-sky-500 transition-all placeholder-slate-500" value={formData.link} onChange={e => setFormData({...formData, link: e.target.value})} />
+                        <input required placeholder="https://docs.google.com/document/d/..." className="w-full bg-slate-800 border border-slate-700 text-white pl-10 pr-3 py-3 rounded-xl outline-none focus:ring-2 focus:ring-pink-500 transition-all placeholder-slate-500" value={formData.link} onChange={e => setFormData({...formData, link: e.target.value})} />
                     </div>
                 </div>
-                <button className="w-full bg-sky-600 text-white p-3 rounded-xl font-bold shadow-lg shadow-sky-900/20 transition-all duration-300 hover:bg-sky-500 hover:scale-[1.02] active:scale-95">
+                <button className="w-full bg-pink-600 text-white p-3 rounded-xl font-bold shadow-lg shadow-pink-900/20 transition-all duration-300 hover:bg-pink-500 hover:scale-[1.02] active:scale-95">
                     {editingId ? 'Update Log' : 'Save Meeting'}
                 </button>
              </form>

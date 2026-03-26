@@ -137,7 +137,7 @@ const DataHub = () => {
           {accessSent ? (
             <span className="text-[10px] px-2 py-1 bg-emerald-500/15 text-emerald-400 rounded font-bold shrink-0 flex items-center gap-1"><Send size={10} /> Sent</span>
           ) : (
-            <button onClick={() => { requestAccess('Edit on Data Hub', 'action'); setAccessSent(true); }} className="text-[10px] px-2.5 py-1 bg-sky-600 text-white rounded font-bold hover:bg-sky-500 transition shrink-0">
+            <button onClick={() => { requestAccess('Edit on Data Hub', 'action'); setAccessSent(true); }} className="text-[10px] px-2.5 py-1 bg-pink-600 text-white rounded font-bold hover:bg-pink-500 transition shrink-0">
               Request
             </button>
           )}
@@ -168,7 +168,7 @@ const DataHub = () => {
          </div>
          <div className="bg-slate-900/50 p-3 sm:p-5 rounded-xl border border-slate-800 transition hover:shadow-md hover:-translate-y-1 duration-300">
              <div className="flex items-center gap-1.5 sm:gap-3 text-slate-400 mb-1 sm:mb-2"><FileSpreadsheet size={14} className="sm:w-[20px] sm:h-[20px]"/> <span className="text-[10px] sm:text-sm">Datasets</span></div>
-             <p className="text-lg sm:text-3xl font-bold text-sky-400">{datasets.length}</p>
+             <p className="text-lg sm:text-3xl font-bold text-pink-400">{datasets.length}</p>
          </div>
       </div>
 
@@ -200,7 +200,7 @@ const DataHub = () => {
                         <td className="p-4 font-medium text-slate-300 flex items-center gap-3">
                             <FileText size={18} className="text-slate-500 shrink-0"/> <span className="truncate max-w-[200px]">{d.name}</span>
                         </td>
-                        <td className="p-4"><span className={`text-xs px-2 py-1 rounded font-bold ${d.type === 'Primary' ? 'bg-sky-500/15 text-sky-400' : 'bg-purple-500/15 text-purple-400'}`}>{d.type}</span></td>
+                        <td className="p-4"><span className={`text-xs px-2 py-1 rounded font-bold ${d.type === 'Primary' ? 'bg-pink-500/15 text-pink-400' : 'bg-purple-500/15 text-purple-400'}`}>{d.type}</span></td>
                         <td className="p-4 text-slate-400 text-sm">{d.size}</td>
                         <td className="p-4 text-slate-300 text-sm font-mono truncate">{Number(d.rows).toLocaleString()}</td>
                         <td className="p-4"><span className="text-xs font-bold text-emerald-400 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> {d.status}</span></td>
@@ -226,7 +226,7 @@ const DataHub = () => {
             <div className="flex items-center gap-2.5">
               <FileText size={16} className="text-slate-500 shrink-0"/>
               <p className="font-bold text-sm text-slate-200 truncate flex-1">{d.name}</p>
-              <span className={`text-[10px] px-2 py-0.5 rounded font-bold shrink-0 ${d.type === 'Primary' ? 'bg-sky-500/15 text-sky-400' : 'bg-purple-500/15 text-purple-400'}`}>{d.type}</span>
+              <span className={`text-[10px] px-2 py-0.5 rounded font-bold shrink-0 ${d.type === 'Primary' ? 'bg-pink-500/15 text-pink-400' : 'bg-purple-500/15 text-purple-400'}`}>{d.type}</span>
             </div>
             {/* Meta row */}
             <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-800/50">

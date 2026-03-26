@@ -46,7 +46,7 @@ const Dashboard = () => {
 
     return [
       { label: 'Completion Rate', val: `${completionRate}%`, sub: `${done} of ${total} tasks done`, icon: CheckCircle, color: 'text-emerald-400', bg: 'bg-emerald-900/30 border-emerald-500/30' },
-      { label: 'Active Tasks', val: `${total - done}`, sub: `${filteredTasks.filter(t => t.status === 'On-going').length} in progress`, icon: Activity, color: 'text-blue-400', bg: 'bg-blue-900/30 border-blue-500/30' },
+      { label: 'Active Tasks', val: `${total - done}`, sub: `${filteredTasks.filter(t => t.status === 'On-going').length} in progress`, icon: Activity, color: 'text-pink-400', bg: 'bg-pink-900/30 border-pink-500/30' },
       { label: 'Overdue', val: `${overdue}`, sub: overdue === 0 ? 'All on track' : 'Needs attention', icon: overdue > 0 ? AlertCircle : Zap, color: overdue > 0 ? 'text-red-400' : 'text-amber-400', bg: overdue > 0 ? 'bg-red-900/30 border-red-500/30' : 'bg-amber-900/30 border-amber-500/30' },
     ];
   }, [filteredTasks]);
@@ -134,7 +134,7 @@ const Dashboard = () => {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 sm:mb-8 border-b border-slate-800 pb-4 sm:pb-6">
         <div>
           <h1 className="text-2xl sm:text-4xl font-bold text-white tracking-tight mb-2">
-            Welcome, <span className="text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-blue-500">{user.name.split(' ')[0]}</span>
+            Welcome, <span className="text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-fuchsia-500">{user.name.split(' ')[0]}</span>
           </h1>
           <p className="text-slate-400 flex items-center gap-2 font-medium">
             <Terminal size={14} className="text-emerald-500" /> System Status: <span className="text-emerald-400 font-mono tracking-wide">OPERATIONAL</span>
@@ -149,7 +149,7 @@ const Dashboard = () => {
             <ChevronDown size={14} className="text-slate-500"/>
           </button>
           {user?.permissions?.canDownload && (
-            <button onClick={exportReport} className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-bold shadow-lg shadow-blue-900/20 transition">
+            <button onClick={exportReport} className="flex items-center gap-2 px-4 py-2 bg-pink-600 hover:bg-pink-500 text-white rounded-lg text-sm font-bold shadow-lg shadow-pink-900/20 transition">
               <Download size={16}/> Export Report
             </button>
           )}
@@ -196,8 +196,8 @@ const Dashboard = () => {
                     <AreaChart data={velocityData}>
                         <defs>
                         <linearGradient id="colorTasks" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
-                            <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                            <stop offset="5%" stopColor="#ec4899" stopOpacity={0.3}/>
+                            <stop offset="95%" stopColor="#ec4899" stopOpacity={0}/>
                         </linearGradient>
                         </defs>
                         <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
@@ -205,9 +205,9 @@ const Dashboard = () => {
                         <YAxis stroke="#94a3b8" tick={{fontSize: 12, fill: '#94a3b8'}} tickLine={false} axisLine={false} allowDecimals={false} />
                         <Tooltip
                         contentStyle={{ backgroundColor: '#0f172a', borderColor: '#1e293b', borderRadius: '8px', color: '#f8fafc' }}
-                        itemStyle={{ color: '#38bdf8' }}
+                        itemStyle={{ color: '#f472b6' }}
                         />
-                        <Area type="monotone" dataKey="tasks" stroke="#3b82f6" strokeWidth={3} fillOpacity={1} fill="url(#colorTasks)" />
+                        <Area type="monotone" dataKey="tasks" stroke="#ec4899" strokeWidth={3} fillOpacity={1} fill="url(#colorTasks)" />
                     </AreaChart>
                     </ResponsiveContainer>
                 </div>
@@ -236,10 +236,10 @@ const Dashboard = () => {
                             <div className="flex justify-between items-start gap-2">
                                 <p className="font-medium text-slate-200 text-sm truncate flex-1">{t.task}</p>
                                 <span className={`px-2 py-0.5 rounded text-[10px] font-bold border shrink-0 ${
-                                    t.priority === 'Critical' ? 'bg-red-500/15 text-red-400 border-red-500/20' :
+                                    t.priority === 'Critical' ? 'bg-rose-500/15 text-rose-400 border-rose-500/20' :
                                     t.priority === 'High' ? 'bg-orange-500/15 text-orange-400 border-orange-500/20' :
-                                    t.priority === 'Low' ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20' :
-                                    'bg-amber-500/15 text-amber-400 border-amber-500/20'}`}>
+                                    t.priority === 'Low' ? 'bg-slate-500/15 text-slate-400 border-slate-500/20' :
+                                    'bg-pink-500/15 text-pink-400 border-pink-500/20'}`}>
                                     {t.priority || 'Medium'}
                                 </span>
                             </div>
@@ -273,10 +273,10 @@ const Dashboard = () => {
                             <td className="p-4">{t.deadline}</td>
                             <td className="p-4">
                                 <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
-                                    t.priority === 'Critical' ? 'bg-red-500/15 text-red-400 border-red-500/20' :
+                                    t.priority === 'Critical' ? 'bg-rose-500/15 text-rose-400 border-rose-500/20' :
                                     t.priority === 'High' ? 'bg-orange-500/15 text-orange-400 border-orange-500/20' :
-                                    t.priority === 'Low' ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20' :
-                                    'bg-amber-500/15 text-amber-400 border-amber-500/20'}`}>
+                                    t.priority === 'Low' ? 'bg-slate-500/15 text-slate-400 border-slate-500/20' :
+                                    'bg-pink-500/15 text-pink-400 border-pink-500/20'}`}>
                                 {t.priority || 'Medium'}
                                 </span>
                             </td>
@@ -306,19 +306,19 @@ const Dashboard = () => {
                             insight.type === 'critical' ? 'bg-red-900/10 border-red-500/30' :
                             insight.type === 'warning' ? 'bg-amber-900/10 border-amber-500/30' :
                             insight.type === 'success' ? 'bg-emerald-900/10 border-emerald-500/30' :
-                            'bg-blue-900/10 border-blue-500/30'
+                            'bg-pink-900/10 border-pink-500/30'
                         }`}>
                             <p className={`text-sm font-medium ${
                                 insight.type === 'critical' ? 'text-red-200' :
                                 insight.type === 'warning' ? 'text-amber-200' :
                                 insight.type === 'success' ? 'text-emerald-200' :
-                                'text-blue-200'
+                                'text-pink-200'
                             }`}>{insight.text}</p>
                             <button onClick={() => handleInsightAction(insight.action)} className={`self-start text-xs font-bold flex items-center gap-1 hover:underline ${
                                 insight.type === 'critical' ? 'text-red-400' :
                                 insight.type === 'warning' ? 'text-amber-400' :
                                 insight.type === 'success' ? 'text-emerald-400' :
-                                'text-blue-400'
+                                'text-pink-400'
                             }`}>
                                 {insight.action} <ArrowRight size={12}/>
                             </button>

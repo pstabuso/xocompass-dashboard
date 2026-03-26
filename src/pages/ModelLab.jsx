@@ -456,7 +456,7 @@ const ModelLab = () => {
         : Math.round(baseline * 1.5);
       return [
           { scenario: 'Baseline', volume: baseline },
-          { scenario: '+ Severe Rain', volume: heavyRainAvg, color: '#38bdf8' },
+          { scenario: '+ Severe Rain', volume: heavyRainAvg, color: '#f472b6' },
           { scenario: '+ Nat. Holiday', volume: highHolidayAvg, color: '#10b981' }
       ];
   }, [rawData]);
@@ -778,11 +778,11 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
       <div className="mt-6 border-t border-slate-800 pt-6">
         <div className="mb-4">
           <h4 className="text-sm text-slate-200 font-bold tracking-wide flex items-center gap-2">
-            <BrainCircuit size={16} className="text-sky-400"/> Stage Analysis — {label}
+            <BrainCircuit size={16} className="text-pink-400"/> Stage Analysis — {label}
           </h4>
           <p className="text-[10px] text-slate-500 mt-0.5 uppercase tracking-widest font-medium">Computed from pipeline outputs</p>
         </div>
-        <div className="w-full min-h-[120px] rounded-xl border shadow-inner bg-slate-900 border-sky-500/20 p-5">
+        <div className="w-full min-h-[120px] rounded-xl border shadow-inner bg-slate-900 border-pink-500/20 p-5">
           {analysis ? (
             <div className="text-sm text-slate-300 leading-loose whitespace-pre-line font-medium">
               {analysis}
@@ -819,7 +819,7 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
   const RuleInsight = ({ title, leftTitle, leftIcon: LeftIcon, rightTitle, rightIcon: RightIcon, systemRule, businessInsight }) => (
       <div className="mb-4 sm:mb-6 rounded-xl border bg-slate-900/60 border-slate-700/50 overflow-hidden shadow-lg animate-in fade-in zoom-in-95 duration-500">
           <div className="p-2.5 sm:p-3 border-b border-slate-700/50 bg-slate-800/80 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1.5 sm:gap-2">
-             <h4 className="text-xs sm:text-sm font-bold text-sky-400 flex items-center gap-2">
+             <h4 className="text-xs sm:text-sm font-bold text-pink-400 flex items-center gap-2">
                  <Settings size={14} className="shrink-0" /> <span className="line-clamp-1">Phase Objective: {title}</span>
              </h4>
              <span className="text-[9px] sm:text-[10px] uppercase font-bold text-slate-400 tracking-widest bg-slate-950 px-2 py-0.5 sm:py-1 rounded border border-slate-700 shadow-inner flex items-center gap-1 shrink-0">
@@ -827,10 +827,10 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
              </span>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-slate-700/50">
-              <div className="p-3 sm:p-5 flex gap-2 sm:gap-3 items-start bg-sky-900/10 hover:bg-sky-900/20 transition-colors">
-                  <div className="mt-0.5 text-sky-400 shrink-0"><LeftIcon size={18} /></div>
+              <div className="p-3 sm:p-5 flex gap-2 sm:gap-3 items-start bg-pink-900/10 hover:bg-pink-900/20 transition-colors">
+                  <div className="mt-0.5 text-pink-400 shrink-0"><LeftIcon size={18} /></div>
                   <div className="min-w-0">
-                      <h4 className="text-[10px] sm:text-xs font-bold text-sky-300 mb-2 sm:mb-3 uppercase tracking-wider border-b border-sky-500/20 pb-2">{leftTitle}</h4>
+                      <h4 className="text-[10px] sm:text-xs font-bold text-pink-300 mb-2 sm:mb-3 uppercase tracking-wider border-b border-pink-500/20 pb-2">{leftTitle}</h4>
                       <div className="text-xs sm:text-sm text-slate-300 leading-relaxed space-y-2">{systemRule}</div>
                   </div>
               </div>
@@ -846,12 +846,12 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
   );
 
   return (
-    <div className="min-h-screen text-slate-200 pb-10 bg-slate-950 font-sans selection:bg-sky-500/30">
+    <div className="min-h-screen text-slate-200 pb-10 bg-slate-950 font-sans selection:bg-pink-500/30">
       <div className="mb-6 p-3 sm:p-6 border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-10">
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3 sm:gap-4 mb-4 sm:mb-6">
           <div className="min-w-0">
             <h1 className="text-xl sm:text-3xl font-black text-white tracking-tight flex items-center gap-2 sm:gap-3">
-               <Cpu className="text-sky-400 shrink-0" size={24} /> <span className="truncate">XoCompass SARIMAX Engine</span>
+               <Cpu className="text-pink-400 shrink-0" size={24} /> <span className="truncate">XoCompass SARIMAX Engine</span>
             </h1>
             <p className="text-slate-400 mt-1 text-xs sm:text-sm flex items-center gap-2 font-medium">
                 <Shield size={14} className="text-emerald-500 shrink-0"/> <span className="truncate">Business Decision Support System (DSS) • Fault-Tolerant</span>
@@ -871,7 +871,7 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
             <div key={s.id} className="flex items-center shrink-0">
               <button
                 onClick={() => runPipeline(s.id)}
-                className={`whitespace-nowrap px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-bold border transition-all duration-300 ${stage === s.id ? 'bg-sky-600 text-white border-sky-500 shadow-[0_0_15px_rgba(14,165,233,0.3)]' : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-slate-200 hover:border-slate-600'}`}
+                className={`whitespace-nowrap px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-bold border transition-all duration-300 ${stage === s.id ? 'bg-pink-600 text-white border-pink-500 shadow-[0_0_15px_rgba(14,165,233,0.3)]' : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-slate-200 hover:border-slate-600'}`}
               >
                 {s.label}
               </button>
@@ -886,14 +886,14 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
         <div className="md:col-span-4 lg:col-span-3 space-y-6">
             <div className="bg-slate-900/60 backdrop-blur rounded-2xl p-4 sm:p-6 border border-slate-800 shadow-xl">
               <h3 className="font-bold text-white mb-3 sm:mb-4 flex items-center gap-2 text-sm sm:text-base">
-                <Settings size={16} className="text-sky-400 shrink-0"/> System Parameters
+                <Settings size={16} className="text-pink-400 shrink-0"/> System Parameters
               </h3>
               
               <div className="space-y-5">
                   <div>
                     <label className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 block">Target Variable (Y)</label>
                     <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-center gap-2 shadow-inner">
-                      <Database size={16} className="text-sky-400"/>
+                      <Database size={16} className="text-pink-400"/>
                       <span className="text-sm font-mono text-slate-300">monthly_demand_volume</span>
                     </div>
                   </div>
@@ -903,9 +903,9 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                     <p className="text-[10px] text-slate-500 mb-2">All variables are included in the model</p>
                     <div className="space-y-2">
                       <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-center gap-3 shadow-inner">
-                        <CloudRain size={16} className="text-sky-400"/>
+                        <CloudRain size={16} className="text-pink-400"/>
                         <span className="text-sm font-medium text-slate-300">Manila Rainfall (mm)</span>
-                        <span className="ml-auto text-[10px] px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-400 border border-sky-500/20 font-bold">INCLUDED</span>
+                        <span className="ml-auto text-[10px] px-2 py-0.5 rounded-full bg-pink-500/15 text-pink-400 border border-pink-500/20 font-bold">INCLUDED</span>
                       </div>
                       <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-center gap-3 shadow-inner">
                         <Calendar size={16} className="text-emerald-400"/>
@@ -917,8 +917,8 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
               </div>
 
               <div className="mt-6 pt-6 border-t border-slate-800">
-                  {stage === 'ingest' && <button onClick={() => runPipeline('correlation')} disabled={isProcessing} className="w-full bg-sky-600 hover:bg-sky-500 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition shadow-lg shadow-sky-900/20 disabled:opacity-50">{isProcessing ? <RefreshCw className="animate-spin"/> : <Search size={18}/>} Run Correlations</button>}
-                  {stage === 'correlation' && <button onClick={() => runPipeline('process')} disabled={isProcessing} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition shadow-lg shadow-indigo-900/20 disabled:opacity-50"><Activity size={18}/> Test Stationarity</button>}
+                  {stage === 'ingest' && <button onClick={() => runPipeline('correlation')} disabled={isProcessing} className="w-full bg-pink-600 hover:bg-pink-500 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition shadow-lg shadow-pink-900/20 disabled:opacity-50">{isProcessing ? <RefreshCw className="animate-spin"/> : <Search size={18}/>} Run Correlations</button>}
+                  {stage === 'correlation' && <button onClick={() => runPipeline('process')} disabled={isProcessing} className="w-full bg-fuchsia-600 hover:bg-fuchsia-500 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition shadow-lg shadow-fuchsia-900/20 disabled:opacity-50"><Activity size={18}/> Test Stationarity</button>}
                   {stage === 'process' && <button onClick={() => runPipeline('decomp')} disabled={isProcessing} className="w-full bg-purple-600 hover:bg-purple-500 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition shadow-lg shadow-purple-900/20 disabled:opacity-50"><Layers size={18}/> Extract Signals (STL)</button>}
                   {stage === 'decomp' && <button onClick={() => runPipeline('train')} disabled={isProcessing} className="w-full bg-fuchsia-600 hover:bg-fuchsia-500 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition shadow-lg shadow-fuchsia-900/20 disabled:opacity-50"><Target size={18}/> Grid Search Training</button>}
                   {stage === 'train' && (
@@ -963,9 +963,9 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                             <div className="text-lg sm:text-2xl font-black text-purple-400">{peakDemandRow.demand}</div>
                             <p className="text-[9px] sm:text-[10px] text-slate-400 mt-1">Recorded {peakDemandRow.date}</p>
                         </div>
-                        <div className="bg-slate-900/80 border border-sky-500/20 rounded-xl sm:rounded-2xl p-3 sm:p-4 shadow-lg border-l-2 border-l-sky-500 col-span-2 sm:col-span-1">
-                            <h4 className="text-[9px] sm:text-[10px] font-bold text-sky-400 uppercase tracking-widest mb-1 flex items-center gap-1"><Activity size={10} className="shrink-0"/> YoY Growth</h4>
-                            <div className="text-lg sm:text-2xl font-black text-sky-400">{growthRate}%</div>
+                        <div className="bg-slate-900/80 border border-pink-500/20 rounded-xl sm:rounded-2xl p-3 sm:p-4 shadow-lg border-l-2 border-l-pink-500 col-span-2 sm:col-span-1">
+                            <h4 className="text-[9px] sm:text-[10px] font-bold text-pink-400 uppercase tracking-widest mb-1 flex items-center gap-1"><Activity size={10} className="shrink-0"/> YoY Growth</h4>
+                            <div className="text-lg sm:text-2xl font-black text-pink-400">{growthRate}%</div>
                             <p className="text-[9px] sm:text-[10px] text-slate-400 mt-1">2024 vs 2023 FY</p>
                         </div>
                     </div>
@@ -980,7 +980,7 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                     
                     <div className="bg-slate-900/60 backdrop-blur rounded-2xl p-4 sm:p-6 border border-slate-800 shadow-xl">
                         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-4 sm:mb-6">
-                            <h3 className="text-sm sm:text-lg font-bold text-white flex items-center gap-2"><LineChartIcon size={18} className="text-sky-400 shrink-0"/> Demand Timeline vs Exogenous Variables</h3>
+                            <h3 className="text-sm sm:text-lg font-bold text-white flex items-center gap-2"><LineChartIcon size={18} className="text-pink-400 shrink-0"/> Demand Timeline vs Exogenous Variables</h3>
                             <span className="bg-slate-950 px-3 py-1 text-[10px] font-bold text-slate-400 uppercase tracking-widest rounded border border-slate-800 shrink-0">2013-2025</span>
                         </div>
                         <div className="h-[240px] sm:h-[320px] w-full bg-slate-950/80 rounded-xl border border-slate-800 p-2 sm:p-4 shadow-inner">
@@ -988,13 +988,13 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                                 <ComposedChart data={rawData}>
                                     <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" vertical={false}/>
                                     <XAxis dataKey="date" stroke="#64748b" tick={{fontSize: 10}} minTickGap={30}/>
-                                    <YAxis yAxisId="left" stroke="#38bdf8" tick={{fontSize: 10}}/>
+                                    <YAxis yAxisId="left" stroke="#f472b6" tick={{fontSize: 10}}/>
                                     <YAxis yAxisId="right" orientation="right" stroke="#a78bfa" hide/>
                                     <Tooltip contentStyle={{backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px'}} formatter={(value) => [safeFormat(value), undefined]}/>
                                     <Legend wrapperStyle={{fontSize: '11px'}}/>
-                                    <Bar yAxisId="right" dataKey="rainfall" fill="#38bdf8" opacity={0.15} name="Rainfall (mm)" barSize={4} />
+                                    <Bar yAxisId="right" dataKey="rainfall" fill="#f472b6" opacity={0.15} name="Rainfall (mm)" barSize={4} />
                                     <Bar yAxisId="right" dataKey="holiday" fill="#10b981" opacity={0.2} name="Holidays" barSize={2} />
-                                    <Line yAxisId="left" type="monotone" dataKey="demand" stroke="#38bdf8" strokeWidth={2} dot={false} name="Demand Volume" />
+                                    <Line yAxisId="left" type="monotone" dataKey="demand" stroke="#f472b6" strokeWidth={2} dot={false} name="Demand Volume" />
                                 </ComposedChart>
                             </ResponsiveContainer>
                         </div>
@@ -1016,10 +1016,10 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                                         <ComposedChart data={yearlyData}>
                                             <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" vertical={false}/>
                                             <XAxis dataKey="year" stroke="#64748b" tick={{fontSize: 10}}/>
-                                            <YAxis yAxisId="left" stroke="#38bdf8" tick={{fontSize: 10}}/>
+                                            <YAxis yAxisId="left" stroke="#f472b6" tick={{fontSize: 10}}/>
                                             <YAxis yAxisId="right" orientation="right" stroke="#10b981" tick={{fontSize: 10}} tickFormatter={(v) => `₱${v/1000}k`}/>
                                             <Tooltip contentStyle={{backgroundColor: '#0f172a', borderColor: '#334155'}} />
-                                            <Bar yAxisId="left" dataKey="totalDemand" fill="#38bdf8" opacity={0.8} name="Total Demand" radius={[2,2,0,0]} />
+                                            <Bar yAxisId="left" dataKey="totalDemand" fill="#f472b6" opacity={0.8} name="Total Demand" radius={[2,2,0,0]} />
                                             <Line yAxisId="right" type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={3} dot={true} name="Est. Revenue (₱)" />
                                         </ComposedChart>
                                     </ResponsiveContainer>
@@ -1067,7 +1067,7 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                         systemRule={
                             <>
                                 <p>To securely introduce Exogenous variables (X) into SARIMAX, they must mathematically prove their independent influence on the Target variable (Y) via the <strong>Pearson Correlation Coefficient (r)</strong>.</p>
-                                <p>We must strictly prevent <strong>Multicollinearity</strong> (correlated regressors skewing weights). <em>Rain</em> (<span className="text-sky-400 font-bold">{correlations.demand_rainfall}</span>) and <em>Holidays</em> (<span className="text-emerald-400 font-bold">{correlations.demand_holiday > 0 ? '+' : ''}{correlations.demand_holiday}</span>) exceed the |0.3| threshold. Crucially, their mutual correlation is only <strong>{correlations.rainfall_holiday}</strong> (VIF={correlations.vif_rainfall} &lt; 5.0), mathematically proving they operate independently.</p>
+                                <p>We must strictly prevent <strong>Multicollinearity</strong> (correlated regressors skewing weights). <em>Rain</em> (<span className="text-pink-400 font-bold">{correlations.demand_rainfall}</span>) and <em>Holidays</em> (<span className="text-emerald-400 font-bold">{correlations.demand_holiday > 0 ? '+' : ''}{correlations.demand_holiday}</span>) exceed the |0.3| threshold. Crucially, their mutual correlation is only <strong>{correlations.rainfall_holiday}</strong> (VIF={correlations.vif_rainfall} &lt; 5.0), mathematically proving they operate independently.</p>
                             </>
                         }
                         businessInsight={
@@ -1089,11 +1089,11 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                                     
                                     <div className="p-2 text-xs font-bold text-slate-500 flex items-center justify-center uppercase tracking-wide">Volume</div>
                                     <div className="p-3 bg-slate-700/50 text-white rounded font-bold text-xs shadow-lg border border-slate-600">1.00</div>
-                                    <div className="p-3 bg-sky-900/30 text-sky-400 rounded font-bold text-xs border border-sky-500/30">{correlations.demand_rainfall}</div>
+                                    <div className="p-3 bg-pink-900/30 text-pink-400 rounded font-bold text-xs border border-pink-500/30">{correlations.demand_rainfall}</div>
                                     <div className="p-3 bg-emerald-900/30 text-emerald-400 rounded font-bold text-xs border border-emerald-500/30">{correlations.demand_holiday > 0 ? '+' : ''}{correlations.demand_holiday}</div>
 
                                     <div className="p-2 text-xs font-bold text-slate-500 flex items-center justify-center uppercase tracking-wide">Rain</div>
-                                    <div className="p-3 bg-sky-900/30 text-sky-400 rounded font-bold text-xs border border-sky-500/30">{correlations.demand_rainfall}</div>
+                                    <div className="p-3 bg-pink-900/30 text-pink-400 rounded font-bold text-xs border border-pink-500/30">{correlations.demand_rainfall}</div>
                                     <div className="p-3 bg-slate-700/50 text-white rounded font-bold text-xs shadow-lg border border-slate-600">1.00</div>
                                     <div className="p-3 bg-slate-900 text-slate-500 rounded font-bold text-xs border border-slate-800">{correlations.rainfall_holiday}</div>
 
@@ -1106,7 +1106,7 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                             <div className="flex flex-col justify-center space-y-4">
                                 <div className="p-4 bg-slate-950 border border-slate-800 rounded-xl">
                                     <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Volume + Rain (r={correlations.demand_rainfall})</p>
-                                    <p className="text-sm text-sky-300 font-medium">Moderate Inverse Relationship. Heavy rainfall reliably suppresses demand.</p>
+                                    <p className="text-sm text-pink-300 font-medium">Moderate Inverse Relationship. Heavy rainfall reliably suppresses demand.</p>
                                 </div>
                                 <div className="p-4 bg-slate-950 border border-slate-800 rounded-xl">
                                     <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Volume + Holidays (r={correlations.demand_holiday > 0 ? '+' : ''}{correlations.demand_holiday})</p>
@@ -1154,10 +1154,10 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                             </p>
                         </div>
 
-                        <div className="bg-slate-900/60 border border-sky-500/20 rounded-2xl p-5 shadow-lg hover:border-sky-500/40 transition-colors">
-                            <div className="flex items-center gap-2 mb-4 border-b border-sky-500/20 pb-3">
-                                <div className="p-1.5 bg-sky-500/10 rounded-lg text-sky-400"><Zap size={18}/></div>
-                                <h4 className="font-bold text-sky-300 text-sm uppercase tracking-wider">2. The Solution</h4>
+                        <div className="bg-slate-900/60 border border-pink-500/20 rounded-2xl p-5 shadow-lg hover:border-pink-500/40 transition-colors">
+                            <div className="flex items-center gap-2 mb-4 border-b border-pink-500/20 pb-3">
+                                <div className="p-1.5 bg-pink-500/10 rounded-lg text-pink-400"><Zap size={18}/></div>
+                                <h4 className="font-bold text-pink-300 text-sm uppercase tracking-wider">2. The Solution</h4>
                             </div>
                             <p className="text-sm text-slate-300 leading-relaxed mb-3">
                                 We mathematically flatten the 12-year growth trend without losing the behavioral pattern via First-Order Differencing.
@@ -1186,7 +1186,7 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                         <div className="absolute top-0 right-0 w-64 h-64 bg-slate-800/20 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
                         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 mb-4 sm:mb-6 border-b border-slate-800 pb-3">
                             <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-                                <div className="p-1.5 sm:p-2 bg-slate-950 rounded border border-slate-800 text-sky-400 shrink-0"><FileCode size={18}/></div>
+                                <div className="p-1.5 sm:p-2 bg-slate-950 rounded border border-slate-800 text-pink-400 shrink-0"><FileCode size={18}/></div>
                                 <h3 className="text-sm sm:text-xl font-bold text-white tracking-tight">Mathematical Proof: First-Order Differencing</h3>
                             </div>
                             <span className="text-[10px] uppercase font-bold text-slate-500 tracking-widest bg-slate-950 px-2 py-1 rounded border border-slate-800 sm:ml-auto shadow-inner shrink-0">d = 1</span>
@@ -1200,7 +1200,7 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                                 <p className="text-sm text-slate-300 leading-relaxed">
                                     To structurally eliminate this upward bias, we compute the First Difference:
                                 </p>
-                                <div className="p-4 bg-slate-950 border border-slate-800 rounded-xl text-center font-mono text-sky-400 text-lg shadow-inner tracking-widest font-bold">
+                                <div className="p-4 bg-slate-950 border border-slate-800 rounded-xl text-center font-mono text-pink-400 text-lg shadow-inner tracking-widest font-bold">
                                     Δy = y(t) - y(t-1)
                                 </div>
                                 <p className="text-sm text-slate-300 leading-relaxed">
@@ -1212,7 +1212,7 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                                 <h4 className="text-[10px] font-bold text-slate-500 mb-3 uppercase tracking-widest">Internal Momentum Ledger Execution</h4>
                                 <div className="space-y-2 font-mono text-xs">
                                     {stationaryData.slice(-5).map((row, idx) => (
-                                        <div key={idx} className="flex items-center justify-between p-2 rounded bg-slate-900 border border-slate-800 hover:border-sky-500/30 transition-colors">
+                                        <div key={idx} className="flex items-center justify-between p-2 rounded bg-slate-900 border border-slate-800 hover:border-pink-500/30 transition-colors">
                                             <span className="text-slate-500">{row.date}</span>
                                             <span className="text-slate-400">{row.math}</span>
                                             <span className={`font-bold ${row.demand_diff >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
@@ -1234,13 +1234,13 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                             {/* Data Scientist Side */}
                             <div className="p-6 bg-transparent hover:bg-slate-900/40 transition-colors">
                                 <div className="flex items-center gap-3 mb-5 border-b border-slate-800 pb-3">
-                                    <div className="p-2 bg-sky-900/20 text-sky-400 rounded-lg"><Cpu size={20}/></div>
-                                    <h4 className="text-lg font-bold text-sky-400 tracking-tight">How it Helps Data Science</h4>
+                                    <div className="p-2 bg-pink-900/20 text-pink-400 rounded-lg"><Cpu size={20}/></div>
+                                    <h4 className="text-lg font-bold text-pink-400 tracking-tight">How it Helps Data Science</h4>
                                 </div>
                                 <ul className="space-y-4 text-sm text-slate-300 leading-relaxed">
-                                    <li className="flex gap-3 items-start"><Check size={16} className="text-sky-500 mt-0.5 shrink-0"/> <span><strong>Satisfies Base Assumptions:</strong> ARIMA models require strict constant variance. Differencing unlocks algorithmic validity.</span></li>
-                                    <li className="flex gap-3 items-start"><Check size={16} className="text-sky-500 mt-0.5 shrink-0"/> <span><strong>Prevents Spurious Hallucination:</strong> Autoregression on trending data causes fake high accuracy scores. Stationarity blocks this math flaw.</span></li>
-                                    <li className="flex gap-3 items-start"><Check size={16} className="text-sky-500 mt-0.5 shrink-0"/> <span><strong>Unlocks ACF Readability:</strong> Auto-correlation plots are completely useless on raw trends. Differencing allows accurate P and Q lag tuning.</span></li>
+                                    <li className="flex gap-3 items-start"><Check size={16} className="text-pink-500 mt-0.5 shrink-0"/> <span><strong>Satisfies Base Assumptions:</strong> ARIMA models require strict constant variance. Differencing unlocks algorithmic validity.</span></li>
+                                    <li className="flex gap-3 items-start"><Check size={16} className="text-pink-500 mt-0.5 shrink-0"/> <span><strong>Prevents Spurious Hallucination:</strong> Autoregression on trending data causes fake high accuracy scores. Stationarity blocks this math flaw.</span></li>
+                                    <li className="flex gap-3 items-start"><Check size={16} className="text-pink-500 mt-0.5 shrink-0"/> <span><strong>Unlocks ACF Readability:</strong> Auto-correlation plots are completely useless on raw trends. Differencing allows accurate P and Q lag tuning.</span></li>
                                 </ul>
                             </div>
 
@@ -1262,14 +1262,14 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                     <StageInsightPanel stageId="process" label="Stationarity Testing" />
 
                     <div className="h-64 bg-slate-950 rounded-2xl border border-slate-800 p-4 relative shadow-xl">
-                        <span className="absolute top-4 left-6 text-[10px] font-black text-sky-400 uppercase z-20">Verified Result: Stabilized Momentum Line (Mean ≈ 0)</span>
+                        <span className="absolute top-4 left-6 text-[10px] font-black text-pink-400 uppercase z-20">Verified Result: Stabilized Momentum Line (Mean ≈ 0)</span>
                         <ResponsiveContainer width="100%" height="100%">
                             <LineChart data={stationaryData}>
                                 <CartesianGrid stroke="#1e293b" vertical={false}/>
                                 <XAxis dataKey="date" stroke="#475569" tick={{fontSize: 10}} minTickGap={30}/>
                                 <YAxis stroke="#475569" tick={{fontSize: 10}} />
                                 <Tooltip contentStyle={{backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px'}} formatter={(value) => [safeFormat(value), 'Δ Momentum']} />
-                                <Line dataKey="demand_diff" stroke="#38bdf8" strokeWidth={1} dot={false} />
+                                <Line dataKey="demand_diff" stroke="#f472b6" strokeWidth={1} dot={false} />
                                 <ReferenceLine y={0} stroke="#cbd5e1" strokeWidth={2} strokeDasharray="3 3" />
                             </LineChart>
                         </ResponsiveContainer>
@@ -1322,11 +1322,11 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                     </div>
 
                     {/* TIER 2: Extracted Macro Trend */}
-                    <div className="bg-slate-900/60 backdrop-blur rounded-2xl border border-slate-800 shadow-xl overflow-hidden hover:border-sky-500/40 transition-colors">
+                    <div className="bg-slate-900/60 backdrop-blur rounded-2xl border border-slate-800 shadow-xl overflow-hidden hover:border-pink-500/40 transition-colors">
                         <div className="grid grid-cols-1 md:grid-cols-12 divide-y md:divide-y-0 md:divide-x divide-slate-800">
                             <div className="md:col-span-8 p-6">
                                 <div className="flex items-center gap-3 mb-4">
-                                    <TrendingUp size={24} className="text-sky-400"/>
+                                    <TrendingUp size={24} className="text-pink-400"/>
                                     <h3 className="text-xl font-bold text-white tracking-tight">Extracted Macro Trend</h3>
                                 </div>
                                 <div className="h-[200px] w-full bg-slate-950/80 rounded-xl border border-slate-800 p-2 shadow-inner">
@@ -1335,13 +1335,13 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                                             <XAxis dataKey="date" hide/>
                                             <YAxis stroke="#475569" tick={{fontSize: 10}} axisLine={false} tickLine={false}/>
                                             <Tooltip contentStyle={{backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px'}} formatter={(value) => [safeFormat(value), 'Trend']}/>
-                                            <Line type="monotone" dataKey="trend" stroke="#38bdf8" dot={false} strokeWidth={3} />
+                                            <Line type="monotone" dataKey="trend" stroke="#f472b6" dot={false} strokeWidth={3} />
                                         </LineChart>
                                     </ResponsiveContainer>
                                 </div>
                             </div>
                             <div className="md:col-span-4 p-6 bg-slate-900/40 flex flex-col justify-center space-y-4">
-                                <div className="inline-flex items-center gap-2 bg-sky-900/20 text-sky-400 border border-sky-500/30 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest self-start">
+                                <div className="inline-flex items-center gap-2 bg-pink-900/20 text-pink-400 border border-pink-500/30 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest self-start">
                                     <Crosshair size={12}/> XoCompass DSS Directive
                                 </div>
                                 <div>
@@ -1457,15 +1457,15 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                     
                     <div className="bg-slate-900/60 backdrop-blur rounded-2xl border border-slate-800 shadow-xl mb-6 overflow-hidden flex flex-col">
                         <div className="p-3 sm:p-6 border-b border-slate-800 bg-slate-900/40 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-4">
-                            <h3 className="text-sm sm:text-xl font-bold text-white flex items-center gap-2 tracking-tight"><Terminal className="text-sky-400 shrink-0"/> Live Execution Terminal</h3>
+                            <h3 className="text-sm sm:text-xl font-bold text-white flex items-center gap-2 tracking-tight"><Terminal className="text-pink-400 shrink-0"/> Live Execution Terminal</h3>
                             <div className="flex items-center gap-3 sm:gap-4">
                                 {isProcessing && (
-                                    <div className="hidden sm:flex items-center gap-2 text-sky-400 text-[10px] font-bold tracking-widest uppercase">
+                                    <div className="hidden sm:flex items-center gap-2 text-pink-400 text-[10px] font-bold tracking-widest uppercase">
                                         <RefreshCw size={12} className="animate-spin"/> Grid Search
                                     </div>
                                 )}
                                 <div className="w-24 sm:w-32 h-2 bg-slate-800 rounded-full overflow-hidden shadow-inner">
-                                    <div className="h-full bg-sky-500 transition-all duration-300" style={{width: `${searchProgress}%`}}></div>
+                                    <div className="h-full bg-pink-500 transition-all duration-300" style={{width: `${searchProgress}%`}}></div>
                                 </div>
                             </div>
                         </div>
@@ -1481,7 +1481,7 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                                         ${log.type === 'success' ? 'text-emerald-400 font-bold bg-emerald-900/10 p-1 rounded inline-block w-fit border border-emerald-500/20' : ''}
                                         ${log.type === 'warning' ? 'text-amber-400 font-bold' : ''}
                                         ${(!log.type && !log.isBest) ? 'text-slate-500' : ''}
-                                        ${log.isBest ? 'text-sky-400 font-bold bg-sky-900/20 p-1 rounded border border-sky-500/30' : ''}
+                                        ${log.isBest ? 'text-pink-400 font-bold bg-pink-900/20 p-1 rounded border border-pink-500/30' : ''}
                                     `}
                                 >
                                     {log.text}
@@ -1494,27 +1494,27 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
 
                     {!isProcessing && bestModel && (
                         <div className="animate-in slide-in-from-bottom-6 fade-in duration-700">
-                             <div className="bg-gradient-to-br from-indigo-950/40 to-slate-900 border border-indigo-500/30 rounded-2xl p-6 shadow-2xl relative overflow-hidden">
-                                <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
+                             <div className="bg-gradient-to-br from-fuchsia-950/40 to-slate-900 border border-fuchsia-500/30 rounded-2xl p-6 shadow-2xl relative overflow-hidden">
+                                <div className="absolute top-0 right-0 w-64 h-64 bg-fuchsia-500/10 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none"></div>
                                 <div className="text-center mb-8 relative z-10">
-                                    <div className="inline-flex items-center justify-center p-3 bg-indigo-900/30 text-indigo-400 rounded-xl mb-4 shadow-lg border border-indigo-500/20">
+                                    <div className="inline-flex items-center justify-center p-3 bg-fuchsia-900/30 text-fuchsia-400 rounded-xl mb-4 shadow-lg border border-fuchsia-500/20">
                                         <Target size={28}/>
                                     </div>
                                     <h3 className="text-2xl font-black text-white mb-2 tracking-tight">The Winning Architecture</h3>
                                     <p className="text-slate-400 text-sm mb-5 max-w-xl mx-auto">This precise blueprint achieved the lowest penalty score (AIC), proving mathematically that it yields the highest predictive accuracy while generating zero computational bloat.</p>
-                                    <div className="text-indigo-300 font-mono text-xl tracking-widest bg-slate-950 inline-block px-5 py-3 rounded-lg border border-indigo-500/30 shadow-inner font-bold">
-                                        <span className="text-sky-400">SARIMAX({bestModel.p},{bestModel.d},{bestModel.q})</span><span className="text-purple-400">({bestModel.P},{bestModel.D},{bestModel.Q},{bestModel.s})</span> <span className="text-emerald-400">+ X</span>
+                                    <div className="text-fuchsia-300 font-mono text-xl tracking-widest bg-slate-950 inline-block px-5 py-3 rounded-lg border border-fuchsia-500/30 shadow-inner font-bold">
+                                        <span className="text-pink-400">SARIMAX({bestModel.p},{bestModel.d},{bestModel.q})</span><span className="text-purple-400">({bestModel.P},{bestModel.D},{bestModel.Q},{bestModel.s})</span> <span className="text-emerald-400">+ X</span>
                                     </div>
                                 </div>
 
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 relative z-10">
-                                    <div className="bg-slate-900/80 rounded-xl p-5 border border-sky-500/20 hover:border-sky-500/50 transition-colors shadow-lg">
-                                        <h4 className="font-bold text-slate-200 mb-2 flex items-center gap-2"><Settings size={16} className="text-sky-400"/> 1. Core Mechanics</h4>
-                                        <div className="font-mono text-sky-400 font-bold text-lg mb-3 tracking-widest">(p={bestModel.p}, d={bestModel.d}, q={bestModel.q})</div>
+                                    <div className="bg-slate-900/80 rounded-xl p-5 border border-pink-500/20 hover:border-pink-500/50 transition-colors shadow-lg">
+                                        <h4 className="font-bold text-slate-200 mb-2 flex items-center gap-2"><Settings size={16} className="text-pink-400"/> 1. Core Mechanics</h4>
+                                        <div className="font-mono text-pink-400 font-bold text-lg mb-3 tracking-widest">(p={bestModel.p}, d={bestModel.d}, q={bestModel.q})</div>
                                         <ul className="text-xs text-slate-300 space-y-3 border-t border-slate-700/50 pt-3">
-                                            <li><strong className="text-sky-300 block mb-1">p={bestModel.p} (Auto-Regressive):</strong> Looks exactly {bestModel.p} month(s) into the past to predict the immediate future.</li>
-                                            <li><strong className="text-sky-300 block mb-1">d={bestModel.d} (Integrated):</strong> The 1st-Order differencing applied earlier to flatten exponential growth.</li>
-                                            <li><strong className="text-sky-300 block mb-1">q={bestModel.q} (Moving Average):</strong> Self-corrects the next forecast based strictly on the residual error of the last {bestModel.q} month(s).</li>
+                                            <li><strong className="text-pink-300 block mb-1">p={bestModel.p} (Auto-Regressive):</strong> Looks exactly {bestModel.p} month(s) into the past to predict the immediate future.</li>
+                                            <li><strong className="text-pink-300 block mb-1">d={bestModel.d} (Integrated):</strong> The 1st-Order differencing applied earlier to flatten exponential growth.</li>
+                                            <li><strong className="text-pink-300 block mb-1">q={bestModel.q} (Moving Average):</strong> Self-corrects the next forecast based strictly on the residual error of the last {bestModel.q} month(s).</li>
                                         </ul>
                                     </div>
 
@@ -1557,7 +1557,7 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                             <CheckCircle size={12}/> XoCompass DSS Validated & Ready
                         </div>
                         <h2 className="text-xl sm:text-3xl font-black text-white flex items-center gap-2 sm:gap-3 tracking-tight">
-                            <BarChart4 className="text-sky-400 shrink-0" size={24}/>
+                            <BarChart4 className="text-pink-400 shrink-0" size={24}/>
                             <span>The Implications Engine</span>
                         </h2>
                         <p className="text-slate-400 mt-2 text-xs sm:text-sm max-w-2xl leading-relaxed">A highly dense, 4-step Executive Command Center extracting absolute business logic from the preceding pipeline phases. Color-coded by pipeline analytics stage.</p>
@@ -1616,10 +1616,10 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                         </div>
 
                         {/* 3. PREDICTIVE (INDIGO) */}
-                        <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 shadow-xl md:col-span-2 hover:border-indigo-500/40 transition-colors duration-500 group relative">
-                             <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none transition-transform group-hover:scale-110"></div>
+                        <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 shadow-xl md:col-span-2 hover:border-fuchsia-500/40 transition-colors duration-500 group relative">
+                             <div className="absolute top-0 right-0 w-64 h-64 bg-fuchsia-500/5 rounded-full blur-3xl -mr-10 -mt-10 pointer-events-none transition-transform group-hover:scale-110"></div>
                              <div className="flex items-center gap-3 mb-4 border-b border-slate-800 pb-3 relative z-10">
-                                <span className="bg-indigo-950 text-indigo-400 border border-indigo-800 text-[9px] font-black uppercase px-2 py-1 rounded tracking-widest">3. Predictive</span>
+                                <span className="bg-fuchsia-950 text-fuchsia-400 border border-fuchsia-800 text-[9px] font-black uppercase px-2 py-1 rounded tracking-widest">3. Predictive</span>
                                 <h3 className="text-sm font-bold text-slate-200 uppercase tracking-wide">Volatility Constraint via Parsimony</h3>
                             </div>
                             
@@ -1633,9 +1633,9 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                                             <div className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1">RMSE (Risk Radius)</div>
                                             <div className="text-xl font-black text-white">14.5</div>
                                         </div>
-                                        <div className="bg-slate-950 border border-slate-800 p-3 rounded-xl shadow-inner text-center border-l-2 border-l-indigo-500">
+                                        <div className="bg-slate-950 border border-slate-800 p-3 rounded-xl shadow-inner text-center border-l-2 border-l-fuchsia-500">
                                             <div className="text-[9px] text-slate-500 uppercase tracking-widest font-bold mb-1">WMAPE (Exec Confidence)</div>
-                                            <div className="text-xl font-black text-indigo-400">9.1%</div>
+                                            <div className="text-xl font-black text-fuchsia-400">9.1%</div>
                                         </div>
                                     </div>
                                 </div>
@@ -1690,8 +1690,8 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                                             <h5 className="text-xs font-bold text-emerald-400 uppercase mb-1 tracking-wider">Tier 1: Committed Base</h5>
                                             <p className="text-[10px] text-slate-400 leading-relaxed">The absolute minimum safe bound. Pre-commit these resources 6 months in advance at optimized rates. Zero risk of over-allocation.</p>
                                         </div>
-                                        <div className="p-3 bg-slate-900/80 border border-sky-500/30 rounded-xl border-l-4 border-l-sky-500 hover:bg-sky-900/20 transition-colors shadow-inner">
-                                            <h5 className="text-xs font-bold text-sky-400 uppercase mb-1 tracking-wider">Tier 2: Dynamic Allocation</h5>
+                                        <div className="p-3 bg-slate-900/80 border border-pink-500/30 rounded-xl border-l-4 border-l-pink-500 hover:bg-pink-900/20 transition-colors shadow-inner">
+                                            <h5 className="text-xs font-bold text-pink-400 uppercase mb-1 tracking-wider">Tier 2: Dynamic Allocation</h5>
                                             <p className="text-[10px] text-slate-400 leading-relaxed">The delta up to the forecast point. Release at standard rates closer to demand realization to maintain steady cash flow.</p>
                                         </div>
                                         <div className="p-3 bg-slate-900/80 border border-fuchsia-500/30 rounded-xl border-l-4 border-l-fuchsia-500 hover:bg-fuchsia-900/20 transition-colors shadow-inner">
@@ -1728,13 +1728,13 @@ Validated by correlation analysis (Holiday r=+${correlations.demand_holiday}), T
                                                 <Bar dataKey="safeWholesale" stackId="a" fill="#10b981" name="1. Committed Base" radius={[0, 0, 4, 4]} />
 
                                                 {/* Bar 2: The remaining forecast to fill standard */}
-                                                <Bar dataKey="dynamicInventory" stackId="a" fill="#0ea5e9" name="2. Dynamic Allocation" radius={[4, 4, 0, 0]} />
+                                                <Bar dataKey="dynamicInventory" stackId="a" fill="#ec4899" name="2. Dynamic Allocation" radius={[4, 4, 0, 0]} />
 
                                                 {/* Area: The upper CI representing maximum potential surge capacity */}
                                                 <Area type="monotone" dataKey="upperLimit" fill="#d946ef" stroke="#d946ef" fillOpacity={0.1} strokeWidth={2} name="3. Surge Premium Cap" />
                                                 
                                                 {/* The Actual Forecast Line overlay */}
-                                                <Line type="step" dataKey="forecast" stroke="#ffffff" strokeWidth={2} dot={{r:5, fill:"#0ea5e9", stroke:"#fff", strokeWidth:2}} name="Predicted Target" />
+                                                <Line type="step" dataKey="forecast" stroke="#ffffff" strokeWidth={2} dot={{r:5, fill:"#ec4899", stroke:"#fff", strokeWidth:2}} name="Predicted Target" />
                                             </ComposedChart>
                                         </ResponsiveContainer>
                                     </div>
