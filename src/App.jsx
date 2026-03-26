@@ -36,7 +36,7 @@ const ThemeToggle = () => {
 // Sidebar — collapsible on desktop, drawer on mobile
 const Sidebar = ({ mobileOpen, setMobileOpen, collapsed, setCollapsed }) => {
   const location = useLocation();
-  const { user, signOut, syncStatus, notifications, requestAccess } = useAppContext();
+  const { user, signOut, syncStatus, notifications, requestAccess, markNotificationsRead } = useAppContext();
   const { theme, toggleTheme } = useTheme();
   const [requestedPages, setRequestedPages] = useState({});
 
@@ -151,6 +151,7 @@ const Sidebar = ({ mobileOpen, setMobileOpen, collapsed, setCollapsed }) => {
         <div className="p-2 border-t border-slate-800 flex flex-col items-center gap-1">
           {myUnread > 0 && user?.permissions?.isAdmin && (
             <Link to="/admin" title={`${myUnread} new notification${myUnread > 1 ? 's' : ''}`}
+              onClick={markNotificationsRead}
               className="relative flex items-center justify-center w-10 h-10 rounded-lg hover:bg-amber-500/10 transition">
               <Bell size={18} className="text-amber-400" />
               <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
@@ -173,7 +174,7 @@ const Sidebar = ({ mobileOpen, setMobileOpen, collapsed, setCollapsed }) => {
       ) : (
         <div className="p-3 sm:p-4 border-t border-slate-800">
           {myUnread > 0 && user?.permissions?.isAdmin && (
-            <Link to="/admin" onClick={() => setMobileOpen(false)}
+            <Link to="/admin" onClick={() => { setMobileOpen(false); markNotificationsRead(); }}
               className="flex items-center gap-2 px-3 sm:px-4 py-2 mb-2 bg-amber-500/10 border border-amber-500/20 rounded-lg hover:bg-amber-500/15 transition">
               <Bell size={16} className="text-amber-400" />
               <span className="text-xs font-bold text-amber-300 flex-1">{myUnread} new notification{myUnread > 1 ? 's' : ''}</span>
