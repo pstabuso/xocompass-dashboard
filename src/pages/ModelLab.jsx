@@ -186,13 +186,6 @@ if (dateCol === -1 || demandCol === -1) {
 }
 
 
-
-// 3. Smart-Detect the Demand/Value Column
-// (Allows forecasting for either Revenue 'netamount' or Booking Volume 'paxname')
-const demandCol = normalizedHeaders.findIndex(h => 
-  ['netamount', 'paxname', 'basic', 'taxes', 'demand', 'count', 'total'].includes(h)
-);
-
 // 4. Fallback Safety Check
 if (dateCol === -1 || demandCol === -1) {
   console.warn("Could not automatically map KJS International's columns. Found headers:", headers);
