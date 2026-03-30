@@ -1743,7 +1743,7 @@ const ModelLab = () => {
                           <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" horizontal={false}/>
                           <XAxis type="number" stroke="#475569" tick={{fontSize:10}} domain={[0,0.7]}/>
                           <YAxis type="category" dataKey="feature" stroke="#475569" tick={{fontSize:10}} width={95}/>
-                          <Tooltip contentStyle={TT_STYLE} formatter={v=>[v.toFixed(3),'Gain']}/>
+                          <Tooltip contentStyle={TT_STYLE} formatter={v=>[v.toFixed(2),'Gain']}/>
                           <Bar dataKey="gain" radius={[0,4,4,0]} name="Gain">
                             {modelData.featureGain.map((_,i) => (
                               <Cell key={i} fill={['#3b82f6','#60a5fa','#93c5fd'][i%3]} opacity={1-i*0.15}/>
