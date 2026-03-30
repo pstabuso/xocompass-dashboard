@@ -185,11 +185,7 @@ if (dateCol === -1 || demandCol === -1) {
   console.warn("Missing critical columns. Found:", headers);
 }
 
-// 2. Smart-Detect the Date Column 
-// (Prioritizes 'traveldate' for accurate forecasting, falls back to 'generationdate')
-const dateCol = normalizedHeaders.findIndex(h => 
-  ['traveldate', 'generationdate', 'bookingdate', 'transactiondate', 'date', 'period'].includes(h)
-);
+
 
 // 3. Smart-Detect the Demand/Value Column
 // (Allows forecasting for either Revenue 'netamount' or Booking Volume 'paxname')
