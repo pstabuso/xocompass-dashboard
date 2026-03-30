@@ -195,6 +195,16 @@ if (dateCol === -1 || demandCol === -1) {
   if (dateCol === -1) throw new Error(`CSV missing a date column. Found: ${headers.join(', ')}`);
   if (demandCol === -1) throw new Error(`CSV missing a demand/count column. Found: ${headers.join(', ')}`);
 
+  // 4. Map back to the exact format the charts expect
+  const result = Object.entries(monthly)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .filter(([date]) => date >= '2023-01') // <-- ADD THIS LINE to drop pre-pandemic data
+    .map(([date, vals]) => ({ 
+      date, 
+      demand: vals.count,
+      trueRevenue: vals.revenue 
+    }));
+
  // 1. Check if we are reading revenue or passengers
   const isRevenueColumn = normalizedHeaders[demandCol] === 'netamount';
   const monthly = {};
