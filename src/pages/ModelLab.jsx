@@ -38,7 +38,6 @@ import {
   isBackendAvailable, getPipelineInfo, predictHybrid,
   recalculateDSS, monthlyToDailyObservations,
 } from '../lib/sarimax-api';
-import { supabase } from '../lib/supabase'; // Adjust the path if your lib folder is elsewhere
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  CONSTANTS
@@ -116,10 +115,7 @@ const mkAudit = (action, detail, actor = 'user') =>
   Object.freeze({ seq: ++_seq, ts: new Date().toISOString(), actor, action, detail });
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  FINANCIAL FORMATTERS — adaptive (FIXES the "barely moves" problem)
-//  ₱0 – ₱9,999          → "₱9,500"          (exact PHP)
-//  ₱10,000 – ₱999,999   → "₱95.0k"          (thousands)
-//  ₱1,000,000+           → "₱1.23M"          (millions, only for large totals)
+//  FINANCIAL FORMATTERS
 // ═══════════════════════════════════════════════════════════════════════════
 const safeN = v => (typeof v === 'number' && isFinite(v) ? v : 0);
 const fmt   = (v, d = 1) => safeN(v).toFixed(d);
@@ -133,7 +129,6 @@ function fmtPHP(v) {
   return `₱${(n / 1_000_000).toFixed(2)}M`;
 }
 
-/** Always show in thousands — used for DSS dashboard where values are medium-range */
 function fmtPHPk(v) {
   const n = safeN(v);
   if (n === 0) return '₱0';
@@ -141,234 +136,49 @@ function fmtPHPk(v) {
   return `₱${(n / 1_000).toFixed(1)}k`;
 }
 
-/** Delta display — shows + or - prefix */
 function fmtDelta(v) {
   const n = safeN(v);
   const sign = n >= 0 ? '+' : '';
   return `${sign}${fmtPHP(n)}`;
 }
 
+
 // ═══════════════════════════════════════════════════════════════════════════
-//  CSV PARSER  — accepts Data Hub exports
-//  Expected columns (flexible): date + demand/count/bookings/quantity
+//  CSV PARSER  — FIXED: removed orphaned loadFromDataHub from inside for loop
+//  Accepts Data Hub exports. Expected columns: date + demand/count/bookings
 //  Supports YYYY-MM (monthly) or YYYY-MM-DD (daily, aggregated to monthly)
 // ═══════════════════════════════════════════════════════════════════════════
-const handleFileUpload = (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-    
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      parseCSV(e.target.result); 
-    };
-    reader.readAsText(file);
-  };
-
-  const loadFromDataHub = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('bookings') 
-        .select('travel_date, net_amount');
-
-      if (error) throw error;
-      if (!data || data.length === 0) {
-        alert("No data found in the Data Hub.");
-        return;
-      }
-
-      const monthly = {};
-      
-      data.forEach(row => {
-        const rawDate = row.travel_date; 
-        const cellValue = parseFloat(row.net_amount) || 0;
-        
-        if (!rawDate) return;
-
-        const parsedDate = new Date(rawDate);
-        if (isNaN(parsedDate.getTime())) return;
-
-        const monthKey = `${parsedDate.getFullYear()}-${String(parsedDate.getMonth() + 1).padStart(2, '0')}`;
-        
-        const actualBookings = 1;
-        const actualRevenue = cellValue;
-
-        if (!monthly[monthKey]) {
-          monthly[monthKey] = { count: 0, revenue: 0 };
-        }
-        
-        monthly[monthKey].count += actualBookings;
-        monthly[monthKey].revenue += actualRevenue;
-      });
-
-      const formattedResult = Object.entries(monthly)
-        .sort(([a], [b]) => a.localeCompare(b))
-        .filter(([date]) => date >= '2023-01')
-        .map(([date, vals]) => ({ 
-          date, 
-          demand: vals.count,
-          trueRevenue: vals.revenue 
-        }));
-
-      if (formattedResult.length < 3) {
-        alert("Not enough post-2023 data found in the Data Hub.");
-        return;
-      }
-
-      // Important: Use whatever state setter your component actually uses for the data!
-      // Often this is setDataset(formattedResult) or parseCSV(formattedResult)
-      setDataset(formattedResult); 
-      
-    } catch (err) {
-      console.error("Error fetching from Data Hub:", err);
-      alert("Failed to connect to Data Hub.");
-    }
-  };
 function parseCSV(text) {
   const lines = text.trim().split(/\r?\n/).filter(l => l.trim());
   if (lines.length < 2) throw new Error('CSV must have a header row and at least one data row');
 
   const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/[^a-z0-9_]/g, ''));
 
+  // 1. Normalize the raw client headers
+  const normalizedHeaders = headers.map(h =>
+    typeof h === 'string' ? h.toLowerCase().replace(/[^a-z0-9]/g, '') : ''
+  );
 
-      // 2. Reuse our perfected aggregation logic
-      const monthly = {};
-      
-      data.forEach(row => {
-        const rawDate = row.travel_date; 
-        const cellValue = parseFloat(row.net_amount) || 0;
-        
-        if (!rawDate) return;
+  // 2. Priority-Detect Date Column
+  const targetDateCols = ['traveldate', 'generationdate', 'bookingdate', 'transactiondate', 'date', 'period'];
+  let dateCol = -1;
+  for (const target of targetDateCols) {
+    dateCol = normalizedHeaders.indexOf(target);
+    if (dateCol !== -1) break;
+  }
 
-        const parsedDate = new Date(rawDate);
-        if (isNaN(parsedDate.getTime())) return;
-
-        const monthKey = `${parsedDate.getFullYear()}-${String(parsedDate.getMonth() + 1).padStart(2, '0')}`;
-        
-        const actualBookings = 1;
-        const actualRevenue = cellValue;
-
-        if (!monthly[monthKey]) {
-          monthly[monthKey] = { count: 0, revenue: 0 };
-        }
-        
-        monthly[monthKey].count += actualBookings;
-        monthly[monthKey].revenue += actualRevenue;
-      });
-
-      // 3. Apply the 2023 Structural Break Filter
-      const formattedResult = Object.entries(monthly)
-        .sort(([a], [b]) => a.localeCompare(b))
-        .filter(([date]) => date >= '2023-01')
-        .map(([date, vals]) => ({ 
-          date, 
-          demand: vals.count,
-          trueRevenue: vals.revenue 
-        }));
-
-      if (formattedResult.length < 3) {
-        alert("Not enough post-2023 data found in the Data Hub.");
-        return;
-      }
-
-      // 4. Update the UI state
-      setDataset(formattedResult); 
-      
-    } catch (err) {
-      console.error("Error fetching from Data Hub:", err);
-      alert("Failed to connect to Data Hub.");
-    }
-  };
-  // Detect columns
-  // 1. Normalize the raw client headers (e.g., "Generation Date" becomes "generationdate")
-// 1. Normalize the raw client headers
-const normalizedHeaders = headers.map(h => 
-  typeof h === 'string' ? h.toLowerCase().replace(/[^a-z0-9]/g, '') : ''
-);
-
-// 2. Priority-Detect Date Column (Searches our ideal list first, not the CSV order)
-const targetDateCols = ['traveldate', 'generationdate', 'bookingdate', 'transactiondate', 'date', 'period'];
-let dateCol = -1;
-for (const target of targetDateCols) {
-  dateCol = normalizedHeaders.indexOf(target);
-  if (dateCol !== -1) break; // Stops as soon as it finds the best match
-
-
-      // 2. Reuse our perfected aggregation logic
-      const monthly = {};
-      
-      data.forEach(row => {
-        // Adapt these keys based on what your Supabase select returns
-        const rawDate = row.travel_date; 
-        const cellValue = parseFloat(row.net_amount) || 0;
-        
-        if (!rawDate) return;
-
-        const parsedDate = new Date(rawDate);
-        if (isNaN(parsedDate.getTime())) return;
-
-        const monthKey = `${parsedDate.getFullYear()}-${String(parsedDate.getMonth() + 1).padStart(2, '0')}`;
-        
-        // 1 row = 1 transaction
-        const actualBookings = 1;
-        const actualRevenue = cellValue;
-
-        if (!monthly[monthKey]) {
-          monthly[monthKey] = { count: 0, revenue: 0 };
-        }
-        
-        monthly[monthKey].count += actualBookings;
-        monthly[monthKey].revenue += actualRevenue;
-      });
-
-      // 3. Apply the 2023 Structural Break Filter we built earlier
-      const formattedResult = Object.entries(monthly)
-        .sort(([a], [b]) => a.localeCompare(b))
-        .filter(([date]) => date >= '2023-01')
-        .map(([date, vals]) => ({ 
-          date, 
-          demand: vals.count,
-          trueRevenue: vals.revenue 
-        }));
-
-      if (formattedResult.length < 3) {
-        alert("Not enough post-2023 data found in the Data Hub.");
-        return;
-      }
-
-      // 4. Update the UI state just like the CSV upload does
-      setDataset(formattedResult); // Assuming `setDataset` or `setData` is your state setter
-      
-    } catch (err) {
-      console.error("Error fetching from Data Hub:", err);
-      alert("Failed to connect to Data Hub.");
-    }
-  };
-}
-
-// 3. Priority-Detect Demand Column (Forces 'netamount' to beat 'paxname')
-const targetDemandCols = ['netamount', 'basic', 'taxes', 'demand', 'count', 'total', 'paxname'];
-let demandCol = -1;
-for (const target of targetDemandCols) {
-  demandCol = normalizedHeaders.indexOf(target);
-  if (demandCol !== -1) break; // Stops as soon as it finds the numerical match
-}
-
-if (dateCol === -1 || demandCol === -1) {
-  console.warn("Missing critical columns. Found:", headers);
-}
-
-
-// 4. Fallback Safety Check
-if (dateCol === -1 || demandCol === -1) {
-  console.warn("Could not automatically map KJS International's columns. Found headers:", headers);
-  // Optional: Trigger a UI alert here telling the user the dataset format is unrecognized
-}
+  // 3. Priority-Detect Demand Column
+  const targetDemandCols = ['netamount', 'basic', 'taxes', 'demand', 'count', 'total', 'paxname'];
+  let demandCol = -1;
+  for (const target of targetDemandCols) {
+    demandCol = normalizedHeaders.indexOf(target);
+    if (demandCol !== -1) break;
+  }
 
   if (dateCol === -1) throw new Error(`CSV missing a date column. Found: ${headers.join(', ')}`);
   if (demandCol === -1) throw new Error(`CSV missing a demand/count column. Found: ${headers.join(', ')}`);
 
-
- // 1. Check if we are reading revenue or passengers
+  // Check if we are reading revenue or passengers
   const isRevenueColumn = normalizedHeaders[demandCol] === 'netamount';
   const monthly = {};
   const errors = [];
@@ -379,59 +189,49 @@ if (dateCol === -1 || demandCol === -1) {
     const rawVal  = cols[demandCol];
     if (!rawDate || !rawVal) return;
 
-    // 2. Smart Date Parser (replaces the old regex logic)
+    // Smart Date Parser
     let parsedDate = new Date(rawDate);
 
     // Fallback for M/D/YYYY or D/M/YYYY
     if (isNaN(parsedDate.getTime()) && typeof rawDate === 'string' && rawDate.includes('/')) {
       const parts = rawDate.split('/');
       if (parseInt(parts[0]) > 12) {
-        // First number is too high to be a month, so it must be DD/MM/YYYY
-        parsedDate = new Date(`${parts[1]}/${parts[0]}/${parts[2]}`); 
+        parsedDate = new Date(`${parts[1]}/${parts[0]}/${parts[2]}`);
       } else {
-        // Standard MM/DD/YYYY
-        parsedDate = new Date(`${parts[0]}/${parts[1]}/${parts[2]}`); 
+        parsedDate = new Date(`${parts[0]}/${parts[1]}/${parts[2]}`);
       }
     }
 
     if (isNaN(parsedDate.getTime())) {
       errors.push(`Row ${i + 2}: unrecognised date format "${rawDate}"`);
-      return; 
+      return;
     }
 
-    // Format as YYYY-MM safely
     const monthKey = `${parsedDate.getFullYear()}-${String(parsedDate.getMonth() + 1).padStart(2, '0')}`;
 
     const cellValue = parseFloat(rawVal);
-    if (!isFinite(cellValue) || cellValue < 0) { 
-      errors.push(`Row ${i + 2}: invalid value "${rawVal}"`); 
-      return; 
+    if (!isFinite(cellValue) || cellValue < 0) {
+      errors.push(`Row ${i + 2}: invalid value "${rawVal}"`);
+      return;
     }
 
-    // 3. Fix the Volume vs Revenue math
-    // 1 row = 1 transaction/booking.
-    const actualBookings = 1; 
+    const actualBookings = 1;
     const actualRevenue = isRevenueColumn ? cellValue : (cellValue * 1350);
 
-    // Initialize month if it doesn't exist
     if (!monthly[monthKey]) {
       monthly[monthKey] = { count: 0, revenue: 0 };
     }
-    
-    // Accumulate actuals
+
     monthly[monthKey].count += actualBookings;
     monthly[monthKey].revenue += actualRevenue;
   });
 
-  // 4. Map back to the exact format the charts expect
   const result = Object.entries(monthly)
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([date, vals]) => ({ 
-      date, 
-      // The dashboard natively expects "demand" to be the passenger count. 
-      // By forcing it to count the rows, we fix the 5.6 Billion peso bug.
+    .map(([date, vals]) => ({
+      date,
       demand: vals.count,
-      trueRevenue: vals.revenue 
+      trueRevenue: vals.revenue
     }));
 
   if (result.length < 3) throw new Error(`Only ${result.length} valid rows found — need at least 3`);
@@ -471,6 +271,7 @@ function buildAblationForecast(ablation) {
     return { date: d.date, actual: d.actual, prediction, residual: +(prediction - d.actual).toFixed(2) };
   });
 }
+
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  ERROR BOUNDARY  [ISO Reliability]
@@ -641,6 +442,7 @@ const StageNav = memo(({ currentId, onBack, onComplete, completeLabel, completeD
   );
 });
 
+
 // ═══════════════════════════════════════════════════════════════════════════
 //  MAIN COMPONENT
 // ═══════════════════════════════════════════════════════════════════════════
@@ -652,7 +454,7 @@ const ModelLab = () => {
   const [isDSSCalc, setIsDSSCalc]       = useState(false);
   const [prediction, setPrediction]     = useState(null);
   const [dssScenario, setDssScenario]   = useState({ fleetSize: C.MAX_FLEET, applyS: true });
-  const [dssBaseline, setDssBaseline]   = useState(null); // stored on first calculation
+  const [dssBaseline, setDssBaseline]   = useState(null);
   const [dssResult, setDssResult]       = useState(null);
   const [terminalLogs, setTerminalLogs] = useState([]);
   const [progress, setProgress]         = useState(0);
@@ -664,9 +466,9 @@ const ModelLab = () => {
   const [showAudit, setShowAudit]       = useState(false);
 
   // CSV + stage gating state
-  const [csvData, setCsvData]           = useState(null);   // parsed monthly series
-  const [csvMeta, setCsvMeta]           = useState(null);   // filename, rows, warnings
-  const [completedStages, setCompleted] = useState(new Set()); // stages explicitly finished
+  const [csvData, setCsvData]           = useState(null);
+  const [csvMeta, setCsvMeta]           = useState(null);
+  const [completedStages, setCompleted] = useState(new Set());
 
   const logsEndRef  = useRef(null);
   const abortRef    = useRef(null);
@@ -703,14 +505,11 @@ const ModelLab = () => {
 
   // ── STAGE GATING LOGIC ────────────────────────────────────────────────
   const isUnlocked = useCallback((id) => {
-    // ingest always unlocked; alglab always unlocked (standalone)
     if (id === 'ingest' || id === 'alglab') return true;
     const idx = STAGE_ORDER.indexOf(id);
     if (idx <= 0) return true;
     const prev = STAGE_ORDER[idx - 1];
-    // collinearity also requires CSV loaded
     if (id === 'collinearity') return completedStages.has('ingest') && csvData !== null;
-    // dss also requires prediction
     if (id === 'dss') return completedStages.has('train') && prediction !== null;
     return completedStages.has(prev);
   }, [completedStages, csvData, prediction]);
@@ -754,7 +553,7 @@ const ModelLab = () => {
   }, [addAudit]);
 
   // ── DATA DERIVATIONS ──────────────────────────────────────────────────
-  const activeData = csvData; // the live source — always CSV when loaded
+  const activeData = csvData;
 
   const monthlyStats = useMemo(() => {
     if (!activeData || activeData.length === 0) return null;
@@ -899,7 +698,6 @@ const ModelLab = () => {
 
       setPrediction(raw); setProgress(100);
       addAudit('PIPELINE_END', `wmape=${m?.wmape} rmse=${m?.rmse}`, 'system');
-      // Auto-complete stage 5 once training succeeds
       setCompleted(prev => new Set([...prev, 'train']));
     } catch (err) {
       if (err.name === 'AbortError' || err.message?.includes('Cancelled')) {
@@ -927,7 +725,6 @@ const ModelLab = () => {
         ticketPrice: C.TICKET_PRICE, applySurcharge: dssScenario.applyS,
       });
       const sane = sanitiseDSSResponse(result);
-      // Store first result as baseline for delta comparison
       setDssBaseline(prev => prev || sane);
       setDssResult(sane);
       addAudit('DSS_CALC', `fleet=${safeFleet} surcharge=${dssScenario.applyS}`);
@@ -944,14 +741,12 @@ const ModelLab = () => {
     return () => clearTimeout(dssTimerRef.current);
   }, [prediction, dssScenario.fleetSize, dssScenario.applyS]);
 
-  // Fleet input helper
   const updateFleet = useCallback(v => {
     const s = sanitiseFleet(v);
     setDssScenario(p => ({ ...p, fleetSize: s }));
     addAudit('FLEET_CHANGE', `fleet=${s}`);
   }, [addAudit]);
 
-  // Stage definitions
   const steps = useMemo(() => [
     { id:'ingest',       label:'1. Data Ingestion' },
     { id:'collinearity', label:'2. Collinearity' },
@@ -962,10 +757,10 @@ const ModelLab = () => {
     { id:'alglab',       label:'7. Algorithm Lab' },
   ], []);
 
-  // KPI helpers for stage 7
   const rmseOk  = modelData.metrics.rmse  < 5;
   const wmapeOk = modelData.metrics.wmape < 30;
   const dwOk    = modelData.metrics.dw_stat >= 1.9 && modelData.metrics.dw_stat <= 2.1;
+
 
   // ═════════════════════════════════════════════════════════════════════
   //  RENDER
@@ -988,20 +783,17 @@ const ModelLab = () => {
             </p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            {/* Backend badge */}
             <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-bold ${
               backendStatus?.ok ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-red-500/10 border-red-500/30 text-red-400'
             }`} role="status">
               {backendStatus?.ok ? <Wifi size={12}/> : <WifiOff size={12}/>}
               {backendStatus === null ? 'Checking...' : backendStatus.ok ? `Engine: ${backendStatus.engine}` : 'Backend offline'}
             </div>
-            {/* CSV status */}
             {csvData && (
               <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border bg-emerald-500/10 border-emerald-500/30 text-emerald-400 text-xs font-bold">
                 <Database size={11}/> {csvData.length} rows loaded
               </div>
             )}
-            {/* Audit */}
             <button onClick={() => setShowAudit(v => !v)}
               className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-bold transition-all ${
                 showAudit ? 'bg-violet-500/10 border-violet-500/30 text-violet-400' : 'bg-slate-800 border-slate-700 text-slate-500 hover:text-slate-300'
@@ -1016,7 +808,6 @@ const ModelLab = () => {
           </div>
         </div>
 
-        {/* Stage nav with lock indicators */}
         <nav aria-label="Pipeline stages">
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
             {steps.map((s, idx) => {
@@ -1106,7 +897,6 @@ const ModelLab = () => {
               </div>
             </div>
 
-            {/* CTA changes based on stage */}
             <div className="pt-2 border-t border-slate-800 space-y-2">
               {stage === 'train' && (
                 <>
@@ -1144,7 +934,6 @@ const ModelLab = () => {
             </div>
           </div>
 
-          {/* Notebook reference */}
           <div className="bg-slate-900/60 rounded-2xl p-4 border border-slate-800">
             <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-1.5">
               <BrainCircuit size={12} className="text-pink-400"/> Notebook Reference (v17)
@@ -1172,14 +961,17 @@ const ModelLab = () => {
         {/* ── RIGHT: Stage content ────────────────────────────────────── */}
         <main className="md:col-span-8 lg:col-span-9 space-y-6">
 
+
           {/* ============================================================
               STAGE 1: DATA INGESTION (CSV gate)
+              FIXED: Removed the broken <div className="flex items-center gap-4">
+                     block that referenced undefined handleFileUpload.
+                     CSVDropzone already handles all file input.
           ============================================================ */}
           {stage === 'ingest' && (
             <PipelineErrorBoundary>
               <div className="space-y-5 animate-in fade-in slide-in-from-bottom-4">
 
-                {/* Data Hub callout */}
                 <div className="p-4 bg-blue-500/10 border border-blue-500/30 rounded-xl flex items-start gap-3">
                   <Database size={18} className="text-blue-400 mt-0.5 shrink-0"/>
                   <div>
@@ -1194,34 +986,13 @@ const ModelLab = () => {
                   </div>
                 </div>
 
-                {/* CSV upload */}
                 <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5">
                   <h3 className="font-bold text-white text-sm mb-4 flex items-center gap-2">
                     <Upload size={16} className="text-pink-400"/> Upload Booking Data
                   </h3>
                   <CSVDropzone onLoad={handleCSVLoad} isLoaded={!!csvData} csvMeta={csvMeta}/>
                 </div>
-                
-  {/* Your existing CSV Upload Input */}
-  <input 
-    type="file" 
-    accept=".csv" 
-    onChange={handleFileUpload} // your existing handler
-    className="file-input file-input-bordered w-full max-w-xs" 
-  />
 
-  <div className="divider divider-horizontal">OR</div>
-
-  {/* The new Direct Connection Button */}
-  <button 
-    onClick={loadFromDataHub}
-    className="btn btn-primary"
-  >
-    Pull Live Data from Data Hub
-  </button>
-</div>
-
-                {/* Preview once loaded */}
                 {csvData && monthlyStats && (
                   <>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -1265,7 +1036,6 @@ const ModelLab = () => {
                       </div>
                     </div>
 
-                    {/* Feature description */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="bg-slate-900/60 border border-pink-500/20 rounded-2xl p-5">
                         <h4 className="font-bold text-pink-400 text-sm mb-3 flex items-center gap-2"><Calendar size={16}/> PH Calendar Features</h4>
@@ -1312,6 +1082,7 @@ const ModelLab = () => {
               </div>
             </PipelineErrorBoundary>
           )}
+
 
           {/* ============================================================
               STAGE 2: COLLINEARITY
@@ -1494,6 +1265,7 @@ const ModelLab = () => {
             </PipelineErrorBoundary>
           )}
 
+
           {/* ============================================================
               STAGE 5: HYBRID TRAINING
           ============================================================ */}
@@ -1511,7 +1283,6 @@ const ModelLab = () => {
                   </div>
                 )}
 
-                {/* Run button (also in sidebar) */}
                 {!prediction && !isRunning && (
                   <div className="flex justify-center">
                     <button onClick={runPipeline} disabled={runGuard || !csvData}
@@ -1521,7 +1292,6 @@ const ModelLab = () => {
                   </div>
                 )}
 
-                {/* Terminal */}
                 <div className="bg-slate-900/60 border border-slate-800 rounded-2xl overflow-hidden" role="log" aria-live="polite">
                   <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800 bg-slate-900/40">
                     <h3 className="font-bold text-white flex items-center gap-2 text-sm">
@@ -1556,7 +1326,6 @@ const ModelLab = () => {
                   </div>
                 </div>
 
-                {/* Metrics */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <MetricCard loading={isRunning} label="WMAPE"
                     value={prediction?.metrics?.wmape != null ? fmtPct(prediction.metrics.wmape) : fmtPct(C.NB_WMAPE)}
@@ -1606,6 +1375,7 @@ const ModelLab = () => {
             </PipelineErrorBoundary>
           )}
 
+
           {/* ============================================================
               STAGE 6: DSS DASHBOARD
           ============================================================ */}
@@ -1625,7 +1395,6 @@ const ModelLab = () => {
                     <p className="text-slate-500 text-xs mt-1">Revenue shown in ₱ / ₱k — adjust fleet below to see scenario deltas</p>
                   </div>
 
-                  {/* Fleet scenario — validated [T][E] */}
                   <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3 min-w-[220px]">
                     <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Fleet Scenario</p>
                     <div className="flex items-center gap-2">
@@ -1653,7 +1422,6 @@ const ModelLab = () => {
 
                 {activeDSS && (
                   <>
-                    {/* Revenue cards — using adaptive formatter */}
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                       <MetricCard loading={isDSSCalc} label="Potential Revenue"
                         value={fmtPHPk(activeDSS.potential_revenue)} sub="Uncapped demand" color="text-slate-300"/>
@@ -1665,7 +1433,6 @@ const ModelLab = () => {
                         value={fmtPHPk(activeDSS.mitigated_revenue)} sub={`+${C.PEAK_SURCHARGE*100}% surcharge`} color="text-emerald-400"/>
                     </div>
 
-                    {/* Delta panel — shows scenario change clearly */}
                     {dssBaseline && activeDSS && (
                       <div className="bg-slate-900/60 border border-blue-500/20 rounded-2xl p-5">
                         <h4 className="font-bold text-blue-300 text-sm mb-4 flex items-center gap-2">
@@ -1673,40 +1440,16 @@ const ModelLab = () => {
                         </h4>
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                           {[
-                            {
-                              label: 'Capped Rev Change',
-                              delta: activeDSS.capped_revenue - dssBaseline.capped_revenue,
-                              note: 'vs base fleet',
-                            },
-                            {
-                              label: 'Risk Reduction',
-                              delta: dssBaseline.revenue_at_risk - activeDSS.revenue_at_risk,
-                              note: 'lower = better',
-                            },
-                            {
-                              label: 'Per-Day Revenue',
-                              delta: null,
-                              value: fmtPHPk(activeDSS.capped_revenue / Math.max(1, horizon)),
-                              note: `avg / day over ${horizon}d`,
-                              color: 'text-slate-200',
-                            },
-                            {
-                              label: 'Per-Day at Risk',
-                              delta: null,
-                              value: fmtPHPk(activeDSS.revenue_at_risk / Math.max(1, horizon)),
-                              note: 'avg loss / day',
-                              color: 'text-red-400',
-                            },
+                            { label:'Capped Rev Change', delta: activeDSS.capped_revenue - dssBaseline.capped_revenue, note:'vs base fleet' },
+                            { label:'Risk Reduction', delta: dssBaseline.revenue_at_risk - activeDSS.revenue_at_risk, note:'lower = better' },
+                            { label:'Per-Day Revenue', delta:null, value:fmtPHPk(activeDSS.capped_revenue / Math.max(1,horizon)), note:`avg / day over ${horizon}d`, color:'text-slate-200' },
+                            { label:'Per-Day at Risk', delta:null, value:fmtPHPk(activeDSS.revenue_at_risk / Math.max(1,horizon)), note:'avg loss / day', color:'text-red-400' },
                           ].map(({ label, delta, value, note, color }) => (
                             <div key={label} className="bg-slate-950/60 rounded-xl border border-slate-800 p-3">
                               <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1">{label}</p>
-                              {delta !== null ? (
-                                <p className={`text-xl font-black ${delta >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                                  {fmtDelta(delta)}
-                                </p>
-                              ) : (
-                                <p className={`text-xl font-black ${color || 'text-slate-200'}`}>{value}</p>
-                              )}
+                              {delta !== null
+                                ? <p className={`text-xl font-black ${delta >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{fmtDelta(delta)}</p>
+                                : <p className={`text-xl font-black ${color || 'text-slate-200'}`}>{value}</p>}
                               <p className="text-[9px] text-slate-500 mt-0.5">{note}</p>
                             </div>
                           ))}
@@ -1714,7 +1457,6 @@ const ModelLab = () => {
                       </div>
                     )}
 
-                    {/* Risk distribution */}
                     <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5">
                       <h4 className="font-bold text-white text-sm mb-4 flex items-center gap-2">
                         <Activity size={16} className="text-pink-400"/> Risk Distribution — {horizon}-Day Window
@@ -1739,7 +1481,6 @@ const ModelLab = () => {
                       </div>
                     </div>
 
-                    {/* Top risk dates */}
                     {activeDSS.top_risk_dates?.length > 0 && (
                       <div className="bg-slate-900/60 border border-red-500/20 rounded-2xl p-5">
                         <h4 className="font-bold text-red-400 text-sm mb-4 flex items-center gap-2">
@@ -1785,7 +1526,6 @@ const ModelLab = () => {
                   </div>
                 )}
 
-                {/* SWOT */}
                 <div className="bg-gradient-to-br from-slate-900 to-slate-950 border border-emerald-500/30 rounded-2xl p-6 relative overflow-hidden">
                   <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none"/>
                   <div className="relative z-10">
@@ -1835,6 +1575,7 @@ const ModelLab = () => {
             </PipelineErrorBoundary>
           )}
 
+
           {/* ============================================================
               STAGE 7: ALGORITHM LAB
           ============================================================ */}
@@ -1869,7 +1610,6 @@ const ModelLab = () => {
                   </button>
                 </div>
 
-                {/* 3 KPI cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   {[
                     { label:'RMSE (Risk Error)',           value:modelData.metrics.rmse,       good:rmseOk,  threshold:'< 5.0',        icon:Target },
@@ -1894,10 +1634,8 @@ const ModelLab = () => {
                   ))}
                 </div>
 
-                {/* 4-panel grid */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
 
-                  {/* Panel 1: Forecast vs Actual */}
                   <section className="lg:col-span-8 bg-slate-900/70 border border-slate-800 rounded-2xl p-5">
                     <div className="flex items-center gap-2 mb-3">
                       <TrendingUp size={16} className="text-pink-400"/>
@@ -1922,7 +1660,6 @@ const ModelLab = () => {
                     </div>
                   </section>
 
-                  {/* Panel 2: Feature Gain */}
                   <section className="lg:col-span-4 bg-slate-900/70 border border-slate-800 rounded-2xl p-5">
                     <div className="flex items-center gap-2 mb-3">
                       <BarChart2 size={16} className="text-blue-400"/>
@@ -1945,7 +1682,6 @@ const ModelLab = () => {
                     </div>
                   </section>
 
-                  {/* Panel 3: Residual Variance */}
                   <section className="lg:col-span-6 bg-slate-900/70 border border-slate-800 rounded-2xl p-5">
                     <div className="flex items-center gap-2 mb-3">
                       <Activity size={16} className="text-amber-400"/>
@@ -1968,7 +1704,6 @@ const ModelLab = () => {
                     </div>
                   </section>
 
-                  {/* Panel 4: Algorithm Settings */}
                   <section className="lg:col-span-6 bg-slate-900/70 border border-slate-800 rounded-2xl p-5">
                     <div className="flex items-center gap-2 mb-4">
                       <Settings size={16} className="text-purple-400"/>
@@ -2000,7 +1735,6 @@ const ModelLab = () => {
                   </section>
                 </div>
 
-                {/* Footer note */}
                 <div className="flex items-start gap-2 p-3 bg-slate-900/40 border border-slate-800/50 rounded-xl text-[10px] text-slate-500">
                   <Info size={12} className="text-slate-600 mt-0.5 shrink-0"/>
                   <span>
