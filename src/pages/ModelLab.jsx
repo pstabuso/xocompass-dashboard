@@ -153,14 +153,19 @@ function fmtDelta(v) {
 //  Expected columns (flexible): date + demand/count/bookings/quantity
 //  Supports YYYY-MM (monthly) or YYYY-MM-DD (daily, aggregated to monthly)
 // ═══════════════════════════════════════════════════════════════════════════
-function parseCSV(text) {
-  const lines = text.trim().split(/\r?\n/).filter(l => l.trim());
-  if (lines.length < 2) throw new Error('CSV must have a header row and at least one data row');
+const handleFileUpload = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      parseCSV(e.target.result); 
+    };
+    reader.readAsText(file);
+  };
 
-  const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/[^a-z0-9_]/g, ''));
-const loadFromDataHub = async () => {
+  const loadFromDataHub = async () => {
     try {
-      // 1. Fetch directly from Supabase
       const { data, error } = await supabase
         .from('bookings') 
         .select('travel_date, net_amount');
@@ -170,6 +175,60 @@ const loadFromDataHub = async () => {
         alert("No data found in the Data Hub.");
         return;
       }
+
+      const monthly = {};
+      
+      data.forEach(row => {
+        const rawDate = row.travel_date; 
+        const cellValue = parseFloat(row.net_amount) || 0;
+        
+        if (!rawDate) return;
+
+        const parsedDate = new Date(rawDate);
+        if (isNaN(parsedDate.getTime())) return;
+
+        const monthKey = `${parsedDate.getFullYear()}-${String(parsedDate.getMonth() + 1).padStart(2, '0')}`;
+        
+        const actualBookings = 1;
+        const actualRevenue = cellValue;
+
+        if (!monthly[monthKey]) {
+          monthly[monthKey] = { count: 0, revenue: 0 };
+        }
+        
+        monthly[monthKey].count += actualBookings;
+        monthly[monthKey].revenue += actualRevenue;
+      });
+
+      const formattedResult = Object.entries(monthly)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .filter(([date]) => date >= '2023-01')
+        .map(([date, vals]) => ({ 
+          date, 
+          demand: vals.count,
+          trueRevenue: vals.revenue 
+        }));
+
+      if (formattedResult.length < 3) {
+        alert("Not enough post-2023 data found in the Data Hub.");
+        return;
+      }
+
+      // Important: Use whatever state setter your component actually uses for the data!
+      // Often this is setDataset(formattedResult) or parseCSV(formattedResult)
+      setDataset(formattedResult); 
+      
+    } catch (err) {
+      console.error("Error fetching from Data Hub:", err);
+      alert("Failed to connect to Data Hub.");
+    }
+  };
+function parseCSV(text) {
+  const lines = text.trim().split(/\r?\n/).filter(l => l.trim());
+  if (lines.length < 2) throw new Error('CSV must have a header row and at least one data row');
+
+  const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/[^a-z0-9_]/g, ''));
+
 
       // 2. Reuse our perfected aggregation logic
       const monthly = {};
