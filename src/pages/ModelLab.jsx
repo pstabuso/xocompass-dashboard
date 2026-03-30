@@ -1,21 +1,27 @@
 /**
- * ModelLab.jsx — XoCompass v17.2 Hybrid Pipeline Dashboard
- * =========================================================
+ * ModelLab.jsx — XoCompass v17.3 Airline Booking Demand Dashboard
+ * ================================================================
  * STRIDE + ISO 25010 hardened
  *
- * v17.2 changes:
- *   [CSV]   Stage 1 is now the Data Ingestion gate — pipeline is fully
- *           CSV-reliant. No CSV = no pipeline. Accepts exports from the
- *           Data Hub (date,demand columns) or raw booking CSVs.
- *   [GATE]  Sequential stage enforcement: each stage must be explicitly
- *           completed before the next unlocks. Skipping is blocked.
- *   [FIN]   Adaptive financial formatter — shows ₱ / ₱k / ₱M based on
- *           magnitude so DSS figures are always readable.
- *   [DELTA] DSS scenario panel shows revenue delta vs baseline so small
- *           fleet changes produce visible, meaningful numbers.
+ * v17.3 domain update:
+ *   [DOMAIN]  KJS International Travel & Tours = airline BOOKING AGENCY
+ *             Each source CSV row = 1 passenger (pax) ticket issued.
+ *             Demand = daily pax booking COUNT, not van seat count.
+ *             Revenue = agency net commission (PHP 69.35/pax from dataset).
  *
- * STRIDE:  [S]Spoofing [T]Tampering [R]Repudiation
- *          [I]InfoDisclose [D]DoS [E]Elevation
+ *   [CSV]     Smart parser detects KJS booking export columns:
+ *             Generation Date → booking date (primary)
+ *             Travel Date     → flight date (secondary, often empty)
+ *             Net Amount      → agency commission (sum per period)
+ *             Pax Name / row  → 1 row = 1 pax booking
+ *
+ *   [DSS]     "Fleet/Van" language replaced with booking capacity terminology:
+ *             max_daily_bookings = daily processing limit (default 200)
+ *             "Revenue at Risk" = lost commission from over-capacity days
+ *
+ *   [GATE]    Sequential stage enforcement preserved from v17.2
+ *   [FIN]     Adaptive PHP formatter (₱ / ₱k / ₱M)
+ *   [DELTA]   DSS scenario delta panel vs baseline
  */
 
 import React, {
@@ -26,8 +32,9 @@ import {
   CheckCircle, RefreshCw, Target, ShieldCheck, Search, TrendingUp,
   Info, AlertTriangle, Shield, Zap, BarChart4, Briefcase, DollarSign,
   LineChart as LineChartIcon, Terminal, BrainCircuit, Leaf, WifiOff,
-  Wifi, ChevronRight, AlertCircle, XCircle, Clock, Truck, FlaskConical,
+  Wifi, ChevronRight, AlertCircle, XCircle, Clock, Plane, FlaskConical,
   ToggleLeft, ToggleRight, BarChart2, Lock, FileText, Upload, ChevronLeft,
+  Users, Ticket,
 } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -35,38 +42,38 @@ import {
   Bar, ReferenceLine, Cell, ScatterChart, Scatter,
 } from 'recharts';
 import {
-  isBackendAvailable, getPipelineInfo, predictHybrid,
+  isBackendAvailable, predictHybrid,
   recalculateDSS, monthlyToDailyObservations,
 } from '../lib/sarimax-api';
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  CONSTANTS
+//  CONSTANTS — tuned to KJS International booking dataset
 // ═══════════════════════════════════════════════════════════════════════════
 const C = Object.freeze({
-  MAX_FLEET:        25,
-  MIN_FLEET:        1,
-  MAX_FLEET_INPUT:  60,
-  TICKET_PRICE:     1_350,
-  PEAK_SURCHARGE:   0.15,
-  NB_WMAPE:         46.45,
-  NB_DW:            1.8378,
-  NB_AIC:           3216.52,
-  NB_REV_RISK:      106_511.41,
-  MIN_HORIZON:      30,
-  MAX_HORIZON:      180,
-  DSS_DEBOUNCE_MS:  2_000,
-  MAX_LOGS:         200,
+  MAX_DAILY_BOOKINGS:   200,       // KJS daily booking capacity ceiling
+  MIN_DAILY_BOOKINGS:   1,
+  MAX_CAPACITY_INPUT:   2000,
+  NET_COMMISSION_PHP:   69.35,     // Agency net commission per pax (dataset)
+  GROSS_FARE_PHP:       95.0,      // Gross base fare per pax (dataset Basic col)
+  PEAK_SURCHARGE:       0.15,      // 15% peak season booking fee
+  NB_WMAPE:             46.45,
+  NB_DW:                1.8378,
+  NB_AIC:               3216.52,
+  NB_REV_RISK:          106_511.41,
+  MIN_HORIZON:          30,
+  MAX_HORIZON:          180,
+  DSS_DEBOUNCE_MS:      2_000,
+  MAX_LOGS:             200,
 });
 
-// Stage order for sequential gating
 const STAGE_ORDER = ['ingest', 'collinearity', 'stationary', 'gridsearch', 'train', 'dss', 'alglab'];
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  INPUT SANITISATION  [T][E]
 // ═══════════════════════════════════════════════════════════════════════════
 const clamp = (v, lo, hi, fb = lo) => { const n = Number(v); return isFinite(n) ? Math.max(lo, Math.min(hi, n)) : fb; };
-const sanitiseFleet   = v => Math.round(clamp(v, C.MIN_FLEET, C.MAX_FLEET_INPUT, C.MAX_FLEET));
-const sanitiseHorizon = v => Math.round(clamp(v, C.MIN_HORIZON, C.MAX_HORIZON, 90) / 30) * 30;
+const sanitiseCapacity = v => Math.round(clamp(v, C.MIN_DAILY_BOOKINGS, C.MAX_CAPACITY_INPUT, C.MAX_DAILY_BOOKINGS));
+const sanitiseHorizon  = v => Math.round(clamp(v, C.MIN_HORIZON, C.MAX_HORIZON, 90) / 30) * 30;
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  API VALIDATION  [S]
@@ -90,16 +97,17 @@ function sanitiseDSSResponse(data) {
   const s = v => (isFinite(Number(v)) && Number(v) >= 0 ? Number(v) : 0);
   return {
     ...data,
-    potential_revenue: s(data.potential_revenue), capped_revenue:   s(data.capped_revenue),
-    revenue_at_risk:   s(data.revenue_at_risk),   mitigated_revenue: s(data.mitigated_revenue),
-    critical_days:     s(data.critical_days),      high_days:        s(data.high_days),
-    warning_days:      s(data.warning_days),       optimal_days:     s(data.optimal_days),
+    potential_revenue:  s(data.potential_revenue),
+    capped_revenue:     s(data.capped_revenue),
+    revenue_at_risk:    s(data.revenue_at_risk),
+    mitigated_revenue:  s(data.mitigated_revenue),
+    critical_days:      s(data.critical_days),
+    high_days:          s(data.high_days),
+    warning_days:       s(data.warning_days),
+    optimal_days:       s(data.optimal_days),
   };
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-//  ERROR SANITISATION  [I]
-// ═══════════════════════════════════════════════════════════════════════════
 function sanitiseError(err) {
   if (!err) return 'Unknown error';
   return String(err.message || err)
@@ -118,7 +126,7 @@ const mkAudit = (action, detail, actor = 'user') =>
 //  FINANCIAL FORMATTERS
 // ═══════════════════════════════════════════════════════════════════════════
 const safeN = v => (typeof v === 'number' && isFinite(v) ? v : 0);
-const fmt   = (v, d = 1) => safeN(v).toFixed(d);
+const fmt    = (v, d = 1) => safeN(v).toFixed(d);
 const fmtPct = v => `${safeN(v).toFixed(1)}%`;
 
 function fmtPHP(v) {
@@ -128,102 +136,134 @@ function fmtPHP(v) {
   if (n < 1_000_000) return `₱${(n / 1_000).toFixed(1)}k`;
   return `₱${(n / 1_000_000).toFixed(2)}M`;
 }
-
 function fmtPHPk(v) {
   const n = safeN(v);
   if (n === 0) return '₱0';
   if (n < 1_000) return `₱${Math.round(n)}`;
   return `₱${(n / 1_000).toFixed(1)}k`;
 }
-
 function fmtDelta(v) {
   const n = safeN(v);
-  const sign = n >= 0 ? '+' : '';
-  return `${sign}${fmtPHP(n)}`;
+  return `${n >= 0 ? '+' : ''}${fmtPHP(n)}`;
 }
 
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  CSV PARSER  — FIXED: removed orphaned loadFromDataHub from inside for loop
-//  Accepts Data Hub exports. Expected columns: date + demand/count/bookings
-//  Supports YYYY-MM (monthly) or YYYY-MM-DD (daily, aggregated to monthly)
+//  CSV PARSER — KJS Airline Booking Export Format
+//  -----------------------------------------------------------------------
+//  KJS booking CSV columns (v17.3 domain-aware):
+//    Order Reference, Pax Name, Pax Type, Sector, Origin_Destination,
+//    Generation Date, Travel Date, Desk Id, Status, Agency, Airline Code,
+//    Recharge Type, FLT Number, PNR, CRS_PNR, Booking Class,
+//    Basic, Taxes, Booking Surcharge, VAT, Net Amount
+//
+//  Rules:
+//    • Each row = 1 passenger booking
+//    • Date: "Generation Date" (booking creation) > "Travel Date" > "date"
+//    • Demand: COUNT rows per period (not a column value)
+//    • Revenue: SUM of "Net Amount" per period (agency commission)
+//    • Skip rows with Status = "Cancelled" / "Refunded"
 // ═══════════════════════════════════════════════════════════════════════════
 function parseCSV(text) {
   const lines = text.trim().split(/\r?\n/).filter(l => l.trim());
   if (lines.length < 2) throw new Error('CSV must have a header row and at least one data row');
 
-  const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/[^a-z0-9_]/g, ''));
+  // Parse header — normalize to lowercase alphanum for matching
+  const rawHeaders = lines[0].split(',').map(h => h.trim().replace(/^["']|["']$/g, ''));
+  const normHeaders = rawHeaders.map(h => h.toLowerCase().replace(/[^a-z0-9]/g, ''));
 
-  // 1. Normalize the raw client headers
-  const normalizedHeaders = headers.map(h =>
-    typeof h === 'string' ? h.toLowerCase().replace(/[^a-z0-9]/g, '') : ''
-  );
-
-  // 2. Priority-Detect Date Column
-  const targetDateCols = ['traveldate', 'generationdate', 'bookingdate', 'transactiondate', 'date', 'period'];
+  // ── Date column detection (KJS priority order) ────────────────────────
+  const dateCandidates = [
+    'generationdate', 'traveldate', 'bookingdate', 'transactiondate',
+    'date', 'period', 'issueddate', 'issuedate',
+  ];
   let dateCol = -1;
-  for (const target of targetDateCols) {
-    dateCol = normalizedHeaders.indexOf(target);
+  for (const cand of dateCandidates) {
+    dateCol = normHeaders.indexOf(cand);
     if (dateCol !== -1) break;
   }
 
-  // 3. Priority-Detect Demand Column
-  const targetDemandCols = ['netamount', 'basic', 'taxes', 'demand', 'count', 'total', 'paxname'];
-  let demandCol = -1;
-  for (const target of targetDemandCols) {
-    demandCol = normalizedHeaders.indexOf(target);
-    if (demandCol !== -1) break;
+  // ── Net Amount column detection ───────────────────────────────────────
+  const amountCandidates = ['netamount', 'net', 'amount', 'commission', 'basic', 'fare'];
+  let amountCol = -1;
+  for (const cand of amountCandidates) {
+    amountCol = normHeaders.indexOf(cand);
+    if (amountCol !== -1) break;
   }
 
-  if (dateCol === -1) throw new Error(`CSV missing a date column. Found: ${headers.join(', ')}`);
-  if (demandCol === -1) throw new Error(`CSV missing a demand/count column. Found: ${headers.join(', ')}`);
+  // ── Status column (to filter cancelled bookings) ──────────────────────
+  const statusCol = normHeaders.indexOf('status');
 
-  // Check if we are reading revenue or passengers
-  const isRevenueColumn = normalizedHeaders[demandCol] === 'netamount';
+  // ── Pax Type column (for segmentation metadata) ───────────────────────
+  const paxTypeCol = normHeaders.indexOf('paxtype');
+
+  if (dateCol === -1) {
+    throw new Error(
+      `CSV missing a date column. Found headers: ${rawHeaders.join(', ')}. ` +
+      `Expected one of: "Generation Date", "Travel Date", "Date".`
+    );
+  }
+
+  // ── Parse rows into monthly buckets ──────────────────────────────────
   const monthly = {};
-  const errors = [];
+  const errors  = [];
+  const SKIP_STATUSES = new Set(['cancelled', 'refunded', 'voided', 'rejected']);
 
   lines.slice(1).forEach((line, i) => {
-    const cols = line.split(',').map(c => c.trim().replace(/^["']|["']$/g, ''));
-    const rawDate = cols[dateCol];
-    const rawVal  = cols[demandCol];
-    if (!rawDate || !rawVal) return;
+    // Handle quoted CSV fields
+    const cols = line.match(/(".*?"|[^,]+|(?<=,)(?=,)|(?<=,)$|^(?=,))/g)
+      ?.map(c => c.trim().replace(/^["']|["']$/g, '')) ?? line.split(',').map(c => c.trim());
 
-    // Smart Date Parser
-    let parsedDate = new Date(rawDate);
+    const rawDate = cols[dateCol] || '';
+    if (!rawDate) return; // skip empty date rows
 
-    // Fallback for M/D/YYYY or D/M/YYYY
-    if (isNaN(parsedDate.getTime()) && typeof rawDate === 'string' && rawDate.includes('/')) {
-      const parts = rawDate.split('/');
-      if (parseInt(parts[0]) > 12) {
-        parsedDate = new Date(`${parts[1]}/${parts[0]}/${parts[2]}`);
-      } else {
-        parsedDate = new Date(`${parts[0]}/${parts[1]}/${parts[2]}`);
-      }
+    // Skip cancelled/refunded bookings
+    if (statusCol !== -1) {
+      const status = (cols[statusCol] || '').toLowerCase().trim();
+      if (SKIP_STATUSES.has(status)) return;
     }
 
+    // Parse date — handle M/D/YYYY, D/M/YYYY, YYYY-MM-DD, DD-MM-YYYY
+    let parsedDate = new Date(rawDate);
+    if (isNaN(parsedDate.getTime()) && rawDate.includes('/')) {
+      const parts = rawDate.split('/');
+      // If first part > 12 it must be DD/MM/YYYY
+      parsedDate = parseInt(parts[0]) > 12
+        ? new Date(`${parts[1]}/${parts[0]}/${parts[2]}`)
+        : new Date(`${parts[0]}/${parts[1]}/${parts[2]}`);
+    }
+    if (isNaN(parsedDate.getTime()) && rawDate.includes('-')) {
+      const parts = rawDate.split('-');
+      if (parts[0].length === 2) {
+        // DD-MM-YYYY
+        parsedDate = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+      }
+    }
     if (isNaN(parsedDate.getTime())) {
-      errors.push(`Row ${i + 2}: unrecognised date format "${rawDate}"`);
+      errors.push(`Row ${i + 2}: unrecognised date "${rawDate}"`);
       return;
     }
 
     const monthKey = `${parsedDate.getFullYear()}-${String(parsedDate.getMonth() + 1).padStart(2, '0')}`;
 
-    const cellValue = parseFloat(rawVal);
-    if (!isFinite(cellValue) || cellValue < 0) {
-      errors.push(`Row ${i + 2}: invalid value "${rawVal}"`);
-      return;
+    // Revenue: use Net Amount column if available, else default commission
+    let netAmount = C.NET_COMMISSION_PHP;
+    if (amountCol !== -1) {
+      const raw = parseFloat((cols[amountCol] || '').replace(/,/g, ''));
+      if (isFinite(raw) && raw >= 0) netAmount = raw;
     }
-
-    const actualBookings = 1;
-    const actualRevenue = isRevenueColumn ? cellValue : (cellValue * 1350);
 
     if (!monthly[monthKey]) {
-      monthly[monthKey] = { count: 0, revenue: 0 };
+      monthly[monthKey] = { count: 0, revenue: 0, paxTypes: {} };
     }
+    monthly[monthKey].count   += 1;          // 1 row = 1 pax booking
+    monthly[monthKey].revenue += netAmount;
 
-    monthly[monthKey].count += actualBookings;
-    monthly[monthKey].revenue += actualRevenue;
+    // Track pax type distribution (Adult / Child / Infant)
+    if (paxTypeCol !== -1) {
+      const pt = (cols[paxTypeCol] || 'Adult').trim();
+      monthly[monthKey].paxTypes[pt] = (monthly[monthKey].paxTypes[pt] || 0) + 1;
+    }
   });
 
   const result = Object.entries(monthly)
@@ -231,16 +271,32 @@ function parseCSV(text) {
     .map(([date, vals]) => ({
       date,
       demand: vals.count,
-      trueRevenue: vals.revenue
+      trueRevenue: vals.revenue,
+      avgCommission: vals.count > 0 ? vals.revenue / vals.count : C.NET_COMMISSION_PHP,
+      paxTypes: vals.paxTypes,
     }));
 
-  if (result.length < 3) throw new Error(`Only ${result.length} valid rows found — need at least 3`);
+  if (result.length < 3) throw new Error(`Only ${result.length} valid month(s) found — need at least 3`);
 
-  return { data: result, warnings: errors.slice(0, 5), headers, dateCol, demandCol };
+  return {
+    data: result,
+    warnings: errors.slice(0, 5),
+    headers: rawHeaders,
+    normHeaders,
+    dateCol,
+    amountCol,
+    totalPax: result.reduce((s, r) => s + r.demand, 0),
+    totalRevenue: result.reduce((s, r) => s + r.trueRevenue, 0),
+    avgCommissionPerPax: (() => {
+      const tp = result.reduce((s, r) => s + r.demand, 0);
+      const tr = result.reduce((s, r) => s + r.trueRevenue, 0);
+      return tp > 0 ? tr / tp : C.NET_COMMISSION_PHP;
+    })(),
+  };
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  PEARSON r — pure, correct  [ISO FC]
+//  PEARSON r — pure, correct
 // ═══════════════════════════════════════════════════════════════════════════
 function pearsonR(xs, ys) {
   const n = xs.length;
@@ -248,7 +304,10 @@ function pearsonR(xs, ys) {
   const mx = xs.reduce((s, v) => s + v, 0) / n;
   const my = ys.reduce((s, v) => s + v, 0) / n;
   let num = 0, dx = 0, dy = 0;
-  for (let i = 0; i < n; i++) { const ex = xs[i]-mx, ey = ys[i]-my; num+=ex*ey; dx+=ex*ex; dy+=ey*ey; }
+  for (let i = 0; i < n; i++) {
+    const ex = xs[i] - mx, ey = ys[i] - my;
+    num += ex * ey; dx += ex * ex; dy += ey * ey;
+  }
   const d = Math.sqrt(dx * dy);
   return d === 0 ? 0 : +(num / d).toFixed(3);
 }
@@ -271,7 +330,6 @@ function buildAblationForecast(ablation) {
     return { date: d.date, actual: d.actual, prediction, residual: +(prediction - d.actual).toFixed(2) };
   });
 }
-
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  ERROR BOUNDARY  [ISO Reliability]
@@ -299,7 +357,7 @@ class PipelineErrorBoundary extends Component {
 const TT_STYLE = Object.freeze({ backgroundColor:'#0f172a', borderColor:'#334155', borderRadius:'8px', fontSize:11 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  MEMOISED SUB-COMPONENTS  [ISO PE]
+//  MEMOISED SUB-COMPONENTS
 // ═══════════════════════════════════════════════════════════════════════════
 const MetricCard = memo(({ label, value, sub, color='text-pink-400', loading=false }) => (
   <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-3 sm:p-4" role="region" aria-label={label}>
@@ -325,13 +383,14 @@ const AuditRow = memo(({ entry }) => (
   </div>
 ));
 
+
 // ═══════════════════════════════════════════════════════════════════════════
-//  CSV UPLOAD DROPZONE
+//  CSV DROPZONE
 // ═══════════════════════════════════════════════════════════════════════════
 const CSVDropzone = memo(({ onLoad, isLoaded, csvMeta }) => {
   const [dragging, setDragging] = useState(false);
-  const [error, setError] = useState(null);
-  const [parsing, setParsing] = useState(false);
+  const [error, setError]       = useState(null);
+  const [parsing, setParsing]   = useState(false);
   const inputRef = useRef(null);
 
   const handleFile = useCallback(async (file) => {
@@ -339,7 +398,7 @@ const CSVDropzone = memo(({ onLoad, isLoaded, csvMeta }) => {
     if (!file.name.endsWith('.csv') && file.type !== 'text/csv') {
       setError('Please upload a .csv file'); return;
     }
-    if (file.size > 5 * 1024 * 1024) { setError('File too large (max 5 MB)'); return; }
+    if (file.size > 10 * 1024 * 1024) { setError('File too large (max 10 MB)'); return; }
     setParsing(true); setError(null);
     try {
       const text = await file.text();
@@ -362,17 +421,18 @@ const CSVDropzone = memo(({ onLoad, isLoaded, csvMeta }) => {
       <CheckCircle size={18} className="text-emerald-400 mt-0.5 shrink-0" />
       <div className="flex-1 min-w-0">
         <p className="text-sm font-bold text-emerald-300">
-          {csvMeta.filename} — {csvMeta.rows} rows loaded
+          {csvMeta.filename} — {csvMeta.totalPax?.toLocaleString() ?? csvMeta.rows} pax bookings loaded
         </p>
         <p className="text-xs text-slate-400 mt-0.5">
-          Columns detected: <code className="text-emerald-400 bg-slate-900 px-1 rounded">{csvMeta.dateHeader}</code> + <code className="text-emerald-400 bg-slate-900 px-1 rounded">{csvMeta.demandHeader}</code>
-          {' '}· Date range: {csvMeta.dateRange}
+          Date column: <code className="text-emerald-400 bg-slate-900 px-1 rounded">{csvMeta.dateHeader}</code>
+          {csvMeta.amountHeader && <> · Commission: <code className="text-emerald-400 bg-slate-900 px-1 rounded">{csvMeta.amountHeader}</code></>}
+          {' '}· {csvMeta.months} months · Avg commission: {fmtPHP(csvMeta.avgCommissionPerPax)}/pax
         </p>
         {csvMeta.warnings?.length > 0 && (
           <p className="text-[10px] text-amber-400 mt-1">⚠ {csvMeta.warnings.length} row(s) skipped: {csvMeta.warnings[0]}</p>
         )}
       </div>
-      <button onClick={() => { onLoad(null, null); }}
+      <button onClick={() => onLoad(null, null)}
         className="text-[10px] text-slate-500 hover:text-red-400 font-bold shrink-0 transition">Replace</button>
     </div>
   );
@@ -387,24 +447,24 @@ const CSVDropzone = memo(({ onLoad, isLoaded, csvMeta }) => {
         className={`cursor-pointer rounded-2xl border-2 border-dashed p-8 text-center transition-all ${
           dragging ? 'border-pink-500 bg-pink-500/10' : 'border-slate-700 bg-slate-900/40 hover:border-slate-500 hover:bg-slate-900/60'
         }`}
-        role="button" aria-label="Upload CSV file"
+        role="button" aria-label="Upload KJS booking CSV"
       >
         <input ref={inputRef} type="file" accept=".csv,text/csv" className="hidden"
           onChange={e => handleFile(e.target.files[0])} />
         {parsing ? (
           <div className="flex flex-col items-center gap-3">
             <RefreshCw size={32} className="text-pink-400 animate-spin" />
-            <p className="text-slate-400 text-sm font-bold">Parsing CSV...</p>
+            <p className="text-slate-400 text-sm font-bold">Parsing booking records...</p>
           </div>
         ) : (
           <div className="flex flex-col items-center gap-3">
-            <Upload size={32} className={dragging ? 'text-pink-400' : 'text-slate-600'} />
+            <Plane size={32} className={dragging ? 'text-pink-400' : 'text-slate-600'} />
             <div>
-              <p className="text-slate-300 font-bold text-sm">Drop your CSV here or click to browse</p>
-              <p className="text-slate-500 text-xs mt-1">Exported from Data Hub · Max 5 MB</p>
+              <p className="text-slate-300 font-bold text-sm">Drop KJS booking export CSV here or click to browse</p>
+              <p className="text-slate-500 text-xs mt-1">Each row = 1 passenger booking · Max 10 MB</p>
             </div>
             <div className="text-[10px] text-slate-600 font-mono bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-800">
-              Required columns: <span className="text-slate-400">date</span> + <span className="text-slate-400">demand</span> / count / bookings
+              Auto-detects: <span className="text-slate-400">Generation Date</span> · <span className="text-slate-400">Net Amount</span> · <span className="text-slate-400">Status</span>
             </div>
           </div>
         )}
@@ -420,7 +480,7 @@ const CSVDropzone = memo(({ onLoad, isLoaded, csvMeta }) => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
-//  STAGE NAV BOTTOM — "Complete & Continue" pattern
+//  STAGE NAV
 // ═══════════════════════════════════════════════════════════════════════════
 const StageNav = memo(({ currentId, onBack, onComplete, completeLabel, completeDisabled, completeColor = 'bg-pink-600 hover:bg-pink-500' }) => {
   const idx = STAGE_ORDER.indexOf(currentId);
@@ -447,13 +507,12 @@ const StageNav = memo(({ currentId, onBack, onComplete, completeLabel, completeD
 //  MAIN COMPONENT
 // ═══════════════════════════════════════════════════════════════════════════
 const ModelLab = () => {
-  // Core state
   const [stage, setStage]               = useState('ingest');
   const [backendStatus, setBackendStatus] = useState(null);
   const [isRunning, setIsRunning]       = useState(false);
   const [isDSSCalc, setIsDSSCalc]       = useState(false);
   const [prediction, setPrediction]     = useState(null);
-  const [dssScenario, setDssScenario]   = useState({ fleetSize: C.MAX_FLEET, applyS: true });
+  const [dssScenario, setDssScenario]   = useState({ capacity: C.MAX_DAILY_BOOKINGS, applyS: true });
   const [dssBaseline, setDssBaseline]   = useState(null);
   const [dssResult, setDssResult]       = useState(null);
   const [terminalLogs, setTerminalLogs] = useState([]);
@@ -464,8 +523,6 @@ const ModelLab = () => {
   const [auditLog, setAuditLog]         = useState([]);
   const [runGuard, setRunGuard]         = useState(false);
   const [showAudit, setShowAudit]       = useState(false);
-
-  // CSV + stage gating state
   const [csvData, setCsvData]           = useState(null);
   const [csvMeta, setCsvMeta]           = useState(null);
   const [completedStages, setCompleted] = useState(new Set());
@@ -474,10 +531,8 @@ const ModelLab = () => {
   const abortRef    = useRef(null);
   const dssTimerRef = useRef(null);
 
-  // Scroll terminal
   useEffect(() => { logsEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [terminalLogs]);
 
-  // Backend check
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -487,15 +542,12 @@ const ModelLab = () => {
     return () => { alive = false; };
   }, []);
 
-  // Cleanup on unmount
   useEffect(() => () => { abortRef.current?.abort(); clearTimeout(dssTimerRef.current); }, []);
 
-  // Audit helper
   const addAudit = useCallback((action, detail, actor = 'user') => {
     setAuditLog(prev => [...prev.slice(-99), mkAudit(action, detail, actor)]);
   }, []);
 
-  // Terminal helper
   const addLog = useCallback((text, type = 'default') => {
     setTerminalLogs(prev => {
       const next = [...prev, { text, type, ts: Date.now() }];
@@ -503,7 +555,7 @@ const ModelLab = () => {
     });
   }, []);
 
-  // ── STAGE GATING LOGIC ────────────────────────────────────────────────
+  // Stage gating
   const isUnlocked = useCallback((id) => {
     if (id === 'ingest' || id === 'alglab') return true;
     const idx = STAGE_ORDER.indexOf(id);
@@ -536,24 +588,29 @@ const ModelLab = () => {
     addAudit('STAGE_NAVIGATE', id);
   }, [isUnlocked, addAudit]);
 
-  // ── CSV LOAD ──────────────────────────────────────────────────────────
+  // CSV load
   const handleCSVLoad = useCallback((result, filename) => {
     if (!result) { setCsvData(null); setCsvMeta(null); return; }
     setCsvData(result.data);
-    const headers = result.headers;
     setCsvMeta({
       filename,
       rows: result.data.length,
-      dateHeader: headers[result.dateCol],
-      demandHeader: headers[result.demandCol],
+      months: result.data.length,
+      dateHeader: result.headers[result.dateCol] || 'date',
+      amountHeader: result.amountCol !== -1 ? result.headers[result.amountCol] : null,
       dateRange: `${result.data[0]?.date} → ${result.data[result.data.length - 1]?.date}`,
       warnings: result.warnings,
+      totalPax: result.totalPax,
+      totalRevenue: result.totalRevenue,
+      avgCommissionPerPax: result.avgCommissionPerPax,
     });
-    addAudit('CSV_LOAD', `file=${filename} rows=${result.data.length}`);
+    addAudit('CSV_LOAD', `file=${filename} months=${result.data.length} pax=${result.totalPax}`);
   }, [addAudit]);
 
-  // ── DATA DERIVATIONS ──────────────────────────────────────────────────
   const activeData = csvData;
+
+  // The commission to use: from CSV metadata if available, else default
+  const commissionRate = csvMeta?.avgCommissionPerPax || C.NET_COMMISSION_PHP;
 
   const monthlyStats = useMemo(() => {
     if (!activeData || activeData.length === 0) return null;
@@ -561,27 +618,27 @@ const ModelLab = () => {
     const total   = demands.reduce((s, v) => s + v, 0);
     const avg     = Math.round(total / activeData.length);
     const peak    = activeData.reduce((m, d) => d.demand > m.demand ? d : m, activeData[0]);
-    const revenue = total * C.TICKET_PRICE;
+    const totalRevenue = activeData.reduce((s, d) => s + (d.trueRevenue || d.demand * commissionRate), 0);
     const yrs = {};
     activeData.forEach(d => { const y = d.date.slice(0,4); yrs[y] = (yrs[y]||0) + d.demand; });
     const yoyKeys = Object.keys(yrs).sort();
     const lt = yoyKeys.slice(-2);
     const yoy = lt.length === 2 && yrs[lt[0]] > 0
       ? (((yrs[lt[1]] - yrs[lt[0]]) / yrs[lt[0]]) * 100).toFixed(1) : null;
-    return { total, avg, peak, revenue, yoy };
-  }, [activeData]);
+    return { total, avg, peak, totalRevenue, yoy };
+  }, [activeData, commissionRate]);
 
   const yearlyData = useMemo(() => {
     if (!activeData) return [];
     const acc = {};
     activeData.forEach(d => {
       const yr = d.date.slice(0,4);
-      if (!acc[yr]) acc[yr] = { year: yr, demand: 0 };
+      if (!acc[yr]) acc[yr] = { year: yr, demand: 0, revenue: 0 };
       acc[yr].demand  += d.demand;
-      acc[yr].revenue  = acc[yr].demand * C.TICKET_PRICE;
+      acc[yr].revenue += (d.trueRevenue || d.demand * commissionRate);
     });
     return Object.values(acc);
-  }, [activeData]);
+  }, [activeData, commissionRate]);
 
   const pearsonHolidayCorr = useMemo(() => {
     if (!activeData) return 0;
@@ -637,7 +694,7 @@ const ModelLab = () => {
     });
   }, [prediction, dssResult]);
 
-  // ── PIPELINE RUN  [D][S][T][R] ────────────────────────────────────────
+  // Pipeline run
   const runPipeline = useCallback(async () => {
     if (runGuard) { addLog('[GUARD] Already running.', 'warning'); return; }
     if (!activeData) { addLog('[ERROR] No CSV data loaded. Complete Stage 1 first.', 'error'); return; }
@@ -649,11 +706,12 @@ const ModelLab = () => {
     setRunGuard(true); setIsRunning(true);
     setTerminalLogs([]); setProgress(0); setPrediction(null); setDssResult(null); setDssBaseline(null);
 
-    addAudit('PIPELINE_START', `mode=${modelMode} horizon=${horizon} fleet=${dssScenario.fleetSize} rows=${activeData.length}`);
-    addLog('[SYSTEM] XoCompass v17.2 Hybrid Pipeline initializing...', 'info');
-    addLog(`[DATA]   CSV: ${activeData.length} monthly records loaded`, 'info');
-    addLog(`[CONFIG] Mode: ${modelMode.toUpperCase()} | Horizon: ${horizon}d | Fleet: ${C.MAX_FLEET} vans`, 'info');
-    addLog(`[CONFIG] Ticket: ₱${C.TICKET_PRICE} | Surcharge: ${C.PEAK_SURCHARGE*100}%`, 'info');
+    const cap = sanitiseCapacity(dssScenario.capacity);
+    addAudit('PIPELINE_START', `mode=${modelMode} horizon=${horizon} capacity=${cap} months=${activeData.length}`);
+    addLog('[SYSTEM] XoCompass v17.3 Airline Booking Demand Pipeline initializing...', 'info');
+    addLog(`[DATA]   CSV: ${activeData.length} months · ${csvMeta?.totalPax?.toLocaleString() ?? '?'} total pax bookings`, 'info');
+    addLog(`[CONFIG] Mode: ${modelMode.toUpperCase()} | Horizon: ${horizon}d | Capacity: ${cap} bookings/day`, 'info');
+    addLog(`[CONFIG] Commission: ₱${commissionRate.toFixed(2)}/pax | Peak surcharge: ${C.PEAK_SURCHARGE*100}%`, 'info');
     addLog('─'.repeat(58), 'divider');
 
     if (!backendStatus?.ok) {
@@ -664,7 +722,7 @@ const ModelLab = () => {
     }
 
     try {
-      addLog('[S1] Preparing daily observations...', 'info');
+      addLog('[S1] Converting monthly bookings to daily observations...', 'info');
       const dailyObs = monthlyToDailyObservations(activeData);
       if (!Array.isArray(dailyObs) || dailyObs.length === 0) throw new Error('Daily conversion failed');
       addLog(`[S1] ✓ ${dailyObs.length} daily records`, 'info'); setProgress(15);
@@ -677,9 +735,13 @@ const ModelLab = () => {
       addLog(`[S5] Dispatching to FastAPI (${backendStatus.engine})...`, 'info');
 
       const raw = await predictHybrid({
-        data: dailyObs, horizon: sanitiseHorizon(horizon), modelMode,
-        order: [0,0,1], seasonalOrder: [0,0,0,7],
-        maxFleet: sanitiseFleet(dssScenario.fleetSize), signal,
+        data: dailyObs,
+        horizon: sanitiseHorizon(horizon),
+        modelMode,
+        order: [0,0,1],
+        seasonalOrder: [0,0,0,7],
+        maxDailyBookings: cap,
+        signal,
       });
 
       if (signal.aborted) throw new Error('Cancelled');
@@ -691,10 +753,10 @@ const ModelLab = () => {
       if (raw.nb2_aic)    addLog(`[METRICS] NB2 AIC: ${raw.nb2_aic}`, 'success');
       if (raw.sarimax_aic) addLog(`[METRICS] SARIMAX AIC: ${raw.sarimax_aic}`, 'success');
       const m = raw.metrics;
-      if (m?.wmape != null) addLog(`[METRICS] WMAPE: ${fmtPct(m.wmape)} | RMSE: ${fmt(m.rmse)} | DW: ${fmt(m.durbin_watson, 4)}`, 'success');
-      addLog(`[DSS] Revenue at risk: ${fmtPHP(raw.revenue_at_risk)} over ${horizon}d`, 'success');
-      addLog(`[DSS] Critical days: ${raw.critical_days} | Fleet rec: ${raw.recommended_fleet} vans`, 'success');
-      addLog('[SYSTEM] ✓ XoCompass DSS v17.2 ready.', 'success');
+      if (m?.wmape != null) addLog(`[METRICS] WMAPE: ${fmtPct(m.wmape)} | RMSE: ${fmt(m.rmse)} pax | DW: ${fmt(m.durbin_watson, 4)}`, 'success');
+      addLog(`[DSS] Commission at risk: ${fmtPHP(raw.revenue_at_risk)} over ${horizon}d`, 'success');
+      addLog(`[DSS] Over-capacity days: ${raw.critical_days} | Rec. capacity: ${raw.recommended_capacity} bookings/day`, 'success');
+      addLog('[SYSTEM] ✓ XoCompass DSS v17.3 ready.', 'success');
 
       setPrediction(raw); setProgress(100);
       addAudit('PIPELINE_END', `wmape=${m?.wmape} rmse=${m?.rmse}`, 'system');
@@ -710,41 +772,42 @@ const ModelLab = () => {
     } finally {
       setIsRunning(false); setRunGuard(false);
     }
-  }, [backendStatus, modelMode, horizon, dssScenario.fleetSize, runGuard, activeData, addLog, addAudit]);
+  }, [backendStatus, modelMode, horizon, dssScenario.capacity, runGuard, activeData, csvMeta, commissionRate, addLog, addAudit]);
 
   const cancelRun = useCallback(() => { abortRef.current?.abort(); addAudit('CANCEL', 'user'); }, [addAudit]);
 
-  // ── DSS RECALCULATION  [D][E][S] ─────────────────────────────────────
   const runDSS = useCallback(async () => {
     if (!prediction) return;
-    const safeFleet = sanitiseFleet(dssScenario.fleetSize);
+    const safeCap = sanitiseCapacity(dssScenario.capacity);
     setIsDSSCalc(true);
     try {
       const result = await recalculateDSS({
-        forecasts: prediction.forecasts, fleetSize: safeFleet,
-        ticketPrice: C.TICKET_PRICE, applySurcharge: dssScenario.applyS,
+        forecasts: prediction.forecasts,
+        dailyCapacity: safeCap,
+        commissionPerPax: commissionRate,
+        applySurcharge: dssScenario.applyS,
       });
       const sane = sanitiseDSSResponse(result);
       setDssBaseline(prev => prev || sane);
       setDssResult(sane);
-      addAudit('DSS_CALC', `fleet=${safeFleet} surcharge=${dssScenario.applyS}`);
+      addAudit('DSS_CALC', `capacity=${safeCap} surcharge=${dssScenario.applyS}`);
     } catch (e) {
       addLog(`[DSS ERROR] ${sanitiseError(e)}`, 'error');
       setDssResult(null);
     } finally { setIsDSSCalc(false); }
-  }, [prediction, dssScenario, addLog, addAudit]);
+  }, [prediction, dssScenario, commissionRate, addLog, addAudit]);
 
   useEffect(() => {
     if (!prediction) return;
     clearTimeout(dssTimerRef.current);
     dssTimerRef.current = setTimeout(runDSS, C.DSS_DEBOUNCE_MS);
     return () => clearTimeout(dssTimerRef.current);
-  }, [prediction, dssScenario.fleetSize, dssScenario.applyS]);
+  }, [prediction, dssScenario.capacity, dssScenario.applyS]);
 
-  const updateFleet = useCallback(v => {
-    const s = sanitiseFleet(v);
-    setDssScenario(p => ({ ...p, fleetSize: s }));
-    addAudit('FLEET_CHANGE', `fleet=${s}`);
+  const updateCapacity = useCallback(v => {
+    const s = sanitiseCapacity(v);
+    setDssScenario(p => ({ ...p, capacity: s }));
+    addAudit('CAPACITY_CHANGE', `capacity=${s}`);
   }, [addAudit]);
 
   const steps = useMemo(() => [
@@ -762,23 +825,23 @@ const ModelLab = () => {
   const dwOk    = modelData.metrics.dw_stat >= 1.9 && modelData.metrics.dw_stat <= 2.1;
 
 
-  // ═════════════════════════════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════════════════════
   //  RENDER
-  // ═════════════════════════════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════════════════════════
   return (
     <div className="min-h-screen text-slate-200 pb-10 bg-slate-950 font-sans">
 
-      {/* ── STICKY HEADER ──────────────────────────────────────────── */}
+      {/* STICKY HEADER */}
       <header className="mb-6 p-3 sm:p-5 border-b border-slate-800 bg-slate-900/90 backdrop-blur-md sticky top-0 z-10">
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3 mb-4">
           <div className="min-w-0">
             <h1 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
-              <Cpu className="text-pink-400 shrink-0" size={22} />
-              <span className="truncate">XoCompass v17.2 — Hybrid Pipeline</span>
+              <Plane className="text-pink-400 shrink-0" size={22} />
+              <span className="truncate">XoCompass v17.3 — Airline Booking Demand</span>
             </h1>
             <p className="text-slate-500 text-xs mt-1 flex items-center gap-2">
               <Shield size={12} className="text-emerald-500 shrink-0" />
-              NB2 + SARIMAX + XGBoost · KJS International · CSV-gated · Step-by-step
+              NB2 + SARIMAX + XGBoost · KJS International Travel & Tours · Pax Booking Count Forecast
               <span className="text-[9px] px-1.5 py-0.5 bg-violet-500/10 border border-violet-500/20 text-violet-400 rounded font-bold">STRIDE+ISO25010</span>
             </p>
           </div>
@@ -791,7 +854,7 @@ const ModelLab = () => {
             </div>
             {csvData && (
               <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border bg-emerald-500/10 border-emerald-500/30 text-emerald-400 text-xs font-bold">
-                <Database size={11}/> {csvData.length} rows loaded
+                <Ticket size={11}/> {csvMeta?.totalPax?.toLocaleString() ?? csvData.length} pax
               </div>
             )}
             <button onClick={() => setShowAudit(v => !v)}
@@ -816,23 +879,18 @@ const ModelLab = () => {
               const done     = completedStages.has(s.id);
               return (
                 <div key={s.id} className="flex items-center shrink-0">
-                  <button
-                    onClick={() => navigateTo(s.id)}
-                    disabled={!unlocked}
+                  <button onClick={() => navigateTo(s.id)} disabled={!unlocked}
                     title={!unlocked ? 'Complete previous stages first' : undefined}
                     aria-current={active ? 'step' : undefined}
                     className={`px-2.5 sm:px-3.5 py-1.5 rounded-lg text-[11px] sm:text-sm font-bold border transition-all flex items-center gap-1.5 ${
-                      !unlocked
-                        ? 'bg-slate-900 text-slate-600 border-slate-800 cursor-not-allowed'
+                      !unlocked ? 'bg-slate-900 text-slate-600 border-slate-800 cursor-not-allowed'
                         : active
                           ? s.id === 'alglab'
                             ? 'bg-violet-600 text-white border-violet-500'
                             : 'bg-pink-600 text-white border-pink-500 shadow-[0_0_12px_rgba(236,72,153,0.3)]'
-                          : done
-                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                            : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-slate-200 hover:border-slate-600'
-                    }`}
-                  >
+                          : done ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                                 : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-slate-200 hover:border-slate-600'
+                    }`}>
                     {!unlocked && <Lock size={9} className="text-slate-700" />}
                     {done && !active && <CheckCircle size={10} className="text-emerald-400" />}
                     {s.label}
@@ -858,7 +916,7 @@ const ModelLab = () => {
 
       <div className="px-3 sm:px-6 grid grid-cols-1 md:grid-cols-12 gap-4 sm:gap-6">
 
-        {/* ── LEFT: Config Panel ──────────────────────────────────────── */}
+        {/* LEFT: Config Panel */}
         <aside className="md:col-span-4 lg:col-span-3 space-y-4">
           <div className="bg-slate-900/60 rounded-2xl p-4 sm:p-5 border border-slate-800 shadow-xl space-y-4">
             <h2 className="font-bold text-white flex items-center gap-2 text-sm">
@@ -892,8 +950,8 @@ const ModelLab = () => {
             <div>
               <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1 block">Target Variable</label>
               <div className="p-2.5 bg-slate-950 rounded-lg border border-slate-800 flex items-center gap-2">
-                <Database size={14} className="text-pink-400"/>
-                <code className="text-xs text-slate-300">daily_booking_count</code>
+                <Users size={14} className="text-pink-400"/>
+                <code className="text-xs text-slate-300">daily_pax_booking_count</code>
               </div>
             </div>
 
@@ -940,14 +998,15 @@ const ModelLab = () => {
             </h3>
             <dl className="space-y-2 text-[10px] font-mono">
               {[
-                ['Best order',     '(0,0,1)(0,0,0,7)'],
-                ['Best AIC',       C.NB_AIC.toLocaleString()],
-                ['WMAPE',          `${C.NB_WMAPE}%`],
-                ['Durbin-Watson',  C.NB_DW],
-                ['Rev at risk',    fmtPHP(C.NB_REV_RISK)],
-                ['Critical days',  '10'],
-                ['Fleet cap',      `${C.MAX_FLEET} vans`],
-                ['Ticket price',   `₱${C.TICKET_PRICE.toLocaleString()}`],
+                ['Best order',       '(0,0,1)(0,0,0,7)'],
+                ['Best AIC',         C.NB_AIC.toLocaleString()],
+                ['WMAPE',            `${C.NB_WMAPE}%`],
+                ['Durbin-Watson',    C.NB_DW],
+                ['Commission risk',  fmtPHP(C.NB_REV_RISK)],
+                ['Over-cap days',    '10'],
+                ['Daily capacity',   `${C.MAX_DAILY_BOOKINGS} bookings`],
+                ['Net commission',   `₱${C.NET_COMMISSION_PHP}/pax`],
+                ['Gross fare',       `₱${C.GROSS_FARE_PHP}/pax`],
               ].map(([k,v]) => (
                 <div key={k} className="flex justify-between items-center">
                   <dt className="text-slate-500">{k}</dt>
@@ -958,37 +1017,46 @@ const ModelLab = () => {
           </div>
         </aside>
 
-        {/* ── RIGHT: Stage content ────────────────────────────────────── */}
+        {/* RIGHT: Stage Content */}
         <main className="md:col-span-8 lg:col-span-9 space-y-6">
 
 
           {/* ============================================================
-              STAGE 1: DATA INGESTION (CSV gate)
-              FIXED: Removed the broken <div className="flex items-center gap-4">
-                     block that referenced undefined handleFileUpload.
-                     CSVDropzone already handles all file input.
+              STAGE 1: DATA INGESTION
           ============================================================ */}
           {stage === 'ingest' && (
             <PipelineErrorBoundary>
               <div className="space-y-5 animate-in fade-in slide-in-from-bottom-4">
 
                 <div className="p-4 bg-blue-500/10 border border-blue-500/30 rounded-xl flex items-start gap-3">
-                  <Database size={18} className="text-blue-400 mt-0.5 shrink-0"/>
+                  <Plane size={18} className="text-blue-400 mt-0.5 shrink-0"/>
                   <div>
-                    <p className="text-sm font-bold text-blue-300">Connect to the Data Hub</p>
+                    <p className="text-sm font-bold text-blue-300">KJS International — Airline Booking Records</p>
                     <p className="text-xs text-slate-400 mt-1">
-                      Export your booking data from the <strong className="text-blue-300">Data Hub</strong> as a CSV and upload it below.
-                      The pipeline will not proceed until data is loaded — all analysis derives directly from your file.
+                      Upload a CSV export from your booking system. Each row represents <strong className="text-blue-300">one passenger ticket</strong> issued by KJS International Travel & Tours.
+                      The pipeline counts pax bookings per period as the demand signal and sums Net Amount as agency commission revenue.
                     </p>
-                    <p className="text-[10px] text-slate-500 mt-1.5 font-mono">
-                      Expected columns: <code className="text-blue-400">date</code> + <code className="text-blue-400">demand</code> / count / bookings
-                    </p>
+                    <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 gap-2 text-[10px]">
+                      {[
+                        ['Generation Date', 'Booking creation date (primary)'],
+                        ['Travel Date', 'Flight date (secondary, may be empty)'],
+                        ['Net Amount', 'Agency commission per pax'],
+                        ['Status', 'Cancelled/Refunded rows are excluded'],
+                        ['Pax Name', '1 row = 1 passenger booking'],
+                        ['Order Reference', 'Groups multi-pax bookings'],
+                      ].map(([col, desc]) => (
+                        <div key={col} className="bg-slate-900 rounded-lg px-2 py-1.5 border border-slate-800">
+                          <code className="text-blue-400 block text-[9px]">{col}</code>
+                          <span className="text-slate-500 text-[9px]">{desc}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
                 <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5">
                   <h3 className="font-bold text-white text-sm mb-4 flex items-center gap-2">
-                    <Upload size={16} className="text-pink-400"/> Upload Booking Data
+                    <Upload size={16} className="text-pink-400"/> Upload Booking Data CSV
                   </h3>
                   <CSVDropzone onLoad={handleCSVLoad} isLoaded={!!csvData} csvMeta={csvMeta}/>
                 </div>
@@ -996,27 +1064,20 @@ const ModelLab = () => {
                 {csvData && monthlyStats && (
                   <>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      <MetricCard label="Total Bookings"  value={monthlyStats.total.toLocaleString()} sub={`${csvData.length} months`} color="text-white"/>
-                      <MetricCard label="Est. Revenue"    value={fmtPHP(monthlyStats.revenue)} sub={`@₱${C.TICKET_PRICE}/unit`} color="text-emerald-400"/>
-                      <MetricCard label="Avg Monthly"     value={monthlyStats.avg} sub="units/month" color="text-white"/>
-                      <MetricCard label="Peak Record"
-                        value={monthlyStats.peak.demand}
-                        sub={monthlyStats.peak.date}
-                        color="text-purple-400"/>
+                      <MetricCard label="Total Pax Bookings"  value={monthlyStats.total.toLocaleString()} sub={`${csvData.length} months`} color="text-white"/>
+                      <MetricCard label="Total Commission"    value={fmtPHP(monthlyStats.totalRevenue)} sub={`₱${commissionRate.toFixed(2)}/pax avg`} color="text-emerald-400"/>
+                      <MetricCard label="Avg Monthly Pax"     value={monthlyStats.avg.toLocaleString()} sub="bookings/month" color="text-white"/>
+                      <MetricCard label="Peak Month"          value={monthlyStats.peak.demand.toLocaleString()} sub={monthlyStats.peak.date} color="text-purple-400"/>
                     </div>
 
                     <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5">
                       <div className="flex items-center gap-2 mb-3">
                         <TrendingUp size={16} className="text-pink-400"/>
-                        <h4 className="font-bold text-white text-sm">Year-over-Year Demand & Revenue</h4>
+                        <h4 className="font-bold text-white text-sm">Year-over-Year: Pax Bookings & Commission Revenue</h4>
                         {monthlyStats.yoy && (
                           <span className={`ml-auto text-xs font-bold px-2 py-0.5 rounded-full ${
-                            parseFloat(monthlyStats.yoy) >= 0
-                              ? 'bg-emerald-500/15 text-emerald-400'
-                              : 'bg-red-500/15 text-red-400'
-                          }`}>
-                            YoY {monthlyStats.yoy}%
-                          </span>
+                            parseFloat(monthlyStats.yoy) >= 0 ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400'
+                          }`}>YoY {monthlyStats.yoy}%</span>
                         )}
                       </div>
                       <div className="h-56 bg-slate-950 rounded-xl border border-slate-800 p-3">
@@ -1025,12 +1086,11 @@ const ModelLab = () => {
                             <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" vertical={false}/>
                             <XAxis dataKey="year" stroke="#64748b" tick={{fontSize:10}}/>
                             <YAxis yAxisId="l" stroke="#f472b6" tick={{fontSize:10}}/>
-                            <YAxis yAxisId="r" orientation="right" stroke="#10b981" tick={{fontSize:10}}
-                              tickFormatter={v => fmtPHP(v)}/>
+                            <YAxis yAxisId="r" orientation="right" stroke="#10b981" tick={{fontSize:10}} tickFormatter={v => fmtPHP(v)}/>
                             <Tooltip contentStyle={TT_STYLE}
-                              formatter={(v, name) => name === 'Revenue (₱)' ? [fmtPHP(v), name] : [v, name]}/>
-                            <Bar yAxisId="l" dataKey="demand" fill="#f472b6" opacity={0.8} radius={[3,3,0,0]} name="Bookings"/>
-                            <Line yAxisId="r" type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={2.5} dot name="Revenue (₱)"/>
+                              formatter={(v, name) => name === 'Commission (₱)' ? [fmtPHP(v), name] : [`${v} pax`, name]}/>
+                            <Bar yAxisId="l" dataKey="demand" fill="#f472b6" opacity={0.8} radius={[3,3,0,0]} name="Pax Bookings"/>
+                            <Line yAxisId="r" type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={2.5} dot name="Commission (₱)"/>
                           </ComposedChart>
                         </ResponsiveContainer>
                       </div>
@@ -1041,10 +1101,10 @@ const ModelLab = () => {
                         <h4 className="font-bold text-pink-400 text-sm mb-3 flex items-center gap-2"><Calendar size={16}/> PH Calendar Features</h4>
                         <ul className="space-y-2 text-xs">
                           {[
-                            ['is_payday',            'Day 15 & last day — +40% demand boost'],
-                            ['is_holiday',           'PH national holidays — +80% multiplier'],
-                            ['is_school_break',      'Jun–Jul + Dec 15+ — airport surge'],
-                            ['is_peak_travel_month', 'Apr, Jul, Nov, Dec — structural uplift'],
+                            ['is_payday',            'Day 15 & month-end — salary → travel bookings spike'],
+                            ['is_holiday',           'PH national holidays — flight bookings surge'],
+                            ['is_school_break',      'Jun–Jul + Dec 15+ — family travel peak'],
+                            ['is_peak_travel_month', 'Apr, Jul, Nov, Dec — peak booking season'],
                             ['payday_proximity',     '3-day rolling window around payday'],
                           ].map(([f,d]) => (
                             <li key={f}>
@@ -1055,13 +1115,13 @@ const ModelLab = () => {
                         </ul>
                       </div>
                       <div className="bg-slate-900/60 border border-purple-500/20 rounded-2xl p-5">
-                        <h4 className="font-bold text-purple-400 text-sm mb-3 flex items-center gap-2"><Briefcase size={16}/> Economic Proxies</h4>
+                        <h4 className="font-bold text-purple-400 text-sm mb-3 flex items-center gap-2"><Briefcase size={16}/> Booking Demand Drivers</h4>
                         <ul className="space-y-2 text-xs">
                           {[
-                            ['flight_density_index', 'NAIA/Clark arrivals — pending CAAP API'],
-                            ['competitor_price_php', 'Grab/Angkas fare — price-elastic'],
-                            ['fuel_pump_price',      'DOE weekly retail — cost-side regressor'],
-                            ['usd_php_rate',         'BSP FX rate — intl arrival driver'],
+                            ['flight_density_index', 'NAIA/Clark seat availability (GDS proxy)'],
+                            ['competitor_price_php', 'Competitor agency avg fare — price-elastic'],
+                            ['fuel_pump_price',      'DOE fuel price — airline cost signal'],
+                            ['usd_php_rate',         'BSP FX rate — international booking driver'],
                           ].map(([f,d]) => (
                             <li key={f}>
                               <code className="text-[10px] text-purple-400 bg-slate-900 px-1 rounded">{f}</code>
@@ -1083,7 +1143,6 @@ const ModelLab = () => {
             </PipelineErrorBoundary>
           )}
 
-
           {/* ============================================================
               STAGE 2: COLLINEARITY
           ============================================================ */}
@@ -1096,13 +1155,13 @@ const ModelLab = () => {
                   </h2>
                   <p className="text-slate-500 text-xs mb-5">
                     Threshold: |r| &gt; 0.30 for inclusion · VIF &lt; 5.0 for clearance.
-                    Pearson r(holiday, demand) = <strong className="text-emerald-400">{pearsonHolidayCorr}</strong> (computed from your CSV).
+                    Pearson r(holiday, pax_demand) = <strong className="text-emerald-400">{pearsonHolidayCorr}</strong> (from your CSV).
                   </p>
                   <div className="overflow-x-auto">
                     <table className="text-[10px] font-mono w-full min-w-[400px]">
                       <thead><tr className="border-b border-slate-800">
                         <th className="p-2 text-slate-500 text-left">Variable</th>
-                        <th className="p-2 text-slate-500">r vs demand</th>
+                        <th className="p-2 text-slate-500">r vs pax demand</th>
                         <th className="p-2 text-slate-500">VIF</th>
                         <th className="p-2 text-slate-500">Decision</th>
                       </tr></thead>
@@ -1133,8 +1192,8 @@ const ModelLab = () => {
                 <div className="bg-slate-900/60 border border-emerald-500/20 rounded-2xl p-4">
                   <p className="text-sm text-slate-300 leading-relaxed">
                     <strong className="text-emerald-400">Verdict:</strong> All retained regressors have VIF &lt; 5.0.
-                    Paydays + holidays operate on independent forcing functions — safe to model simultaneously.
-                    Regressors below |0.30| Pearson threshold pruned to prevent overfitting.
+                    Payday + holiday booking spikes are statistically independent.
+                    Competitor fare and fuel price pruned (below |0.30| correlation with pax demand).
                   </p>
                 </div>
                 <StageNav currentId="collinearity" onBack={goBack}
@@ -1153,12 +1212,12 @@ const ModelLab = () => {
               <div className="space-y-5 animate-in fade-in slide-in-from-bottom-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {[
-                    { pass:false, title:'Raw Series (Non-Stationary)', icon:XCircle,
+                    { pass:false, title:'Raw Booking Series (Non-Stationary)', icon:XCircle,
                       stats:[['ADF t-stat','-2.14'],['p-value','0.231'],['Critical (5%)','-2.86']],
-                      note:'Fails stationarity. Trend violates SARIMAX mean-reversion. d=1 required.' },
+                      note:'Fails stationarity. Upward booking trend violates SARIMAX mean-reversion. d=1 required.' },
                     { pass:true, title:'After d=1 Differencing', icon:CheckCircle,
                       stats:[['ADF t-stat','-8.73'],['p-value','0.001'],['Critical (5%)','-2.86']],
-                      note:'Stationary at 99.9% confidence. Mean ≈ 0, σ ≈ ±8.3. SARIMAX ready.' },
+                      note:'Stationary at 99.9% confidence. Δbookings ≈ 0, σ ≈ ±8.3 pax/day. SARIMAX ready.' },
                   ].map(({ pass, title, icon:Icon, stats, note }) => (
                     <div key={title} className={`bg-slate-900/60 border rounded-2xl p-5 ${pass?'border-emerald-500/20':'border-red-500/20'}`}>
                       <h4 className={`font-bold mb-3 flex items-center gap-2 text-sm ${pass?'text-emerald-400':'text-red-400'}`}>
@@ -1181,7 +1240,7 @@ const ModelLab = () => {
                 {activeData && (
                   <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5">
                     <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-3">
-                      Differenced Series from your CSV — Δy = y(t) − y(t−1)
+                      Differenced Pax Booking Series — Δy = bookings(t) − bookings(t−1)
                     </h4>
                     <div className="h-44 bg-slate-950 rounded-xl border border-slate-800 p-3">
                       <ResponsiveContainer width="100%" height="100%">
@@ -1189,7 +1248,7 @@ const ModelLab = () => {
                           <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" vertical={false}/>
                           <XAxis dataKey="date" hide/>
                           <YAxis stroke="#475569" tick={{fontSize:10}}/>
-                          <Tooltip contentStyle={TT_STYLE} formatter={v=>[v.toFixed(1),'Δ Bookings']}/>
+                          <Tooltip contentStyle={TT_STYLE} formatter={v=>[`${v.toFixed(0)} pax`,'Δ Bookings']}/>
                           <Line dataKey="diff" stroke="#f472b6" strokeWidth={1.5} dot={false}/>
                           <ReferenceLine y={0} stroke="#cbd5e1" strokeWidth={1.5} strokeDasharray="4 4"/>
                         </LineChart>
@@ -1217,7 +1276,7 @@ const ModelLab = () => {
                   </h2>
                   <p className="text-xs text-slate-500 mb-5">
                     Grid: (p,q) ∈ [0–2]×[0–2] × SARIMAX(s=7). Rolling 90-day window. Solver: CG.
-                    AIC = n·ln(RSS/n) + 2k — penalises complexity.
+                    Weekly seasonality (s=7) captures Mon–Sun booking patterns at KJS.
                   </p>
                   <div className="overflow-x-auto">
                     <table className="text-[10px] font-mono w-full min-w-[350px]">
@@ -1253,7 +1312,7 @@ const ModelLab = () => {
                     <p className="text-xs text-slate-300">
                       <strong className="text-pink-400">Elected:</strong>{' '}
                       <code className="bg-slate-900 px-1.5 rounded text-pink-300">SARIMAX(0,0,1)(0,0,0,7) + X</code> — AIC {C.NB_AIC}.
-                      MA(1) self-corrects previous residual; weekly s=7 captures airport day-of-week patterns.
+                      MA(1) corrects prior booking error; weekly s=7 captures Mon/Fri booking spikes typical of travel agencies.
                     </p>
                   </div>
                 </div>
@@ -1278,7 +1337,6 @@ const ModelLab = () => {
                     <div>
                       <p className="text-sm font-bold text-amber-300">Python backend required for live training</p>
                       <p className="text-xs text-amber-400/80 mt-1">Run: <code className="bg-slate-900 px-1 rounded">uvicorn main:app --reload --port 8000</code></p>
-                      <p className="text-xs text-slate-500 mt-1">Notebook reference metrics shown below.</p>
                     </div>
                   </div>
                 )}
@@ -1287,7 +1345,7 @@ const ModelLab = () => {
                   <div className="flex justify-center">
                     <button onClick={runPipeline} disabled={runGuard || !csvData}
                       className="px-8 py-3 bg-pink-600 hover:bg-pink-500 text-white rounded-xl font-bold flex items-center gap-3 transition text-sm disabled:opacity-50 shadow-lg shadow-pink-900/30">
-                      <Target size={18}/> Run Hybrid Pipeline on CSV Data
+                      <Target size={18}/> Run Hybrid Pipeline on Booking Data
                     </button>
                   </div>
                 )}
@@ -1329,23 +1387,23 @@ const ModelLab = () => {
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <MetricCard loading={isRunning} label="WMAPE"
                     value={prediction?.metrics?.wmape != null ? fmtPct(prediction.metrics.wmape) : fmtPct(C.NB_WMAPE)}
-                    sub={prediction?'Live':'Notebook ref'} color={prediction?'text-emerald-400':'text-slate-400'}/>
+                    sub={prediction?'Live result':'Notebook ref'} color={prediction?'text-emerald-400':'text-slate-400'}/>
                   <MetricCard loading={isRunning} label="SARIMAX AIC"
                     value={prediction?.sarimax_aic ?? C.NB_AIC}
-                    sub={prediction?'Live':'Notebook ref'} color={prediction?'text-pink-400':'text-slate-400'}/>
+                    sub={prediction?'Live result':'Notebook ref'} color={prediction?'text-pink-400':'text-slate-400'}/>
                   <MetricCard loading={isRunning} label="Durbin-Watson"
                     value={fmt(prediction?.metrics?.durbin_watson ?? C.NB_DW, 4)}
-                    sub={prediction?'Live':'Notebook ref'} color={prediction?'text-amber-400':'text-slate-400'}/>
-                  <MetricCard loading={isRunning} label="Rec. Fleet"
-                    value={`${prediction?.recommended_fleet ?? C.MAX_FLEET} vans`}
-                    sub={prediction?`${prediction.critical_days} critical days`:'Current cap'}
+                    sub={prediction?'Live result':'Notebook ref'} color={prediction?'text-amber-400':'text-slate-400'}/>
+                  <MetricCard loading={isRunning} label="Rec. Capacity"
+                    value={`${prediction?.recommended_capacity ?? C.MAX_DAILY_BOOKINGS} /day`}
+                    sub={prediction?`${prediction.critical_days} over-cap days`:'Current limit'}
                     color={prediction?'text-red-400':'text-slate-400'}/>
                 </div>
 
                 {prediction && (
                   <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5">
                     <h4 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
-                      <LineChartIcon size={16} className="text-pink-400"/> Hybrid Forecast vs Historical (from CSV)
+                      <LineChartIcon size={16} className="text-pink-400"/> Pax Booking Forecast vs Historical
                       <span className="text-[10px] text-slate-500 ml-2">Monthly · 95% CI</span>
                     </h4>
                     <div className="h-60 bg-slate-950 rounded-xl border border-slate-800 p-3">
@@ -1354,12 +1412,12 @@ const ModelLab = () => {
                           <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" vertical={false}/>
                           <XAxis dataKey="date" stroke="#64748b" tick={{fontSize:9}} minTickGap={20}/>
                           <YAxis stroke="#64748b" tick={{fontSize:9}}/>
-                          <Tooltip contentStyle={TT_STYLE} formatter={v=>[v!=null?v.toFixed(1):'—',undefined]}/>
+                          <Tooltip contentStyle={TT_STYLE} formatter={v=>[v!=null?`${v.toFixed(0)} pax`:'—',undefined]}/>
                           <Area type="monotone" dataKey="ci_upper" stroke="none" fill="#6366f1" fillOpacity={0.15}/>
-                          <Line type="monotone" dataKey="actual"   stroke="#94a3b8" strokeWidth={1.5} dot={false} name="Actual"/>
-                          <Line type="monotone" dataKey="forecast" stroke="#ec4899" strokeWidth={2.5} dot={false} name="Forecast"/>
-                          <ReferenceLine y={C.MAX_FLEET} stroke="#ef4444" strokeDasharray="4 4"
-                            label={{value:`Fleet cap (${C.MAX_FLEET})`,fill:'#ef4444',fontSize:9,position:'right'}}/>
+                          <Line type="monotone" dataKey="actual"   stroke="#94a3b8" strokeWidth={1.5} dot={false} name="Actual Pax"/>
+                          <Line type="monotone" dataKey="forecast" stroke="#ec4899" strokeWidth={2.5} dot={false} name="Forecast Pax"/>
+                          <ReferenceLine y={C.MAX_DAILY_BOOKINGS} stroke="#ef4444" strokeDasharray="4 4"
+                            label={{value:`Daily cap (${C.MAX_DAILY_BOOKINGS})`,fill:'#ef4444',fontSize:9,position:'right'}}/>
                         </ComposedChart>
                       </ResponsiveContainer>
                     </div>
@@ -1377,7 +1435,7 @@ const ModelLab = () => {
 
 
           {/* ============================================================
-              STAGE 6: DSS DASHBOARD
+              STAGE 6: DSS DASHBOARD — Booking Capacity Edition
           ============================================================ */}
           {stage === 'dss' && (
             <PipelineErrorBoundary>
@@ -1386,32 +1444,35 @@ const ModelLab = () => {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
                   <div>
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="bg-emerald-950 text-emerald-400 border border-emerald-800 text-[9px] font-black uppercase px-2 py-0.5 rounded">DSS v17.2</span>
+                      <span className="bg-emerald-950 text-emerald-400 border border-emerald-800 text-[9px] font-black uppercase px-2 py-0.5 rounded">DSS v17.3</span>
                       {isDSSCalc && <span className="text-[9px] text-amber-400 flex items-center gap-1"><RefreshCw size={9} className="animate-spin"/> Recalculating...</span>}
                     </div>
                     <h2 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
-                      <BarChart4 className="text-pink-400" size={22}/> Fleet-Risk Decision Engine
+                      <BarChart4 className="text-pink-400" size={22}/> Booking Capacity Decision Engine
                     </h2>
-                    <p className="text-slate-500 text-xs mt-1">Revenue shown in ₱ / ₱k — adjust fleet below to see scenario deltas</p>
+                    <p className="text-slate-500 text-xs mt-1">
+                      Revenue = agency commission · Adjust daily capacity to see lost-commission scenarios
+                    </p>
                   </div>
 
-                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3 min-w-[220px]">
-                    <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Fleet Scenario</p>
+                  {/* Capacity scenario panel */}
+                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3 min-w-[240px]">
+                    <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Capacity Scenario</p>
                     <div className="flex items-center gap-2">
-                      <label htmlFor="fleet-in" className="text-[10px] text-slate-400 w-16">Fleet size</label>
-                      <input id="fleet-in" type="number" min={C.MIN_FLEET} max={C.MAX_FLEET_INPUT}
-                        value={dssScenario.fleetSize}
-                        onChange={e => setDssScenario(p=>({...p, fleetSize: Math.max(1,parseInt(e.target.value)||1)}))}
-                        onBlur={e => updateFleet(e.target.value)}
-                        className="w-16 bg-slate-800 border border-slate-700 text-white text-xs px-2 py-1 rounded outline-none"/>
-                      <span className="text-[9px] text-slate-600">vans</span>
+                      <label htmlFor="cap-in" className="text-[10px] text-slate-400 w-24">Daily booking limit</label>
+                      <input id="cap-in" type="number" min={C.MIN_DAILY_BOOKINGS} max={C.MAX_CAPACITY_INPUT}
+                        value={dssScenario.capacity}
+                        onChange={e => setDssScenario(p=>({...p, capacity: Math.max(1,parseInt(e.target.value)||1)}))}
+                        onBlur={e => updateCapacity(e.target.value)}
+                        className="w-20 bg-slate-800 border border-slate-700 text-white text-xs px-2 py-1 rounded outline-none"/>
+                      <span className="text-[9px] text-slate-600">pax/day</span>
                     </div>
-                    <p className="text-[9px] text-slate-600">Range: {C.MIN_FLEET}–{C.MAX_FLEET_INPUT} vans</p>
+                    <p className="text-[9px] text-slate-600">Range: {C.MIN_DAILY_BOOKINGS}–{C.MAX_CAPACITY_INPUT} pax/day</p>
                     <label className="flex items-center gap-2 text-[10px] text-slate-400 cursor-pointer">
                       <input type="checkbox" checked={dssScenario.applyS}
                         onChange={e => { setDssScenario(p=>({...p,applyS:e.target.checked})); addAudit('SURCHARGE',`${e.target.checked}`); }}
                         className="accent-pink-500"/>
-                      Apply {C.PEAK_SURCHARGE*100}% peak surcharge
+                      Apply {C.PEAK_SURCHARGE*100}% peak booking fee
                     </label>
                     <button onClick={runDSS} disabled={isDSSCalc}
                       className="w-full text-[10px] font-bold bg-pink-600 text-white py-1.5 rounded-lg hover:bg-pink-500 transition disabled:opacity-50">
@@ -1423,27 +1484,27 @@ const ModelLab = () => {
                 {activeDSS && (
                   <>
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      <MetricCard loading={isDSSCalc} label="Potential Revenue"
-                        value={fmtPHPk(activeDSS.potential_revenue)} sub="Uncapped demand" color="text-slate-300"/>
-                      <MetricCard loading={isDSSCalc} label="Capped Revenue"
-                        value={fmtPHPk(activeDSS.capped_revenue)} sub={`${dssScenario.fleetSize} vans`} color="text-pink-400"/>
-                      <MetricCard loading={isDSSCalc} label="Revenue at Risk"
-                        value={fmtPHPk(activeDSS.revenue_at_risk)} sub="Over-capacity loss" color="text-red-400"/>
-                      <MetricCard loading={isDSSCalc} label="Mitigated Revenue"
-                        value={fmtPHPk(activeDSS.mitigated_revenue)} sub={`+${C.PEAK_SURCHARGE*100}% surcharge`} color="text-emerald-400"/>
+                      <MetricCard loading={isDSSCalc} label="Potential Commission"
+                        value={fmtPHPk(activeDSS.potential_revenue)} sub="All demand served" color="text-slate-300"/>
+                      <MetricCard loading={isDSSCalc} label="Capped Commission"
+                        value={fmtPHPk(activeDSS.capped_revenue)} sub={`${dssScenario.capacity} pax/day limit`} color="text-pink-400"/>
+                      <MetricCard loading={isDSSCalc} label="Commission at Risk"
+                        value={fmtPHPk(activeDSS.revenue_at_risk)} sub="Over-capacity lost sales" color="text-red-400"/>
+                      <MetricCard loading={isDSSCalc} label="Mitigated Commission"
+                        value={fmtPHPk(activeDSS.mitigated_revenue)} sub={`+${C.PEAK_SURCHARGE*100}% peak fee`} color="text-emerald-400"/>
                     </div>
 
                     {dssBaseline && activeDSS && (
                       <div className="bg-slate-900/60 border border-blue-500/20 rounded-2xl p-5">
                         <h4 className="font-bold text-blue-300 text-sm mb-4 flex items-center gap-2">
-                          <Activity size={16}/> Scenario Delta vs Baseline ({C.MAX_FLEET} vans)
+                          <Activity size={16}/> Scenario Delta vs Baseline ({C.MAX_DAILY_BOOKINGS} pax/day)
                         </h4>
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                           {[
-                            { label:'Capped Rev Change', delta: activeDSS.capped_revenue - dssBaseline.capped_revenue, note:'vs base fleet' },
+                            { label:'Commission Change', delta: activeDSS.capped_revenue - dssBaseline.capped_revenue, note:'vs base capacity' },
                             { label:'Risk Reduction', delta: dssBaseline.revenue_at_risk - activeDSS.revenue_at_risk, note:'lower = better' },
-                            { label:'Per-Day Revenue', delta:null, value:fmtPHPk(activeDSS.capped_revenue / Math.max(1,horizon)), note:`avg / day over ${horizon}d`, color:'text-slate-200' },
-                            { label:'Per-Day at Risk', delta:null, value:fmtPHPk(activeDSS.revenue_at_risk / Math.max(1,horizon)), note:'avg loss / day', color:'text-red-400' },
+                            { label:'Avg Daily Commission', delta:null, value:fmtPHPk(activeDSS.capped_revenue / Math.max(1,horizon)), note:`avg/day over ${horizon}d`, color:'text-slate-200' },
+                            { label:'Avg Daily at Risk', delta:null, value:fmtPHPk(activeDSS.revenue_at_risk / Math.max(1,horizon)), note:'avg loss/day', color:'text-red-400' },
                           ].map(({ label, delta, value, note, color }) => (
                             <div key={label} className="bg-slate-950/60 rounded-xl border border-slate-800 p-3">
                               <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1">{label}</p>
@@ -1459,14 +1520,14 @@ const ModelLab = () => {
 
                     <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5">
                       <h4 className="font-bold text-white text-sm mb-4 flex items-center gap-2">
-                        <Activity size={16} className="text-pink-400"/> Risk Distribution — {horizon}-Day Window
+                        <Activity size={16} className="text-pink-400"/> Booking Demand Risk Distribution — {horizon}-Day Window
                       </h4>
                       <div className="space-y-3">
                         {[
-                          { label:'CRITICAL', count:activeDSS.critical_days, hex:'#ef4444', text:'text-red-400',    desc:'Demand > cap — act now' },
-                          { label:'HIGH',     count:activeDSS.high_days,     hex:'#f97316', text:'text-orange-400', desc:'80–100% of fleet' },
-                          { label:'WARNING',  count:activeDSS.warning_days,  hex:'#f59e0b', text:'text-amber-400',  desc:'60–80% of fleet' },
-                          { label:'OPTIMAL',  count:activeDSS.optimal_days,  hex:'#10b981', text:'text-emerald-400',desc:'Normal operations' },
+                          { label:'CRITICAL', count:activeDSS.critical_days, hex:'#ef4444', text:'text-red-400',    desc:'Demand exceeds capacity — commission lost' },
+                          { label:'HIGH',     count:activeDSS.high_days,     hex:'#f97316', text:'text-orange-400', desc:'88–100% of daily capacity' },
+                          { label:'WARNING',  count:activeDSS.warning_days,  hex:'#f59e0b', text:'text-amber-400',  desc:'70–88% of daily capacity' },
+                          { label:'OPTIMAL',  count:activeDSS.optimal_days,  hex:'#10b981', text:'text-emerald-400',desc:'Normal booking volume' },
                         ].map(row => (
                           <div key={row.label} className="flex items-center gap-3">
                             <span className={`text-[10px] font-black w-16 text-right ${row.text}`}>{row.label}</span>
@@ -1484,7 +1545,7 @@ const ModelLab = () => {
                     {activeDSS.top_risk_dates?.length > 0 && (
                       <div className="bg-slate-900/60 border border-red-500/20 rounded-2xl p-5">
                         <h4 className="font-bold text-red-400 text-sm mb-4 flex items-center gap-2">
-                          <AlertCircle size={16}/> Top Revenue-at-Risk Dates
+                          <AlertCircle size={16}/> Top Commission-at-Risk Dates
                         </h4>
                         <ol className="space-y-2">
                           {activeDSS.top_risk_dates.map((r, i) => (
@@ -1492,7 +1553,7 @@ const ModelLab = () => {
                               <div className="flex items-center gap-2">
                                 <span className="text-slate-600 font-mono">#{i+1}</span>
                                 <span className="text-slate-300 font-bold">{r.date}</span>
-                                <span className="text-slate-500">{fmt(r.forecast)} vans needed</span>
+                                <span className="text-slate-500">{Math.round(r.forecast)} pax expected · {Math.round(r.unmet)} unserved</span>
                               </div>
                               <span className="text-red-400 font-bold">{fmtPHPk(r.revenue_risk)} at risk</span>
                             </li>
@@ -1506,7 +1567,7 @@ const ModelLab = () => {
                 {prediction && (
                   <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5">
                     <h4 className="font-bold text-white text-sm mb-3 flex items-center gap-2">
-                      <Truck size={16} className="text-pink-400"/> Fleet Risk Heatmap — {horizon}d
+                      <Plane size={16} className="text-pink-400"/> Booking Demand Heatmap — {horizon}d Forecast
                     </h4>
                     <div className="h-56 bg-slate-950 rounded-xl border border-slate-800 p-3">
                       <ResponsiveContainer width="100%" height="100%">
@@ -1514,18 +1575,19 @@ const ModelLab = () => {
                           <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" vertical={false}/>
                           <XAxis dataKey="date" stroke="#64748b" tick={{fontSize:9}} minTickGap={15}/>
                           <YAxis stroke="#64748b" tick={{fontSize:9}}/>
-                          <Tooltip contentStyle={TT_STYLE} formatter={v=>[v!=null?fmt(v):'—',undefined]}/>
+                          <Tooltip contentStyle={TT_STYLE} formatter={v=>[v!=null?`${fmt(v,0)} pax`:'—',undefined]}/>
                           <Area type="monotone" dataKey="ci_upper" stroke="none" fill="#ef4444" fillOpacity={0.07}/>
-                          <Line type="monotone" dataKey="actual"   stroke="#475569" strokeWidth={1.5} dot={false} name="Historical"/>
-                          <Line type="monotone" dataKey="forecast" stroke="#ec4899" strokeWidth={2.5} dot={false} name="Forecast"/>
-                          <ReferenceLine y={dssScenario.fleetSize} stroke="#ef4444" strokeDasharray="4 4" strokeWidth={2}
-                            label={{value:`Fleet (${dssScenario.fleetSize})`,fill:'#ef4444',fontSize:9,position:'insideTopRight'}}/>
+                          <Line type="monotone" dataKey="actual"   stroke="#475569" strokeWidth={1.5} dot={false} name="Historical Pax"/>
+                          <Line type="monotone" dataKey="forecast" stroke="#ec4899" strokeWidth={2.5} dot={false} name="Forecast Pax"/>
+                          <ReferenceLine y={dssScenario.capacity} stroke="#ef4444" strokeDasharray="4 4" strokeWidth={2}
+                            label={{value:`Capacity (${dssScenario.capacity}/day)`,fill:'#ef4444',fontSize:9,position:'insideTopRight'}}/>
                         </ComposedChart>
                       </ResponsiveContainer>
                     </div>
                   </div>
                 )}
 
+                {/* SWOT — airline booking context */}
                 <div className="bg-gradient-to-br from-slate-900 to-slate-950 border border-emerald-500/30 rounded-2xl p-6 relative overflow-hidden">
                   <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none"/>
                   <div className="relative z-10">
@@ -1536,15 +1598,27 @@ const ModelLab = () => {
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       {[
-                        { icon:Truck, color:'text-red-400', bg:'border-red-500/20 bg-red-500/5',
-                          title:'1. Dynamic Resource Allocation',
-                          body:`Deploy ${activeDSS && activeDSS.critical_days>0 ? Math.ceil(activeDSS.critical_days/2):5} temporary units during CRITICAL windows. Revenue at risk: ${fmtPHPk(C.NB_REV_RISK)} across 10 over-capacity events.` },
-                        { icon:DollarSign, color:'text-amber-400', bg:'border-amber-500/20 bg-amber-500/5',
-                          title:'2. Peak-Load Surcharge',
-                          body:`Apply ${C.PEAK_SURCHARGE*100}% surcharge on HIGH/CRITICAL days (₱${C.TICKET_PRICE} → ₱${C.TICKET_PRICE*(1+C.PEAK_SURCHARGE)}). Uplift: ${activeDSS ? fmtPHPk(activeDSS.mitigated_revenue - activeDSS.capped_revenue) : '≈₱16k'} over window.` },
-                        { icon:Activity, color:'text-emerald-400', bg:'border-emerald-500/20 bg-emerald-500/5',
-                          title:'3. Real-Time API Integration',
-                          body:'Replace synthesized flight_density_index with CAAP live data. Establish 3-day lead-time dispatch with NAIA/Clark schedules. Target: WMAPE below 30%.' },
+                        {
+                          icon: Users,
+                          color: 'text-red-400',
+                          bg: 'border-red-500/20 bg-red-500/5',
+                          title: '1. Expand Processing Capacity',
+                          body: `On ${activeDSS?.critical_days ?? 10} over-capacity days, ${fmtPHPk(C.NB_REV_RISK)} in commission is lost. Add booking desks, online self-service channels, or extended desk hours during peak periods to capture unserved demand.`,
+                        },
+                        {
+                          icon: DollarSign,
+                          color: 'text-amber-400',
+                          bg: 'border-amber-500/20 bg-amber-500/5',
+                          title: '2. Peak Season Booking Fee',
+                          body: `Apply a ${C.PEAK_SURCHARGE*100}% priority processing fee on HIGH/CRITICAL days. Estimated commission uplift: ${activeDSS ? fmtPHPk(activeDSS.mitigated_revenue - activeDSS.capped_revenue) : '≈₱16k'}. Also incentivizes off-peak booking migration.`,
+                        },
+                        {
+                          icon: Activity,
+                          color: 'text-emerald-400',
+                          bg: 'border-emerald-500/20 bg-emerald-500/5',
+                          title: '3. GDS Live Availability Feed',
+                          body: 'Replace the synthesized flight_density_index with live GDS availability data (Amadeus / Sabre API). Correlate seat availability with demand spikes to anticipate booking rushes. Target: WMAPE below 30%.',
+                        },
                       ].map(({ icon:Icon, color, bg, title, body }) => (
                         <article key={title} className={`p-4 rounded-xl border ${bg}`}>
                           <h5 className={`font-bold text-sm flex items-center gap-2 mb-2 ${color}`}><Icon size={14}/> {title}</h5>
@@ -1590,19 +1664,20 @@ const ModelLab = () => {
                       <span className="text-[10px] text-slate-500">Ablation Study · Standalone</span>
                     </div>
                     <h2 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
-                      <FlaskConical className="text-violet-400" size={22}/> Algorithm Laboratory (XoCompass v17.2)
+                      <FlaskConical className="text-violet-400" size={22}/> Algorithm Laboratory (XoCompass v17.3)
                     </h2>
-                    <p className="text-slate-500 text-xs mt-1">NB2-SARIMAX base · XGBoost meta-learner · KJS International Travel &amp; Tours</p>
+                    <p className="text-slate-500 text-xs mt-1">
+                      NB2-SARIMAX base · XGBoost meta-learner · KJS International Travel & Tours — Pax Booking Demand
+                    </p>
                   </div>
                   <button onClick={() => { setIsAblation(v=>!v); addAudit('ABLATION',`active=${!isAblation}`); }}
                     aria-pressed={isAblation}
                     className={`flex items-center gap-3 px-4 py-2.5 rounded-xl border font-semibold text-sm transition-all shrink-0 ${
-                      isAblation ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-300'
-                                 : 'bg-slate-800 border-slate-700 text-slate-400'
+                      isAblation ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-300' : 'bg-slate-800 border-slate-700 text-slate-400'
                     }`}>
                     {isAblation ? <ToggleRight size={22} className="text-emerald-400"/> : <ToggleLeft size={22} className="text-slate-500"/>}
                     <span>
-                      Enable Ablation Study (Prune Macro Noise)
+                      Enable Ablation (Prune Macro Noise)
                       <span className={`ml-2 text-xs px-1.5 py-0.5 rounded font-bold ${isAblation?'bg-emerald-500/20 text-emerald-300':'bg-slate-700 text-slate-400'}`}>
                         {isAblation ? 'PRUNE MACRO' : 'INCLUDE MACRO'}
                       </span>
@@ -1612,9 +1687,9 @@ const ModelLab = () => {
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   {[
-                    { label:'RMSE (Risk Error)',           value:modelData.metrics.rmse,       good:rmseOk,  threshold:'< 5.0',        icon:Target },
-                    { label:'WMAPE (Accuracy)',            value:`${modelData.metrics.wmape}%`, good:wmapeOk, threshold:'< 30%',         icon:TrendingUp },
-                    { label:'Durbin-Watson (White Noise)', value:modelData.metrics.dw_stat,    good:dwOk,    threshold:'[1.9 – 2.1]',   icon:Activity },
+                    { label:'RMSE (Pax Error)',            value:modelData.metrics.rmse,       good:rmseOk,  threshold:'< 5.0 pax',   icon:Target },
+                    { label:'WMAPE (Booking Accuracy)',    value:`${modelData.metrics.wmape}%`, good:wmapeOk, threshold:'< 30%',        icon:TrendingUp },
+                    { label:'Durbin-Watson (Residuals)',   value:modelData.metrics.dw_stat,    good:dwOk,    threshold:'[1.9 – 2.1]',  icon:Activity },
                   ].map(({ label, value, good, threshold, icon:Icon }) => (
                     <div key={label} className={`rounded-2xl border p-4 sm:p-5 flex items-start gap-4 transition-all ${
                       good ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-red-500/30 bg-red-500/5'
@@ -1639,12 +1714,8 @@ const ModelLab = () => {
                   <section className="lg:col-span-8 bg-slate-900/70 border border-slate-800 rounded-2xl p-5">
                     <div className="flex items-center gap-2 mb-3">
                       <TrendingUp size={16} className="text-pink-400"/>
-                      <h3 className="font-bold text-white text-sm">Forecast vs Actual</h3>
+                      <h3 className="font-bold text-white text-sm">Pax Booking Forecast vs Actual</h3>
                       <span className="ml-auto text-[10px] text-slate-500 bg-slate-800 px-2 py-0.5 rounded-full">14-day holdout</span>
-                    </div>
-                    <div className="flex items-center gap-4 mb-3 text-[10px] text-slate-400">
-                      <span className="flex items-center gap-1.5"><span className="w-5 h-px bg-slate-500 block" style={{borderTop:'2px dashed #64748b'}}></span>Actual</span>
-                      <span className="flex items-center gap-1.5"><span className="w-5 h-0.5 bg-emerald-400 block rounded"></span>Prediction</span>
                     </div>
                     <div className="h-64">
                       <ResponsiveContainer width="100%" height="100%">
@@ -1652,9 +1723,9 @@ const ModelLab = () => {
                           <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false}/>
                           <XAxis dataKey="date" stroke="#475569" tick={{fontSize:10}}/>
                           <YAxis stroke="#475569" tick={{fontSize:10}}/>
-                          <Tooltip contentStyle={TT_STYLE}/>
-                          <Line type="monotone" dataKey="actual"     stroke="#64748b" strokeWidth={1.5} strokeDasharray="5 3" dot={{fill:'#64748b',r:2}} name="Actual"/>
-                          <Line type="monotone" dataKey="prediction" stroke="#34d399" strokeWidth={2.5} dot={{fill:'#34d399',r:2.5}} name="Prediction"/>
+                          <Tooltip contentStyle={TT_STYLE} formatter={(v,n) => [`${v} pax`, n]}/>
+                          <Line type="monotone" dataKey="actual"     stroke="#64748b" strokeWidth={1.5} strokeDasharray="5 3" dot={{fill:'#64748b',r:2}} name="Actual Pax"/>
+                          <Line type="monotone" dataKey="prediction" stroke="#34d399" strokeWidth={2.5} dot={{fill:'#34d399',r:2.5}} name="Predicted Pax"/>
                         </ComposedChart>
                       </ResponsiveContainer>
                     </div>
@@ -1686,16 +1757,15 @@ const ModelLab = () => {
                     <div className="flex items-center gap-2 mb-3">
                       <Activity size={16} className="text-amber-400"/>
                       <h3 className="font-bold text-white text-sm">Residual Variance (Error Spread)</h3>
-                      <span className="ml-auto text-[10px] text-slate-500 bg-slate-800 px-2 py-0.5 rounded-full">Scatter</span>
                     </div>
                     <div className="h-56">
                       <ResponsiveContainer width="100%" height="100%">
                         <ScatterChart margin={{top:5,right:10,bottom:10,left:-10}}>
                           <CartesianGrid strokeDasharray="3 3" stroke="#1e293b"/>
-                          <XAxis type="number" dataKey="prediction" name="Prediction" stroke="#475569" tick={{fontSize:10}}
-                            label={{value:'Predicted',position:'insideBottom',offset:-2,fontSize:10,fill:'#475569'}}/>
+                          <XAxis type="number" dataKey="prediction" name="Predicted Pax" stroke="#475569" tick={{fontSize:10}}
+                            label={{value:'Predicted Pax',position:'insideBottom',offset:-2,fontSize:10,fill:'#475569'}}/>
                           <YAxis type="number" dataKey="residual" name="Residual" stroke="#475569" tick={{fontSize:10}}/>
-                          <Tooltip cursor={{strokeDasharray:'3 3'}} contentStyle={TT_STYLE} formatter={(v,n)=>[v.toFixed(2),n]}/>
+                          <Tooltip cursor={{strokeDasharray:'3 3'}} contentStyle={TT_STYLE} formatter={(v,n)=>[`${v.toFixed(1)} pax`,n]}/>
                           <ReferenceLine y={0} stroke="#ef4444" strokeWidth={1.5} strokeDasharray="4 2"
                             label={{value:'Zero Error',fill:'#ef4444',fontSize:9,position:'insideTopRight'}}/>
                           <Scatter data={modelData.forecast} fill="#f59e0b" opacity={0.85} r={4} name="Residual"/>
@@ -1708,16 +1778,17 @@ const ModelLab = () => {
                     <div className="flex items-center gap-2 mb-4">
                       <Settings size={16} className="text-purple-400"/>
                       <h3 className="font-bold text-white text-sm">Algorithm Settings</h3>
-                      <span className="ml-auto text-[10px] text-slate-500 bg-slate-800 px-2 py-0.5 rounded-full">v17.2 config</span>
+                      <span className="ml-auto text-[10px] text-slate-500 bg-slate-800 px-2 py-0.5 rounded-full">v17.3 config</span>
                     </div>
                     <dl className="space-y-3">
                       {[
-                        { icon:BrainCircuit, label:'Base Model',      value:'NB2-SARIMAX',       col:'text-pink-400',    bg:'bg-pink-500/10' },
-                        { icon:Cpu,          label:'Meta-Learner',    value:'XGBoost',            col:'text-blue-400',    bg:'bg-blue-500/10' },
-                        { icon:Zap,          label:'Optimization',    value:'Gradient Descent',   col:'text-amber-400',   bg:'bg-amber-500/10' },
-                        { icon:Activity,     label:'Cyclic Encoding', value:'Enabled',            col:'text-emerald-400', bg:'bg-emerald-500/10' },
-                        { icon:Target,       label:'Loss Function',   value:'Huber (δ = 1.35)',   col:'text-purple-400',  bg:'bg-purple-500/10' },
-                        { icon:Lock,         label:'Security Model',  value:'STRIDE v1.2',        col:'text-violet-400',  bg:'bg-violet-500/10' },
+                        { icon:BrainCircuit, label:'Base Model',        value:'NB2-SARIMAX',               col:'text-pink-400',    bg:'bg-pink-500/10' },
+                        { icon:Cpu,          label:'Meta-Learner',      value:'XGBoost',                   col:'text-blue-400',    bg:'bg-blue-500/10' },
+                        { icon:Zap,          label:'Optimization',      value:'Gradient Descent',           col:'text-amber-400',   bg:'bg-amber-500/10' },
+                        { icon:Activity,     label:'Cyclic Encoding',   value:'Enabled',                   col:'text-emerald-400', bg:'bg-emerald-500/10' },
+                        { icon:Target,       label:'Loss Function',     value:'Huber (δ = 1.35)',           col:'text-purple-400',  bg:'bg-purple-500/10' },
+                        { icon:Lock,         label:'Security Model',    value:'STRIDE v1.2',               col:'text-violet-400',  bg:'bg-violet-500/10' },
+                        { icon:Plane,        label:'Domain',            value:'Airline Pax Booking Count', col:'text-sky-400',     bg:'bg-sky-500/10' },
                         { icon:FlaskConical, label:'Ablation Mode',
                           value: isAblation ? 'Active — macro pruned' : 'Inactive — macro included',
                           col: isAblation ? 'text-emerald-400' : 'text-slate-400',
@@ -1738,10 +1809,11 @@ const ModelLab = () => {
                 <div className="flex items-start gap-2 p-3 bg-slate-900/40 border border-slate-800/50 rounded-xl text-[10px] text-slate-500">
                   <Info size={12} className="text-slate-600 mt-0.5 shrink-0"/>
                   <span>
-                    Results reflect the 90-day holdout window. Toggle ablation to compare tactical-only features
-                    (paydays, peak months, flight density) against the full regressor set including macro noise.{' '}
+                    Results reflect the 90-day holdout window on KJS pax booking data.
+                    Toggle ablation to compare tactical-only features (paydays, peak months, flight density index)
+                    against the full regressor set including macro noise (FX rate, fuel price).{' '}
                     <strong className={isAblation ? 'text-emerald-400' : 'text-red-400'}>
-                      {isAblation ? 'Ablation active — macro pruned for thesis submission.' : 'Warning: macro noise degrades accuracy significantly.'}
+                      {isAblation ? 'Ablation active — macro pruned for thesis submission.' : 'Warning: macro noise degrades pax booking accuracy.'}
                     </strong>
                   </span>
                 </div>
