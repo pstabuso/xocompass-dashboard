@@ -160,9 +160,30 @@ function parseCSV(text) {
 
   // Detect columns
   // 1. Normalize the raw client headers (e.g., "Generation Date" becomes "generationdate")
+// 1. Normalize the raw client headers
 const normalizedHeaders = headers.map(h => 
   typeof h === 'string' ? h.toLowerCase().replace(/[^a-z0-9]/g, '') : ''
 );
+
+// 2. Priority-Detect Date Column (Searches our ideal list first, not the CSV order)
+const targetDateCols = ['traveldate', 'generationdate', 'bookingdate', 'transactiondate', 'date', 'period'];
+let dateCol = -1;
+for (const target of targetDateCols) {
+  dateCol = normalizedHeaders.indexOf(target);
+  if (dateCol !== -1) break; // Stops as soon as it finds the best match
+}
+
+// 3. Priority-Detect Demand Column (Forces 'netamount' to beat 'paxname')
+const targetDemandCols = ['netamount', 'basic', 'taxes', 'demand', 'count', 'total', 'paxname'];
+let demandCol = -1;
+for (const target of targetDemandCols) {
+  demandCol = normalizedHeaders.indexOf(target);
+  if (demandCol !== -1) break; // Stops as soon as it finds the numerical match
+}
+
+if (dateCol === -1 || demandCol === -1) {
+  console.warn("Missing critical columns. Found:", headers);
+}
 
 // 2. Smart-Detect the Date Column 
 // (Prioritizes 'traveldate' for accurate forecasting, falls back to 'generationdate')
