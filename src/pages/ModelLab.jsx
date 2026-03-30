@@ -159,7 +159,28 @@ function parseCSV(text) {
   const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/[^a-z0-9_]/g, ''));
 
   // Detect columns
-  const dateCol    = headers.findIndex(h => ['date', 'month', 'period', 'booking_date', 'transaction_date'].includes(h));
+  // 1. Normalize the raw client headers (e.g., "Generation Date" becomes "generationdate")
+const normalizedHeaders = headers.map(h => 
+  typeof h === 'string' ? h.toLowerCase().replace(/[^a-z0-9]/g, '') : ''
+);
+
+// 2. Smart-Detect the Date Column 
+// (Prioritizes 'traveldate' for accurate forecasting, falls back to 'generationdate')
+const dateCol = normalizedHeaders.findIndex(h => 
+  ['traveldate', 'generationdate', 'bookingdate', 'transactiondate', 'date', 'period'].includes(h)
+);
+
+// 3. Smart-Detect the Demand/Value Column
+// (Allows forecasting for either Revenue 'netamount' or Booking Volume 'paxname')
+const demandCol = normalizedHeaders.findIndex(h => 
+  ['netamount', 'paxname', 'basic', 'taxes', 'demand', 'count', 'total'].includes(h)
+);
+
+// 4. Fallback Safety Check
+if (dateCol === -1 || demandCol === -1) {
+  console.warn("Could not automatically map KJS International's columns. Found headers:", headers);
+  // Optional: Trigger a UI alert here telling the user the dataset format is unrecognized
+}
   const demandCol  = headers.findIndex(h => ['demand', 'count', 'bookings', 'quantity', 'total', 'passengers', 'pax'].includes(h));
 
   if (dateCol === -1) throw new Error(`CSV missing a date column. Found: ${headers.join(', ')}`);
