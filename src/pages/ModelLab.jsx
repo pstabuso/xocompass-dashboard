@@ -38,6 +38,7 @@ import {
   isBackendAvailable, getPipelineInfo, predictHybrid,
   recalculateDSS, monthlyToDailyObservations,
 } from '../lib/sarimax-api';
+import { supabase } from '../lib/supabase'; // Adjust the path if your lib folder is elsewhere
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  CONSTANTS
@@ -171,6 +172,71 @@ let dateCol = -1;
 for (const target of targetDateCols) {
   dateCol = normalizedHeaders.indexOf(target);
   if (dateCol !== -1) break; // Stops as soon as it finds the best match
+
+  const loadFromDataHub = async () => {
+    try {
+      // 1. Fetch directly from Supabase
+      // Replace 'bookings' with your actual table name from DataHub
+      const { data, error } = await supabase
+        .from('bookings') 
+        .select('travel_date, net_amount'); // Use your actual DB column names
+
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        alert("No data found in the Data Hub.");
+        return;
+      }
+
+      // 2. Reuse our perfected aggregation logic
+      const monthly = {};
+      
+      data.forEach(row => {
+        // Adapt these keys based on what your Supabase select returns
+        const rawDate = row.travel_date; 
+        const cellValue = parseFloat(row.net_amount) || 0;
+        
+        if (!rawDate) return;
+
+        const parsedDate = new Date(rawDate);
+        if (isNaN(parsedDate.getTime())) return;
+
+        const monthKey = `${parsedDate.getFullYear()}-${String(parsedDate.getMonth() + 1).padStart(2, '0')}`;
+        
+        // 1 row = 1 transaction
+        const actualBookings = 1;
+        const actualRevenue = cellValue;
+
+        if (!monthly[monthKey]) {
+          monthly[monthKey] = { count: 0, revenue: 0 };
+        }
+        
+        monthly[monthKey].count += actualBookings;
+        monthly[monthKey].revenue += actualRevenue;
+      });
+
+      // 3. Apply the 2023 Structural Break Filter we built earlier
+      const formattedResult = Object.entries(monthly)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .filter(([date]) => date >= '2023-01')
+        .map(([date, vals]) => ({ 
+          date, 
+          demand: vals.count,
+          trueRevenue: vals.revenue 
+        }));
+
+      if (formattedResult.length < 3) {
+        alert("Not enough post-2023 data found in the Data Hub.");
+        return;
+      }
+
+      // 4. Update the UI state just like the CSV upload does
+      setDataset(formattedResult); // Assuming `setDataset` or `setData` is your state setter
+      
+    } catch (err) {
+      console.error("Error fetching from Data Hub:", err);
+      alert("Failed to connect to Data Hub.");
+    }
+  };
 }
 
 // 3. Priority-Detect Demand Column (Forces 'netamount' to beat 'paxname')
@@ -1029,6 +1095,25 @@ const ModelLab = () => {
                   </h3>
                   <CSVDropzone onLoad={handleCSVLoad} isLoaded={!!csvData} csvMeta={csvMeta}/>
                 </div>
+                <div className="flex items-center gap-4">
+  {/* Your existing CSV Upload Input */}
+  <input 
+    type="file" 
+    accept=".csv" 
+    onChange={handleFileUpload} // your existing handler
+    className="file-input file-input-bordered w-full max-w-xs" 
+  />
+
+  <div className="divider divider-horizontal">OR</div>
+
+  {/* The new Direct Connection Button */}
+  <button 
+    onClick={loadFromDataHub}
+    className="btn btn-primary"
+  >
+    Pull Live Data from Data Hub
+  </button>
+</div>
 
                 {/* Preview once loaded */}
                 {csvData && monthlyStats && (
