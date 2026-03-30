@@ -158,7 +158,67 @@ function parseCSV(text) {
   if (lines.length < 2) throw new Error('CSV must have a header row and at least one data row');
 
   const headers = lines[0].split(',').map(h => h.trim().toLowerCase().replace(/[^a-z0-9_]/g, ''));
+const loadFromDataHub = async () => {
+    try {
+      // 1. Fetch directly from Supabase
+      const { data, error } = await supabase
+        .from('bookings') 
+        .select('travel_date, net_amount');
 
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        alert("No data found in the Data Hub.");
+        return;
+      }
+
+      // 2. Reuse our perfected aggregation logic
+      const monthly = {};
+      
+      data.forEach(row => {
+        const rawDate = row.travel_date; 
+        const cellValue = parseFloat(row.net_amount) || 0;
+        
+        if (!rawDate) return;
+
+        const parsedDate = new Date(rawDate);
+        if (isNaN(parsedDate.getTime())) return;
+
+        const monthKey = `${parsedDate.getFullYear()}-${String(parsedDate.getMonth() + 1).padStart(2, '0')}`;
+        
+        const actualBookings = 1;
+        const actualRevenue = cellValue;
+
+        if (!monthly[monthKey]) {
+          monthly[monthKey] = { count: 0, revenue: 0 };
+        }
+        
+        monthly[monthKey].count += actualBookings;
+        monthly[monthKey].revenue += actualRevenue;
+      });
+
+      // 3. Apply the 2023 Structural Break Filter
+      const formattedResult = Object.entries(monthly)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .filter(([date]) => date >= '2023-01')
+        .map(([date, vals]) => ({ 
+          date, 
+          demand: vals.count,
+          trueRevenue: vals.revenue 
+        }));
+
+      if (formattedResult.length < 3) {
+        alert("Not enough post-2023 data found in the Data Hub.");
+        return;
+      }
+
+      // 4. Update the UI state
+      setDataset(formattedResult); 
+      
+    } catch (err) {
+      console.error("Error fetching from Data Hub:", err);
+      alert("Failed to connect to Data Hub.");
+    }
+  };
   // Detect columns
   // 1. Normalize the raw client headers (e.g., "Generation Date" becomes "generationdate")
 // 1. Normalize the raw client headers
