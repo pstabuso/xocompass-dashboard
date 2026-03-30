@@ -95,7 +95,7 @@ export async function predictHybrid({
       seasonal_order: seasonalOrder,
       max_fleet: maxFleet,
     }),
-    signal: AbortSignal.timeout(60_000), // Hybrid can be slow
+    signal: AbortSignal.timeout(300_000), // Hybrid can be slow
   });
 
   if (!res.ok) {
