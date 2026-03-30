@@ -195,9 +195,6 @@ if (dateCol === -1 || demandCol === -1) {
   if (dateCol === -1) throw new Error(`CSV missing a date column. Found: ${headers.join(', ')}`);
   if (demandCol === -1) throw new Error(`CSV missing a demand/count column. Found: ${headers.join(', ')}`);
 
-  const monthly = {};
-  const errors = [];
-
  // 1. Check if we are reading revenue or passengers
   const isRevenueColumn = normalizedHeaders[demandCol] === 'netamount';
   const monthly = {};
