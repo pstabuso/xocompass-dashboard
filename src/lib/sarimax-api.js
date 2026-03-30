@@ -22,7 +22,7 @@ const API_URL = import.meta.env.VITE_SARIMAX_API_URL || 'http://localhost:8000';
  */
 export async function isBackendAvailable() {
   try {
-    const res = await fetch(`${API_URL}/health`, { signal: AbortSignal.timeout(3000) });
+    const res = await fetch(`${API_URL}/health`, { signal: AbortSignal.timeout(300000) });
     if (!res.ok) return { ok: false, engine: null, hasXGBoost: false, hasStatsmodels: false };
     const data = await res.json();
     return {
