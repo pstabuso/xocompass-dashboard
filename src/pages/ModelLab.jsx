@@ -173,19 +173,6 @@ for (const target of targetDateCols) {
   dateCol = normalizedHeaders.indexOf(target);
   if (dateCol !== -1) break; // Stops as soon as it finds the best match
 
-  const loadFromDataHub = async () => {
-    try {
-      // 1. Fetch directly from Supabase
-      // Replace 'bookings' with your actual table name from DataHub
-      const { data, error } = await supabase
-        .from('bookings') 
-        .select('travel_date, net_amount'); // Use your actual DB column names
-
-      if (error) throw error;
-      if (!data || data.length === 0) {
-        alert("No data found in the Data Hub.");
-        return;
-      }
 
       // 2. Reuse our perfected aggregation logic
       const monthly = {};
@@ -1095,7 +1082,7 @@ const ModelLab = () => {
                   </h3>
                   <CSVDropzone onLoad={handleCSVLoad} isLoaded={!!csvData} csvMeta={csvMeta}/>
                 </div>
-                <div className="flex items-center gap-4">
+                
   {/* Your existing CSV Upload Input */}
   <input 
     type="file" 
