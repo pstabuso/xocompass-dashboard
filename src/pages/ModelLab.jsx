@@ -181,7 +181,6 @@ if (dateCol === -1 || demandCol === -1) {
   console.warn("Could not automatically map KJS International's columns. Found headers:", headers);
   // Optional: Trigger a UI alert here telling the user the dataset format is unrecognized
 }
-  const demandCol  = headers.findIndex(h => ['demand', 'count', 'bookings', 'quantity', 'total', 'passengers', 'pax'].includes(h));
 
   if (dateCol === -1) throw new Error(`CSV missing a date column. Found: ${headers.join(', ')}`);
   if (demandCol === -1) throw new Error(`CSV missing a demand/count column. Found: ${headers.join(', ')}`);
