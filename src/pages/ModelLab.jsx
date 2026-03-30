@@ -198,35 +198,71 @@ if (dateCol === -1 || demandCol === -1) {
   const monthly = {};
   const errors = [];
 
+ // 1. Check if we are reading revenue or passengers
+  const isRevenueColumn = normalizedHeaders[demandCol] === 'netamount';
+  const monthly = {};
+  const errors = [];
+
   lines.slice(1).forEach((line, i) => {
     const cols = line.split(',').map(c => c.trim().replace(/^["']|["']$/g, ''));
     const rawDate = cols[dateCol];
     const rawVal  = cols[demandCol];
     if (!rawDate || !rawVal) return;
 
-    // Normalise date to YYYY-MM
-    let monthKey;
-    if (/^\d{4}-\d{2}$/.test(rawDate)) {
-      monthKey = rawDate;
-    } else if (/^\d{4}-\d{2}-\d{2}/.test(rawDate)) {
-      monthKey = rawDate.slice(0, 7);
-    } else if (/^\d{2}\/\d{2}\/\d{4}/.test(rawDate)) {
-      const [m, , y] = rawDate.split('/');
-      monthKey = `${y}-${m.padStart(2, '0')}`;
-    } else {
-      errors.push(`Row ${i + 2}: unrecognised date format "${rawDate}"`);
-      return;
+    // 2. Smart Date Parser (replaces the old regex logic)
+    let parsedDate = new Date(rawDate);
+
+    // Fallback for M/D/YYYY or D/M/YYYY
+    if (isNaN(parsedDate.getTime()) && typeof rawDate === 'string' && rawDate.includes('/')) {
+      const parts = rawDate.split('/');
+      if (parseInt(parts[0]) > 12) {
+        // First number is too high to be a month, so it must be DD/MM/YYYY
+        parsedDate = new Date(`${parts[1]}/${parts[0]}/${parts[2]}`); 
+      } else {
+        // Standard MM/DD/YYYY
+        parsedDate = new Date(`${parts[0]}/${parts[1]}/${parts[2]}`); 
+      }
     }
 
-    const val = parseFloat(rawVal);
-    if (!isFinite(val) || val < 0) { errors.push(`Row ${i + 2}: invalid value "${rawVal}"`); return; }
+    if (isNaN(parsedDate.getTime())) {
+      errors.push(`Row ${i + 2}: unrecognised date format "${rawDate}"`);
+      return; 
+    }
 
-    monthly[monthKey] = (monthly[monthKey] || 0) + val;
+    // Format as YYYY-MM safely
+    const monthKey = `${parsedDate.getFullYear()}-${String(parsedDate.getMonth() + 1).padStart(2, '0')}`;
+
+    const cellValue = parseFloat(rawVal);
+    if (!isFinite(cellValue) || cellValue < 0) { 
+      errors.push(`Row ${i + 2}: invalid value "${rawVal}"`); 
+      return; 
+    }
+
+    // 3. Fix the Volume vs Revenue math
+    // 1 row = 1 transaction/booking.
+    const actualBookings = 1; 
+    const actualRevenue = isRevenueColumn ? cellValue : (cellValue * 1350);
+
+    // Initialize month if it doesn't exist
+    if (!monthly[monthKey]) {
+      monthly[monthKey] = { count: 0, revenue: 0 };
+    }
+    
+    // Accumulate actuals
+    monthly[monthKey].count += actualBookings;
+    monthly[monthKey].revenue += actualRevenue;
   });
 
+  // 4. Map back to the exact format the charts expect
   const result = Object.entries(monthly)
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([date, demand]) => ({ date, demand: Math.round(demand) }));
+    .map(([date, vals]) => ({ 
+      date, 
+      // The dashboard natively expects "demand" to be the passenger count. 
+      // By forcing it to count the rows, we fix the 5.6 Billion peso bug.
+      demand: vals.count,
+      trueRevenue: vals.revenue 
+    }));
 
   if (result.length < 3) throw new Error(`Only ${result.length} valid rows found — need at least 3`);
 
