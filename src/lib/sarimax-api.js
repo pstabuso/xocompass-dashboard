@@ -22,7 +22,7 @@ const API_URL = import.meta.env.VITE_SARIMAX_API_URL || 'http://localhost:8000';
  */
 export async function isBackendAvailable() {
   try {
-    const res = await fetch(`${API_URL}/health`, { signal: AbortSignal.timeout(300000) });
+    const res = await fetch(`${API_URL}/health`, { signal: AbortSignal.timeout(1000000) });
     if (!res.ok) return { ok: false, engine: null, hasXGBoost: false, hasStatsmodels: false };
     const data = await res.json();
     return {
@@ -43,7 +43,7 @@ export async function isBackendAvailable() {
  * @returns {Promise<PipelineInfo>}
  */
 export async function getPipelineInfo() {
-  const res = await fetch(`${API_URL}/pipeline/info`, { signal: AbortSignal.timeout(5000) });
+  const res = await fetch(`${API_URL}/pipeline/info`, { signal: AbortSignal.timeout(1000000) });
   if (!res.ok) throw new Error(`Pipeline info failed: ${res.status}`);
   return res.json();
 }
@@ -95,7 +95,7 @@ export async function predictHybrid({
       seasonal_order: seasonalOrder,
       max_fleet: maxFleet,
     }),
-    signal: AbortSignal.timeout(300_000), // Hybrid can be slow
+    signal: AbortSignal.timeout(1000000), // Hybrid can be slow
   });
 
   if (!res.ok) {
@@ -127,7 +127,7 @@ export async function predictSarimax({
       seasonal_order: seasonalOrder,
       max_fleet: maxFleet,
     }),
-    signal: AbortSignal.timeout(30_000),
+    signal: AbortSignal.timeout(1000000),
   });
 
   if (!res.ok) {
@@ -159,7 +159,7 @@ export async function recalculateDSS({ forecasts, fleetSize = 25, ticketPrice = 
       ticket_price: ticketPrice,
       apply_surcharge: applySurcharge,
     }),
-    signal: AbortSignal.timeout(10_000),
+    signal: AbortSignal.timeout(1000000),
   });
 
   if (!res.ok) {
