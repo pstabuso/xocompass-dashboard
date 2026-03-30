@@ -1,24 +1,30 @@
 /**
- * XoCompass v17.0 â Hybrid Pipeline API Client
- * =============================================
- * Bridges ModelLab.jsx to the NB2-SARIMAX-XGBoost backend from
- * XoCompass_v17_Thesis_Pipeline.ipynb.
+ * XoCompass v17.3 – Airline Booking Demand API Client
+ * ====================================================
+ * KJS International Travel & Tours — airline booking agency.
+ *
+ * Data model:
+ *   - Each source CSV row = 1 passenger (pax) booking
+ *   - Demand = daily passenger booking COUNT
+ *   - Revenue = agency net commission per pax (PHP 69.35 default)
+ *   - Gross fare = PHP 95 (Basic column in source data)
+ *   - Capacity = daily booking processing limit (not vans)
  *
  * Endpoints:
- *   GET  /health          â liveness + engine capability check
- *   GET  /pipeline/info   â 6-stage metadata for UI display
- *   POST /predict         â full hybrid forecast (NB2+SARIMAX+XGB)
- *   POST /predict/sarimax â SARIMAX-only mode
- *   POST /dss             â fleet what-if recalculation
+ *   GET  /health              → liveness + engine capability check
+ *   GET  /pipeline/info       → 7-stage metadata for UI display
+ *   POST /predict             → full hybrid forecast (NB2+SARIMAX+XGB)
+ *   POST /predict/sarimax     → SARIMAX-only mode
+ *   POST /dss                 → booking-capacity what-if recalculation
  */
 
 const API_URL = import.meta.env.VITE_SARIMAX_API_URL || 'http://localhost:8000';
 
-// ââ Health / Capability ââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── Health / Capability ──────────────────────────────────────────────────
 
 /**
  * Check if the Python backend is running and which model layers are available.
- * @returns {Promise<{ok: boolean, engine: string, hasXGBoost: boolean, hasStatsmodels: boolean}>}
+ * @returns {Promise<{ok: boolean, engine: string, hasXGBoost: boolean, hasStatsmodels: boolean, maxDailyBookings: number, netCommissionPHP: number}>}
  */
 export async function isBackendAvailable() {
   try {
@@ -30,8 +36,9 @@ export async function isBackendAvailable() {
       engine: data.engine,
       hasXGBoost: data.xgboost,
       hasStatsmodels: data.statsmodels,
-      maxFleet: data.max_fleet,
-      ticketPricePHP: data.ticket_price_php,
+      maxDailyBookings: data.max_daily_bookings,
+      netCommissionPHP: data.net_commission_php,
+      grossFarePHP: data.gross_fare_php,
     };
   } catch {
     return { ok: false, engine: null, hasXGBoost: false, hasStatsmodels: false };
@@ -48,16 +55,16 @@ export async function getPipelineInfo() {
   return res.json();
 }
 
-// ââ Main Prediction ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── Main Prediction ──────────────────────────────────────────────────────
 
 /**
- * Run the full hybrid forecast (NB2 base â SARIMAX residual â XGBoost ensemble).
- * Mirrors notebook Steps 4 & 5: train_and_evaluate().
+ * Run the full hybrid forecast (NB2 base → SARIMAX residual → XGBoost ensemble).
+ * Models daily PASSENGER BOOKING COUNT for KJS International.
  *
  * @param {Object} params
  * @param {Array<{
  *   date: string,
- *   demand: number,
+ *   demand: number,          ← daily pax booking count
  *   is_payday: number,
  *   is_holiday: number,
  *   is_weekend: number,
@@ -66,15 +73,14 @@ export async function getPipelineInfo() {
  *   flight_density_index: number,
  *   competitor_price_php: number,
  *   fuel_pump_price: number
- * }>} params.data â Historical daily observations
- * @param {number} [params.horizon=90] â Forecast horizon in days
+ * }>} params.data – Historical daily booking observations
+ * @param {number} [params.horizon=90]
  * @param {'hybrid'|'sarimax'|'xgboost'} [params.modelMode='hybrid']
- * @param {[number,number,number]} [params.order=[0,0,1]] â SARIMAX (p,d,q) â Notebook best
- * @param {[number,number,number,number]} [params.seasonalOrder=[0,0,0,7]] â (P,D,Q,s)
- * @param {number} [params.maxFleet=25] â KJS fleet capacity cap
+ * @param {[number,number,number]} [params.order=[0,0,1]]
+ * @param {[number,number,number,number]} [params.seasonalOrder=[0,0,0,7]]
+ * @param {number} [params.maxDailyBookings=200] – daily booking capacity ceiling
  *
  * @returns {Promise<PredictResponse>}
- * @throws {Error} if backend unreachable or validation fails
  */
 export async function predictHybrid({
   data,
@@ -82,7 +88,7 @@ export async function predictHybrid({
   modelMode = 'hybrid',
   order = [0, 0, 1],
   seasonalOrder = [0, 0, 0, 7],
-  maxFleet = 25,
+  maxDailyBookings = 200,
 }) {
   const res = await fetch(`${API_URL}/predict`, {
     method: 'POST',
@@ -93,39 +99,7 @@ export async function predictHybrid({
       model_mode: modelMode,
       order,
       seasonal_order: seasonalOrder,
-      max_fleet: maxFleet,
-    }),
-    signal: AbortSignal.timeout(1000000), // Hybrid can be slow
-  });
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: 'Unknown error' }));
-    throw new Error(err.detail || `Backend returned ${res.status}`);
-  }
-  return res.json();
-}
-
-/**
- * Legacy SAP­MAX-only prediction (matches original ModelLab expectations).
- * @param {Object} params â same as predictHybrid
- */
-export async function predictSarimax({
-  data,
-  horizon = 12,
-  order = [0, 0, 1],
-  seasonalOrder = [0, 0, 0, 7],
-  maxFleet = 25,
-}) {
-  const res = await fetch(`${API_URL}/predict/sarimax`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      data,
-      horizon,
-      model_mode: 'sarimax',
-      order,
-      seasonal_order: seasonalOrder,
-      max_fleet: maxFleet,
+      max_daily_bookings: maxDailyBookings,
     }),
     signal: AbortSignal.timeout(1000000),
   });
@@ -137,26 +111,62 @@ export async function predictSarimax({
   return res.json();
 }
 
-// ââ DSS What-If ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+/**
+ * SARIMAX-only prediction.
+ */
+export async function predictSarimax({
+  data,
+  horizon = 90,
+  order = [0, 0, 1],
+  seasonalOrder = [0, 0, 0, 7],
+  maxDailyBookings = 200,
+}) {
+  const res = await fetch(`${API_URL}/predict/sarimax`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      data,
+      horizon,
+      model_mode: 'sarimax',
+      order,
+      seasonal_order: seasonalOrder,
+      max_daily_bookings: maxDailyBookings,
+    }),
+    signal: AbortSignal.timeout(1000000),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: 'Unknown error' }));
+    throw new Error(err.detail || `Backend returned ${res.status}`);
+  }
+  return res.json();
+}
+
+// ── DSS What-If ──────────────────────────────────────────────────────────
 
 /**
- * Recalculate fleet-risk DSS metrics for what-if fleet sizing scenarios.
- * Mirrors notebook Step 6 DSS layer.
+ * Recalculate booking-capacity DSS metrics for what-if scenarios.
+ * Change daily booking capacity or commission to see revenue impact.
  *
  * @param {Object} params
  * @param {Array<{date: string, forecast: number, risk_level: string, unmet_demand: number}>} params.forecasts
- * @param {number} [params.fleetSize=25]
- * @param {number} [params.ticketPrice=1350]
- * @param {boolean} [params.applySurcharge=true]
+ * @param {number} [params.dailyCapacity=200]       – daily booking processing limit
+ * @param {number} [params.commissionPerPax=69.35]  – agency net commission per ticket
+ * @param {boolean} [params.applySurcharge=true]    – apply 15% peak season fee
  */
-export async function recalculateDSS({ forecasts, fleetSize = 25, ticketPrice = 1350, applySurcharge = true }) {
+export async function recalculateDSS({
+  forecasts,
+  dailyCapacity = 200,
+  commissionPerPax = 69.35,
+  applySurcharge = true,
+}) {
   const res = await fetch(`${API_URL}/dss`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       forecasts,
-      fleet_size: fleetSize,
-      ticket_price: ticketPrice,
+      daily_capacity: dailyCapacity,
+      commission_per_pax: commissionPerPax,
       apply_surcharge: applySurcharge,
     }),
     signal: AbortSignal.timeout(1000000),
@@ -169,13 +179,13 @@ export async function recalculateDSS({ forecasts, fleetSize = 25, ticketPrice = 
   return res.json();
 }
 
-// ââ Helpers ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ── Helpers ──────────────────────────────────────────────────────────────
 
 /**
  * Build a daily Observation from a date string using PH calendar logic.
- * Used to hydrate the data array when only demand values are available.
- * @param {string} dateStr â "YYYY-MM-DD"
- * @param {number} demand
+ * demand defaults to 0 (used for future date scaffolding).
+ * @param {string} dateStr – "YYYY-MM-DD"
+ * @param {number} demand  – pax booking count for this date
  * @returns {Observation}
  */
 export function buildObservation(dateStr, demand) {
@@ -184,8 +194,8 @@ export function buildObservation(dateStr, demand) {
   const month = d.getMonth() + 1;
   const dow = d.getDay();
 
-  const isPayday = day === 15 || day === new Date(d.getFullYear(), month, 0).getDate() ? 1 : 0;
-  const isHoliday = (month === 11 && day === 1) || (month === 12 && day === 25) ? 1 : 0;
+  const isPayday = (day === 15 || day === new Date(d.getFullYear(), month, 0).getDate()) ? 1 : 0;
+  const isHoliday = ((month === 11 && day === 1) || (month === 12 && day === 25)) ? 1 : 0;
   const isWeekend = (dow === 0 || dow === 6) ? 1 : 0;
   const isPeakMonth = [4, 7, 11, 12].includes(month) ? 1 : 0;
   const isSchoolBreak = ([6, 7].includes(month) || (month === 12 && day >= 15)) ? 1 : 0;
@@ -199,15 +209,16 @@ export function buildObservation(dateStr, demand) {
     is_peak_travel_month: isPeakMonth,
     is_school_break: isSchoolBreak,
     flight_density_index: 50.0,
-    competitor_price_php: 1500.0,
+    competitor_price_php: 95.0,     // KJS gross fare baseline
     fuel_pump_price: 55.0,
   };
 }
 
 /**
- * Map the notebook's monthly rawData format (used in ModelLab) to daily observations.
- * Distributes monthly demand evenly across business days.
- * @param {Array<{date: string, demand: number}>} monthlyData â \"YYYY-MM\" format
+ * Convert monthly aggregate data to daily observations for the API.
+ * Distributes monthly pax count evenly across calendar days.
+ *
+ * @param {Array<{date: string, demand: number}>} monthlyData – "YYYY-MM" format
  * @returns {Array<Observation>}
  */
 export function monthlyToDailyObservations(monthlyData) {
