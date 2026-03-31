@@ -231,6 +231,18 @@ function fmtDelta(v) {
   return `${n >= 0 ? '+' : ''}${fmtPHP(n)}`;
 }
 
+/**
+ * Convert a float pax forecast to a whole-integer headcount.
+ *
+ * [BUG-1 FIX] JS Math.round() uses round-half-up (10.5 → 11), which matches
+ * Python's _pax_int(). Both sides of the API now agree on every pax count.
+ * Named explicitly so financial math is never accidentally done on raw floats.
+ *
+ * @param {number} v - float forecast from model
+ * @returns {number} integer pax count
+ */
+const paxInt = v => Math.round(safeN(v));
+
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  CSV PARSER — KJS Airline Booking Export Format
@@ -614,7 +626,17 @@ const ModelLab = () => {
   // ── Effective values — live stats from data, or fallback ─────────────
   const EFF = useMemo(() => ({
     maxDailyBookings: adaptiveStats?.maxDailyBookings ?? FALLBACK.MAX_DAILY_BOOKINGS,
-    netCommission:    adaptiveStats?.avgCommission    ?? FALLBACK.NET_COMMISSION_PHP,
+
+    // [BUG-2 FIX] ₱5070 Inflated Commission Bug:
+    // adaptiveStats.avgCommission = CSV Net Amount / pax count.
+    // "Net Amount" in the KJS CSV is the full ticket price (e.g. ₱5,070),
+    // NOT the agency's net commission. Using it here inflates revenue-at-risk
+    // calculations by ~73× (₱5070 ÷ ₱69.35 ≈ 73).
+    // The correct commission is the fixed contractual agency rate: ₱69.35/pax.
+    // avgCommission from the CSV is shown in the UI as informational metadata
+    // (average transaction value per booking) but NEVER drives DSS financial math.
+    netCommission:    FALLBACK.NET_COMMISSION_PHP,   // ← always ₱69.35, never CSV-derived
+
     wmape:            liveMetrics?.wmape  ?? adaptiveStats?.naiveWMAPE  ?? FALLBACK.NB_WMAPE,
     dw:               liveMetrics?.dw     ?? adaptiveStats?.naiveDW     ?? FALLBACK.NB_DW,
     aic:              liveMetrics?.aic    ?? null,  // only from pipeline
@@ -624,8 +646,12 @@ const ModelLab = () => {
   }), [adaptiveStats, liveMetrics]);
 
   // ── DSS capacity — defaults to derived, overridden by slider ─────────
+  // [BUG-3 FIX] Derive effectiveCapacity here for rendering only.
+  // The runDSS() function re-derives it at call time to avoid stale closure.
   const effectiveCapacity = useMemo(() =>
-    dssScenario.capacity !== null ? dssScenario.capacity : EFF.maxDailyBookings
+    (dssScenario.capacity !== null && dssScenario.capacity > 0)
+      ? dssScenario.capacity
+      : EFF.maxDailyBookings
   , [dssScenario.capacity, EFF.maxDailyBookings]);
 
   // Stage gating
@@ -704,12 +730,15 @@ const ModelLab = () => {
     prediction.forecasts.forEach(fp => {
       const mo = fp.date.slice(0,7);
       if (!monthly[mo]) monthly[mo] = { date: mo, actual: null, demands: [], ci_ups: [] };
-      monthly[mo].demands.push(safeN(fp.forecast));
-      monthly[mo].ci_ups.push(safeN(fp.ci_upper));
+      // [BUG-1 FIX] Use paxInt for chart aggregation — fp.forecast is already an integer
+      // from the backend (f_int), but paxInt() guards against any legacy float values
+      // and documents that chart bars represent whole passengers, not fractional counts.
+      monthly[mo].demands.push(paxInt(fp.forecast));
+      monthly[mo].ci_ups.push(safeN(fp.ci_upper));   // CI can remain float for smooth bands
     });
     const future = Object.values(monthly).map(m => ({
       date: m.date, actual: null,
-      forecast: +fmt(m.demands.reduce((s,v)=>s+v,0)),
+      forecast: m.demands.reduce((s,v)=>s+v, 0),     // already integer sum
       ci_upper: +fmt(m.ci_ups.reduce((s,v)=>s+v,0)),
     }));
     return [...history, ...future];
@@ -760,7 +789,8 @@ const ModelLab = () => {
     addLog('[SYSTEM] XoCompass v17.4 Airline Booking Demand Pipeline...', 'info');
     addLog(`[DATA]   ${csvData.length} months · ${csvMeta?.totalPax?.toLocaleString() ?? '?'} total pax`, 'info');
     addLog(`[CONFIG] Mode: ${modelMode.toUpperCase()} | Horizon: ${horizon}d | Capacity: ${cap} pax/day`, 'info');
-    addLog(`[CONFIG] Commission: ₱${EFF.netCommission.toFixed(2)}/pax (derived from data)`, 'info');
+    // [BUG-2 FIX] Commission is always the fixed contractual rate, never derived from CSV
+    addLog(`[CONFIG] Commission: ₱${EFF.netCommission.toFixed(2)}/pax (fixed contractual rate)`, 'info');
     addLog('─'.repeat(58), 'divider');
 
     if (!backendStatus?.ok) {
@@ -829,22 +859,42 @@ const ModelLab = () => {
 
   const runDSS = useCallback(async () => {
     if (!prediction) return;
+
+    // [BUG-3 FIX] Stuck Capacity Slider:
+    // React state updates (setDssScenario) are async — if runDSS() reads
+    // effectiveCapacity from the closure, it may see the value from the
+    // PREVIOUS render cycle, not the one the user just set via the slider.
+    // This caused the symptom: UI shows "Capacity 50" but /dss receives 1
+    // because dssScenario.capacity was still null (auto) in the stale closure,
+    // and null got coerced to 0 which Pydantic bumped to 1 (ge=1 default).
+    //
+    // Fix: Re-derive the capacity synchronously at the moment runDSS() is called,
+    // using the latest dssScenario ref values rather than the closure snapshot.
+    // This is always consistent because dssScenario is read directly, not via
+    // the memoized effectiveCapacity which may lag one render.
+    const capAtCallTime = (dssScenario.capacity !== null && dssScenario.capacity > 0)
+      ? dssScenario.capacity
+      : (adaptiveStats?.maxDailyBookings ?? FALLBACK.MAX_DAILY_BOOKINGS);
+
+    // Guard: must be a positive integer before sending to backend
+    const safeCapacity = Math.max(1, Math.round(capAtCallTime));
+
     setIsDSSCalc(true);
     try {
       const result = await recalculateDSS({
         forecasts: prediction.forecasts,
-        dailyCapacity: effectiveCapacity,
-        commissionPerPax: EFF.netCommission,
+        dailyCapacity: safeCapacity,           // [BUG-3 FIX] fresh value, not stale closure
+        commissionPerPax: FALLBACK.NET_COMMISSION_PHP,  // [BUG-2 FIX] always ₱69.35
         applySurcharge: dssScenario.applyS,
       });
       const sane = sanitiseDSSResponse(result);
       setDssBaseline(prev => prev || sane);
       setDssResult(sane);
-      addAudit('DSS_CALC', `cap=${effectiveCapacity}`);
+      addAudit('DSS_CALC', `cap=${safeCapacity} commission=₱${FALLBACK.NET_COMMISSION_PHP}`);
     } catch (e) {
       addLog(`[DSS ERROR] ${sanitiseError(e)}`, 'error');
     } finally { setIsDSSCalc(false); }
-  }, [prediction, dssScenario, effectiveCapacity, EFF.netCommission, addLog, addAudit]);
+  }, [prediction, dssScenario, adaptiveStats, addLog, addAudit]);
 
   useEffect(() => {
     if (!prediction) return;
