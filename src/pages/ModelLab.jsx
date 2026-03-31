@@ -580,6 +580,10 @@ const ModelLab = () => {
   const [terminalLogs, setTerminalLogs] = useState([]);
   const [progress, setProgress]         = useState(0);
   const [modelMode, setModelMode]       = useState('hybrid');
+  // [ISO 25010 - Usability][BUG-2 FIX] Track whether model mode changed
+  // AFTER a pipeline run — triggers "Re-run Required" banner so user knows
+  // the displayed results no longer match the selected mode.
+  const [modeStale, setModeStale]       = useState(false);
   const [horizon, setHorizon]           = useState(90);
   const [isAblation, setIsAblation]     = useState(true);
   const [auditLog, setAuditLog]         = useState([]);
@@ -842,7 +846,8 @@ const ModelLab = () => {
       });
 
       setPrediction(raw); setProgress(100);
-      addAudit('PIPELINE_END', `wmape=${m?.wmape} aic=${raw.sarimax_aic}`, 'system');
+      setModeStale(false);  // [BUG-2 FIX] Results now match selected mode
+      addAudit('PIPELINE_END', `wmape=${m?.wmape} aic=${raw.sarimax_aic} mode=${modelMode}`, 'system');
       setCompleted(prev => new Set([...prev, 'train']));
     } catch (err) {
       if (err.name === 'AbortError' || err.message?.includes('Cancelled')) {
@@ -1030,7 +1035,19 @@ const ModelLab = () => {
               <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 block">Model Mode</label>
               <div className="flex rounded-lg overflow-hidden border border-slate-700" role="radiogroup">
                 {['hybrid','sarimax'].map(m => (
-                  <button key={m} onClick={() => { setModelMode(m); addAudit('MODE',m); }}
+                  <button key={m}
+                    onClick={() => {
+                      // [ISO 25010 - Usability][BUG-2 FIX] Mode change must:
+                      // 1. Update the model mode state
+                      // 2. Flag the current results as stale (wrong mode)
+                      // 3. NOT silently keep old hybrid results displayed
+                      // The user sees a clear "Re-run required" banner.
+                      // [STRIDE-T] Mode whitelist enforced — only 'hybrid'/'sarimax'
+                      if (!['hybrid','sarimax'].includes(m)) return;
+                      setModelMode(m);
+                      setModeStale(true);  // [BUG-2 FIX] mark results as stale
+                      addAudit('MODE_CHANGE', `mode=${m} previous_result_invalidated=true`);
+                    }}
                     role="radio" aria-checked={modelMode===m}
                     className={`flex-1 py-1.5 text-[10px] font-bold transition ${modelMode===m?'bg-pink-600 text-white':'text-slate-400 hover:bg-slate-800'}`}>
                     {m==='hybrid'?'NB2+SARIMAX+XGB':'SARIMAX Only'}
@@ -1561,19 +1578,40 @@ const ModelLab = () => {
                     </div>
                     <div className="flex items-center gap-2">
                       <label htmlFor="cap-in" className="text-[10px] text-slate-400 w-24 shrink-0">Daily booking limit</label>
+                      {/* [ISO 25010 - Usability][BUG-3 FIX] Capacity Input:
+                          onChange ONLY updates the displayed value (local string).
+                          It does NOT commit to dssScenario until onBlur fires.
+                          This prevents parseInt("") = NaN → capacity=1 bug
+                          that made all days show CRITICAL on partial entry. */}
                       <input id="cap-in" type="number"
                         min={FALLBACK.MIN_CAPACITY} max={FALLBACK.MAX_CAPACITY_INPUT}
                         value={effectiveCapacity}
-                        onChange={e => setDssScenario(p => ({...p, capacity: Math.max(1, parseInt(e.target.value)||1)}))}
-                        onBlur={e => updateCapacity(e.target.value)}
+                        onChange={e => {
+                          // [BUG-3 FIX] Validate but only commit on blur
+                          // [STRIDE-T] Sanitise: ignore non-numeric, empty, or out-of-range
+                          const raw = e.target.value;
+                          const n = parseInt(raw, 10);
+                          if (raw === '' || isNaN(n)) return; // wait for blur — don't commit NaN
+                          if (n >= FALLBACK.MIN_CAPACITY && n <= FALLBACK.MAX_CAPACITY_INPUT) {
+                            setDssScenario(p => ({ ...p, capacity: n }));
+                          }
+                        }}
+                        onBlur={e => updateCapacity(e.target.value)}  // [BUG-3 FIX] commit on blur
                         className="w-20 bg-slate-800 border border-slate-700 text-white text-xs px-2 py-1 rounded outline-none"/>
                       <span className="text-[9px] text-slate-600 shrink-0">pax/day</span>
                     </div>
                     {adaptiveStats && (
                       <p className="text-[9px] text-sky-400 flex items-center gap-1">
-                        <Sparkles size={9}/>Auto: {adaptiveStats.maxDailyBookings} · Commission: ₱{adaptiveStats.avgCommission.toFixed(2)}/pax
+                        <Sparkles size={9}/>
+                        {/* [ISO 25010 - Usability][BUG-4 FIX] Show capacity from data, NOT avgCommission.
+                            avgCommission = avg ticket price (e.g. ₱5,070) — NOT the agency commission.
+                            Showing it here confused users into thinking commission = ticket price. */}
+                        Auto-capacity from your data: {adaptiveStats.maxDailyBookings} bookings/day
                       </p>
                     )}
+                    <p className="text-[9px] text-slate-500 flex items-center gap-1">
+                      Agency commission: <strong className="text-emerald-400">₱{FALLBACK.NET_COMMISSION_PHP.toFixed(2)}</strong> per ticket (fixed contractual rate)
+                    </p>
                     <label className="flex items-center gap-2 text-[10px] text-slate-400 cursor-pointer">
                       <input type="checkbox" checked={dssScenario.applyS}
                         onChange={e => { setDssScenario(p=>({...p,applyS:e.target.checked})); addAudit('SURCHARGE',`${e.target.checked}`); }}
