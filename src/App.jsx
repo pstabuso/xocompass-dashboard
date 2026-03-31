@@ -15,6 +15,7 @@ import DataHub from './pages/DataHub';
 import Defense from './pages/Defense';
 import ModelLab from './pages/ModelLab';
 import AdminPanel from './pages/AdminPanel';
+import { DatasetFileProvider } from './context/DatasetFileContext';
 
 // Theme + color scheme toggles
 const ThemeToggle = () => {
