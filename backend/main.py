@@ -27,11 +27,14 @@ from __future__ import annotations
 
 import logging
 import warnings
+import uuid
+import traceback
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Optional, Tuple, List
 
 import numpy as np
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -64,6 +67,7 @@ NET_COMMISSION_PHP   = 69.35      # Agency net commission per pax (from dataset)
 GROSS_FARE_PHP       = 95.0       # Gross base fare per pax (from dataset Basic col)
 PEAK_SURCHARGE       = 0.15       # 15% peak season booking fee premium
 RANDOM_STATE         = 42
+MAX_OBSERVATIONS     = 3650       # [STRIDE] Denial of Service bound (10 years max history)
 
 # ── App ────────────────────────────────────────────────────────────────────
 app = FastAPI(
@@ -87,6 +91,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# [STRIDE - Information Disclosure]: Global 500 handler to prevent stack trace leaks
+@app.exception_handler(Exception)
+async def _sanitise_500(request: Request, exc: Exception):
+    error_id = str(uuid.uuid4())[:8]
+    log.error("Unhandled Exception [ref:%s]: %s\n%s", error_id, exc, traceback.format_exc())
+    return JSONResponse(
+        status_code=500,
+        content={"detail": f"Internal Server Error. Reference ID: {error_id}"}
+    )
 
 # ────────────────────────────────────────────────────────────────────────────
 #  REQUEST / RESPONSE SCHEMAS
@@ -183,6 +196,11 @@ class DSSResponse(BaseModel):
 # ────────────────────────────────────────────────────────────────────────────
 #  HELPERS
 # ────────────────────────────────────────────────────────────────────────────
+
+def _guard_arr(arr: np.ndarray) -> np.ndarray:
+    """[STRIDE - Tampering] Validate and sanitize array data before model fitting."""
+    arr = np.nan_to_num(arr, nan=0.0, posinf=0.0, neginf=0.0)
+    return arr
 
 def _future_dates(last_date: str, horizon: int) -> list[str]:
     base = datetime.strptime(last_date, "%Y-%m-%d")
@@ -305,10 +323,35 @@ def _naive_forecast(demands: list[float], future_dates: list[str]) -> list[dict]
         })
     return results
 
+# ────────────────────────────────────────────────────────────────────────────
+#  PURE PIPELINE FUNCTIONS (Decoupled logic for testing & robustness)
+# ────────────────────────────────────────────────────────────────────────────
 
-# ────────────────────────────────────────────────────────────────────────────
-#  SARIMAX-ONLY FORECAST
-# ────────────────────────────────────────────────────────────────────────────
+def _run_nb2(demands: np.ndarray, train_exog: np.ndarray, future_exog: np.ndarray) -> Tuple[np.ndarray, np.ndarray, Optional[float]]:
+    """Stage 1: NB2 Base. Returns (nb2_fitted, nb2_future_preds, aic)."""
+    n_demands = len(demands)
+    n_future = len(future_exog)
+    nb2_fitted = np.zeros(n_demands)
+    nb2_preds = np.zeros(n_future)
+    aic = None
+
+    if not HAS_STATSMODELS:
+        return nb2_fitted, nb2_preds, aic
+
+    try:
+        train_X_const = sm.add_constant(train_exog, has_constant="add")
+        model = sm.NegativeBinomial(demands, train_X_const)
+        fit = model.fit(disp=False)
+        aic = round(float(fit.aic), 2)
+        nb2_fitted = fit.fittedvalues
+        
+        future_X_const = sm.add_constant(future_exog, has_constant="add")
+        nb2_preds = fit.predict(future_X_const)
+    except Exception as e:
+        log.warning("NB2 fit failed (%s) - using zero-residual baseline", e)
+    
+    return _guard_arr(nb2_fitted), _guard_arr(nb2_preds), aic
+
 
 def _run_sarimax(
     demands: list[float],
@@ -316,7 +359,8 @@ def _run_sarimax(
     future_exog: np.ndarray,
     order: tuple,
     seasonal_order: tuple,
-) -> dict:
+) -> Optional[dict]:
+    """Stage 2: SARIMAX Correction. Enhanced for ISO 25010 performance."""
     if not HAS_STATSMODELS:
         return None
     try:
@@ -333,17 +377,76 @@ def _run_sarimax(
             steps=len(future_exog),
             exog=future_exog if exog.shape[1] > 0 else None,
         )
-        return {
-            "mean": fc.predicted_mean.tolist(),
-            "ci_lower": fc.conf_int(alpha=0.05).iloc[:, 0].tolist(),
-            "ci_upper": fc.conf_int(alpha=0.05).iloc[:, 1].tolist(),
+        res = {
+            "mean": _guard_arr(fc.predicted_mean.values).tolist(),
+            "ci_lower": _guard_arr(fc.conf_int(alpha=0.05).iloc[:, 0].values).tolist(),
+            "ci_upper": _guard_arr(fc.conf_int(alpha=0.05).iloc[:, 1].values).tolist(),
             "aic": round(float(fit.aic), 2),
-            "fitted": fit.fittedvalues.tolist(),
+            "fitted": _guard_arr(fit.fittedvalues).tolist(),
         }
+        # [ISO 25010 - Performance Efficiency] Free up memory immediately
+        del fit, model 
+        return res
     except Exception as e:
         log.warning("SARIMAX fit failed: %s", e)
         return None
 
+
+def _run_xgboost(demands: np.ndarray, train_exog: np.ndarray, future_exog: np.ndarray, hybrid_preds: np.ndarray) -> np.ndarray:
+    """Stage 3: XGBoost Ensemble. Vectorized predictions over the horizon."""
+    if not HAS_XGBOOST or len(demands) < 30:
+        return hybrid_preds
+
+    try:
+        y = demands
+        lag1 = np.concatenate([[y[0]], y[:-1]])
+        lag7 = np.concatenate([y[:7], y[:-7]])
+        roll7 = np.array([y[max(0, i-7):i].mean() if i > 0 else y[0] for i in range(len(y))])
+        
+        X_train = np.column_stack([train_exog, lag1, lag7, roll7])
+        model = xgb.XGBRegressor(
+            n_estimators=500, max_depth=4, learning_rate=0.03, 
+            subsample=0.85, random_state=RANDOM_STATE, 
+            eval_metric="rmse", verbosity=0
+        )
+        model.fit(X_train, y)
+
+        hist_y = list(y[-7:])
+        xgb_preds = []
+        for i in range(len(future_exog)):
+            row_exog = future_exog[i:i+1]
+            lag1_v = hist_y[-1]
+            lag7_v = hist_y[-7] if len(hist_y) >= 7 else hist_y[0]
+            roll7_v = np.mean(hist_y[-7:])
+            
+            X_row = np.column_stack([row_exog, [[lag1_v, lag7_v, roll7_v]]])
+            pred = max(0.0, float(model.predict(X_row)[0]))
+            xgb_preds.append(pred)
+            hist_y.append(pred)
+        
+        return np.maximum(0, (hybrid_preds + np.array(xgb_preds)) / 2.0)
+    except Exception as e:
+        log.warning("XGBoost failed (%s)", e)
+        return hybrid_preds
+
+
+def _compute_hybrid_metrics(demands: np.ndarray, nb2_fitted: np.ndarray, sarimax_fitted: np.ndarray) -> dict:
+    """Compute correct WMAPE and metrics on the combined actual demand scale."""
+    hybrid_fitted = np.maximum(0.0, nb2_fitted + sarimax_fitted)
+    residuals = demands - hybrid_fitted
+    
+    rmse = float(np.sqrt(np.mean(residuals ** 2)))
+    mae = float(np.mean(np.abs(residuals)))
+    total_actual = float(np.sum(np.abs(demands)))
+    wmape = float(np.sum(np.abs(residuals)) / total_actual * 100) if total_actual > 0 else 0.0
+    dw_stat = float(durbin_watson(residuals)) if HAS_STATSMODELS else None
+    
+    return {
+        "wmape": round(wmape, 2),
+        "mae": round(mae, 2),
+        "rmse": round(rmse, 2),
+        "durbin_watson": round(dw_stat, 4) if dw_stat else None,
+    }
 
 # ────────────────────────────────────────────────────────────────────────────
 #  HYBRID PIPELINE (NB2 + SARIMAX + XGBOOST)
@@ -357,37 +460,29 @@ def _run_hybrid(req: PredictRequest, demands: list[float], future_dates: list[st
         "flight_density_index",
     ]
 
-    train_exog = np.column_stack([
+    train_exog = _guard_arr(np.column_stack([
         [getattr(obs, col) for obs in req.data] for col in exog_cols
-    ])
+    ]))
     future_feats = [_ph_features(d) for d in future_dates]
-    future_exog = np.column_stack([
+    future_exog = _guard_arr(np.column_stack([
         [f[col] for f in future_feats] for col in exog_cols
-    ])
+    ]))
+    y_arr = _guard_arr(np.array(demands))
 
     # Stage 1: NB2 Base
-    nb2_aic = None
-    nb2_preds = np.array(demands[-len(future_dates):]) if len(demands) >= len(future_dates) else np.zeros(len(future_dates))
-    raw_residuals = np.array(demands)
-
-    if HAS_STATSMODELS:
-        try:
-            train_X_const = sm.add_constant(train_exog, has_constant="add")
-            nb2_model = sm.NegativeBinomial(np.array(demands), train_X_const).fit(disp=False)
-            nb2_aic = round(float(nb2_model.aic), 2)
-            raw_residuals = np.array(demands) - nb2_model.fittedvalues
-            future_X_const = sm.add_constant(future_exog, has_constant="add")
-            nb2_fc = nb2_model.predict(future_X_const)
-            nb2_preds = nb2_fc
-            stages_completed.append("NB2 Base")
-            log.info("NB2 fit complete. AIC=%.2f", nb2_aic)
-        except Exception as e:
-            log.warning("NB2 fit failed (%s) – using raw demands", e)
-            stages_completed.append("NB2 Base (fallback)")
+    nb2_fitted, nb2_preds, nb2_aic = _run_nb2(y_arr, train_exog, future_exog)
+    raw_residuals = y_arr - nb2_fitted
+    
+    if nb2_aic is not None:
+        stages_completed.append("NB2 Base")
+        log.info("NB2 fit complete. AIC=%.2f", nb2_aic)
+    else:
+        stages_completed.append("NB2 Base (fallback)")
 
     # Stage 2: SARIMAX Residual Correction
     sarimax_aic = None
     sarimax_correction = np.zeros(len(future_dates))
+    sarimax_fitted = np.zeros(len(demands))
 
     sarimax_result = _run_sarimax(
         demands=raw_residuals.tolist(),
@@ -399,65 +494,30 @@ def _run_hybrid(req: PredictRequest, demands: list[float], future_dates: list[st
     if sarimax_result:
         sarimax_aic = sarimax_result["aic"]
         sarimax_correction = np.array(sarimax_result["mean"])
+        sarimax_fitted = np.array(sarimax_result["fitted"])
         stages_completed.append("SARIMAX Residual Correction")
 
     hybrid_preds = np.maximum(0, nb2_preds + sarimax_correction)
 
     # Stage 3: XGBoost Ensemble
-    final_preds = hybrid_preds
-    dw_stat = None
+    final_preds = _run_xgboost(y_arr, train_exog, future_exog, hybrid_preds)
+    if not np.array_equal(final_preds, hybrid_preds):
+        stages_completed.append("XGBoost Ensemble")
+    elif HAS_XGBOOST and len(demands) >= 30:
+        stages_completed.append("XGBoost (fallback to hybrid)")
 
-    if HAS_XGBOOST and len(demands) >= 30:
-        try:
-            y = np.array(demands)
-            lag1 = np.concatenate([[y[0]], y[:-1]])
-            lag7 = np.concatenate([y[:7], y[:-7]])
-            roll7 = np.array([y[max(0, i-7):i].mean() if i > 0 else y[0] for i in range(len(y))])
-            X_train = np.column_stack([train_exog, lag1, lag7, roll7])
-            xgb_model = xgb.XGBRegressor(
-                n_estimators=500, max_depth=4, learning_rate=0.03,
-                subsample=0.85, random_state=RANDOM_STATE,
-                eval_metric="rmse", verbosity=0,
-            )
-            xgb_model.fit(X_train, y)
-            hist_y = list(y[-7:])
-            xgb_fc_list = []
-            for i, fd in enumerate(future_dates):
-                feats = future_feats[i]
-                row_exog = np.array([[feats[c] for c in exog_cols]])
-                lag1_v = hist_y[-1]
-                lag7_v = hist_y[-7] if len(hist_y) >= 7 else hist_y[0]
-                roll7_v = np.mean(hist_y[-7:])
-                X_row = np.column_stack([row_exog, [[lag1_v, lag7_v, roll7_v]]])
-                pred = max(0.0, float(xgb_model.predict(X_row)[0]))
-                xgb_fc_list.append(pred)
-                hist_y.append(pred)
-            xgb_preds = np.array(xgb_fc_list)
-            final_preds = np.maximum(0, (hybrid_preds + xgb_preds) / 2.0)
-            stages_completed.append("XGBoost Ensemble")
-        except Exception as e:
-            log.warning("XGBoost failed (%s)", e)
-            stages_completed.append("XGBoost (fallback to hybrid)")
-
-    # Metrics
-    metrics = ModelMetrics()
-    if sarimax_result and len(sarimax_result.get("fitted", [])) == len(demands):
-        residuals = np.array(demands) - np.array(sarimax_result["fitted"])
-        rmse = float(np.sqrt(np.mean(residuals ** 2)))
-        mae = float(np.mean(np.abs(residuals)))
-        total_actual = float(np.sum(np.abs(np.array(demands))))
-        wmape = float(np.sum(np.abs(residuals)) / total_actual * 100) if total_actual > 0 else 0.0
-        dw_stat = float(durbin_watson(residuals)) if HAS_STATSMODELS else None
-        metrics = ModelMetrics(
-            wmape=round(wmape, 2),
-            mae=round(mae, 2),
-            rmse=round(rmse, 2),
-            aic=sarimax_aic,
-            durbin_watson=round(dw_stat, 4) if dw_stat else None,
-        )
+    # Metrics computation (fixes the WMAPE inflation bug)
+    m_dict = _compute_hybrid_metrics(y_arr, nb2_fitted, sarimax_fitted)
+    metrics = ModelMetrics(
+        wmape=m_dict["wmape"],
+        mae=m_dict["mae"],
+        rmse=m_dict["rmse"],
+        durbin_watson=m_dict["durbin_watson"],
+        aic=sarimax_aic
+    )
 
     sigma = float(np.std(demands)) * 0.35
-    if sarimax_result:
+    if sarimax_result and sarimax_result["aic"] is not None:
         ci_lo = np.array(sarimax_result["ci_lower"])
         ci_hi = np.array(sarimax_result["ci_upper"])
         ci_width = (ci_hi - ci_lo) / 2.0
@@ -530,6 +590,10 @@ def pipeline_info():
 
 @app.post("/predict", response_model=PredictResponse)
 def predict(req: PredictRequest):
+    # [STRIDE - DoS] Hard-cap observations
+    if len(req.data) > MAX_OBSERVATIONS:
+        req.data = req.data[-MAX_OBSERVATIONS:]
+
     if len(req.data) < 14:
         raise HTTPException(
             status_code=422,
@@ -557,6 +621,8 @@ def predict(req: PredictRequest):
         train_exog = np.column_stack([[getattr(obs, c) for obs in req.data] for c in exog_cols])
         future_feats = [_ph_features(d) for d in future_dates]
         future_exog = np.column_stack([[f[c] for f in future_feats] for c in exog_cols])
+        
+        # Leverages the updated pure function
         res = _run_sarimax(demands, train_exog, future_exog, req.order, req.seasonal_order)
         if res:
             final_preds = np.maximum(0, np.array(res["mean"]))
