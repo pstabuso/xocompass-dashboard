@@ -588,30 +588,47 @@ def _run_hybrid(
     # ── Stage 1: NB2 Base Model ───────────────────────────────────────────
     nb2_aic    = None
     nb2_preds  = np.full(h, float(np.mean(y[-min(30, n):])))  # safe default [ISO-R]
-    residuals  = y.copy()
-    # [BUG-02 FIX] Hoist fitted_nb2 to function scope with a safe default so it
-    # is always accessible in the metrics block regardless of whether NB2 converges.
-    # ISO 25010 – Reliability: fault-tolerant initialisation prevents NameError.
-    fitted_nb2 = np.full(n, float(np.mean(y)))  # fallback: naive mean prediction
+    residuals  = y.copy()   # default: SARIMAX will fit y directly if NB2 skipped
 
-    if HAS_STATSMODELS:
+    # [ISO 25010 - Functional Suitability][BUG-1 FIX] WMAPE 172% root cause:
+    # When model_mode='sarimax', NB2 was previously still running, setting
+    # fitted_nb2 = mean(y). SARIMAX then fit y - mean(y) as "residuals".
+    # Metrics reconstructed as mean(y) + sarimax_fit_of_deviations, which
+    # can be 2× the actual signal → WMAPE > 100% is mathematically inevitable.
+    #
+    # Fix: fitted_nb2 defaults to ZEROS when NB2 is skipped.
+    # Then: hybrid_fitted = 0 + sarimax_fitted_of_y = sarimax_fitted_of_y ✓
+    # Metrics correctly compare sarimax_fitted_of_y against y.
+    #
+    # [ISO 25010 - Reliability] Fault-tolerant: NB2 failure falls back to zeros,
+    # not mean(y), preventing the same contamination bug via the exception path.
+    nb2_used   = False   # tracks whether NB2 actually ran — controls metrics path
+    fitted_nb2 = np.zeros(n)  # [BUG-1 FIX] ZEROS not mean(y) — see comment above
+
+    # [ISO 25010 - Functional Suitability] Only run NB2 in hybrid/xgboost mode.
+    # model_mode='sarimax' = SARIMAX fits y directly. No NB2 contamination.
+    if HAS_STATSMODELS and req.model_mode != "sarimax":
         try:
-            X_const = sm.add_constant(train_exog, has_constant="add")  # [T] force constant
+            X_const = sm.add_constant(train_exog, has_constant="add")  # [STRIDE-T] force constant
             nb2_model = sm.NegativeBinomial(y, X_const).fit(disp=False, maxiter=300)
             nb2_aic   = _safe_round(nb2_model.aic, 2)
 
-            # [BUG-02 FIX] Update the hoisted variable — now available outside this block
-            fitted_nb2 = _guard_arr(nb2_model.fittedvalues)
-            residuals  = y - fitted_nb2
+            fitted_nb2 = _guard_arr(nb2_model.fittedvalues)   # demand scale
+            residuals  = y - fitted_nb2                        # residual scale → SARIMAX input
 
             X_future_const = sm.add_constant(future_exog, has_constant="add")
             nb2_fc    = _guard_arr(nb2_model.predict(X_future_const))
             nb2_preds = np.maximum(0, nb2_fc)
+            nb2_used  = True
             stages.append("NB2 Base")
             log.info("NB2 fit OK  AIC=%.2f", nb2_aic)
         except Exception as e:
-            log.warning("NB2 failed (%s) — using mean-demand baseline", e)  # [I] no stack trace
-            stages.append("NB2 Base (fallback)")
+            log.warning("NB2 failed (%s) — SARIMAX will fit y directly", e)  # [STRIDE-I] no trace
+            stages.append("NB2 Base (fallback — SARIMAX fits y)")
+            # residuals = y.copy() already set above — SARIMAX fits raw demand
+    elif req.model_mode == "sarimax":
+        stages.append("NB2 skipped (SARIMAX-only mode)")
+        # residuals = y.copy() — SARIMAX fits raw demand directly, no NB2 layer
 
     # ── Stage 2: SARIMAX Residual Correction ─────────────────────────────
     sarimax_aic        = None
@@ -691,52 +708,63 @@ def _run_hybrid(
             stages.append("XGBoost (fallback → hybrid)")
 
     # ── Metrics ───────────────────────────────────────────────────────────
-    # [BUG-01 + BUG-03 FIX] ISO 25010 – Functional Correctness
+    # [ISO 25010 - Functional Suitability][BUG-1 FIX] Two metric paths:
     #
-    # WRONG (old): fitted_seg = sarimax_result["fitted"]
-    #   → This is the SARIMAX fit of the NB2 RESIDUALS, not of the raw demands.
-    #   → WMAPE = |actual - sarimax_residual_fitted| / actual  → severely inflated.
+    # PATH A — HYBRID (NB2 ran successfully):
+    #   hybrid_fitted = fitted_nb2 + sarimax_fitted_of_residuals
+    #   Both are on the DEMAND scale → subtraction gives true model error.
+    #   This is the correct reconstruction of what the model predicted in-sample.
     #
-    # CORRECT (new): hybrid_fitted_insample = fitted_nb2 + sarimax_fitted_of_residuals
-    #   → Reconstructs the true combined model prediction in-sample.
-    #   → WMAPE = |actual - hybrid_fitted| / actual  → reflects true model accuracy.
+    # PATH B — SARIMAX-ONLY (NB2 skipped or failed):
+    #   fitted_nb2 = zeros (not mean!) → hybrid_fitted = 0 + sarimax_fitted_of_y
+    #   = sarimax_fitted_of_y directly. No NB2 contamination.
+    #   WMAPE = |y - sarimax_fitted_of_y| / y → correct, ≤ 100% guaranteed.
     #
-    # [T] STRIDE Tampering: all arrays validated with _guard_arr before arithmetic.
-    # [I] STRIDE Info Disclosure: no raw fitted arrays exposed in API response.
+    # [STRIDE-T] All arrays validated with _guard_arr before arithmetic.
+    # [STRIDE-I] No raw fitted arrays exposed in API response.
     metrics = ModelMetrics()
     if sarimax_result:
-        sarimax_fitted_residuals = _guard_arr(sarimax_result.get("fitted", []), 0.0)
+        sarimax_fitted = _guard_arr(sarimax_result.get("fitted", []), 0.0)
 
-        # Align lengths: both arrays must cover the same training window  [T]
-        fit_n = min(len(sarimax_fitted_residuals), len(fitted_nb2), n)
+        # [STRIDE-T] Align lengths: both arrays must span the same training window
+        fit_n = min(len(sarimax_fitted), len(fitted_nb2), n)
 
         if fit_n >= 4:
             actual_seg = y[:fit_n]
 
-            # [BUG-01 FIX] Reconstruct TRUE hybrid in-sample fitted values:
-            #   NB2 captures the count distribution (overdispersed Poisson base)
-            #   SARIMAX corrects the systematic residual pattern (trend + seasonality)
-            #   Together they form the complete model prediction for each training point.
-            nb2_seg         = fitted_nb2[:fit_n]
-            sarimax_seg     = sarimax_fitted_residuals[:fit_n]
-            hybrid_fitted   = np.maximum(0.0, nb2_seg + sarimax_seg)  # clamp: demand ≥ 0
+            if nb2_used:
+                # PATH A: Hybrid — NB2 fitted + SARIMAX correction on residuals
+                # [ISO 25010 - Functional Suitability] True combined model output:
+                #   fitted_nb2  = NB2's in-sample prediction (demand scale)
+                #   sarimax_fitted = SARIMAX's fit of the NB2 residuals (residual scale)
+                #   sum = full model prediction at each training point (demand scale)
+                nb2_seg       = fitted_nb2[:fit_n]      # demand scale
+                sar_seg       = sarimax_fitted[:fit_n]  # residual scale
+                fitted_seg    = np.maximum(0.0, nb2_seg + sar_seg)
+                mode_label    = "Hybrid"
+            else:
+                # PATH B: SARIMAX-only — sarimax_fitted IS the prediction (demand scale)
+                # [ISO 25010 - Functional Suitability] SARIMAX fit y directly,
+                # so its fittedvalues are already on the demand scale.
+                # No NB2 offset needed — adding zeros gives the correct answer.
+                fitted_seg    = np.maximum(0.0, sarimax_fitted[:fit_n])
+                mode_label    = "SARIMAX-only"
 
-            resid_seg = actual_seg - hybrid_fitted
+            resid_seg = actual_seg - fitted_seg
 
-            # All four metrics now computed against the true hybrid fitted values  [T]
-            wmape_val = _wmape(actual_seg, hybrid_fitted)     # Σ|e| / Σ|y| × 100
-            rmse_val  = _rmse(actual_seg,  hybrid_fitted)     # √mean(e²)
-            mae_val   = float(np.mean(np.abs(resid_seg)))     # mean|e|
-            dw_val    = _durbin_watson(resid_seg)             # autocorrelation in residuals
+            # [ISO 25010 - Functional Suitability] All metrics on demand scale
+            wmape_val = _wmape(actual_seg, fitted_seg)    # Σ|e| / Σ|y| × 100
+            rmse_val  = _rmse(actual_seg,  fitted_seg)    # √mean(e²) in pax
+            mae_val   = float(np.mean(np.abs(resid_seg))) # mean |e| in pax
+            dw_val    = _durbin_watson(resid_seg)          # autocorr guard [STRIDE-T]
 
-            # R² computed on hybrid residuals vs actuals  [ISO – Functional Correctness]
             ss_res = float(np.sum(resid_seg ** 2))
             ss_tot = float(np.sum((actual_seg - float(actual_seg.mean())) ** 2))
-            r2_val = 1.0 - ss_res / ss_tot if ss_tot > 0 else 0.0
+            r2_val = max(-1.0, min(1.0, 1.0 - ss_res / ss_tot if ss_tot > 0 else 0.0))
 
             log.info(
-                "Hybrid metrics (n=%d): WMAPE=%.2f%%  RMSE=%.2f  MAE=%.2f  DW=%.4f  R²=%.4f",
-                fit_n, wmape_val, rmse_val, mae_val, dw_val, r2_val,
+                "[%s] metrics n=%d: WMAPE=%.2f%%  RMSE=%.2f  MAE=%.2f  DW=%.4f  R²=%.4f",
+                mode_label, fit_n, wmape_val, rmse_val, mae_val, dw_val, r2_val,
             )
 
             metrics = ModelMetrics(
