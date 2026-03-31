@@ -1,5 +1,6 @@
 import React, { createContext, useState, useEffect, useContext, useCallback, useRef } from 'react';
 import { supabase, isCloudEnabled, fetchProfile } from '../lib/supabase';
+import { DatasetFileProvider } from './context/DatasetFileContext';
 
 const AppContext = createContext();
 
