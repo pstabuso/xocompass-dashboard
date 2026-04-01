@@ -50,24 +50,37 @@ export function useModelLabController() {
   } = useModelLabConsole()
 
   useEffect(() => {
-    logsEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [terminalLogs])
+  let alive = true
 
-  useEffect(() => {
-    let alive = true
-
-    ;(async () => {
+  ;(async () => {
+    try {
       const status = await checkForecastBackend()
-      if (alive) {
-        setBackendStatus(status)
-        addAudit('BACKEND_CHECK', status.ok ? `engine=${status.engine}` : 'offline', 'system')
-      }
-    })()
+      const safeStatus =
+        status && typeof status === 'object'
+          ? status
+          : { ok: false, engine: null }
 
-    return () => {
-      alive = false
+      if (alive) {
+        setBackendStatus(safeStatus)
+        addAudit(
+          'BACKEND_CHECK',
+          safeStatus.ok ? `engine=${safeStatus.engine}` : 'offline',
+          'system'
+        )
+      }
+    } catch (error) {
+      if (alive) {
+        const fallbackStatus = { ok: false, engine: null }
+        setBackendStatus(fallbackStatus)
+        addAudit('BACKEND_CHECK', 'offline', 'system')
+      }
     }
-  }, [addAudit])
+  })()
+
+  return () => {
+    alive = false
+  }
+}, [addAudit])
 
   useEffect(() => {
     return () => {
@@ -406,9 +419,12 @@ export function useModelLabController() {
   )
 
   const toggleAblation = useCallback(() => {
-    setIsAblation((prev) => !prev)
-    addAudit('ABLATION', `active=${!isAblation}`)
-  }, [isAblation, addAudit])
+  setIsAblation((prev) => {
+    const next = !prev
+    addAudit('ABLATION', `active=${next}`)
+    return next
+  })
+}, [addAudit])
 
   return {
     stage,
