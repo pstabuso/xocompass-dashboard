@@ -49,7 +49,10 @@ import { sanitiseError } from '../model-lab/domain/sanitiseError';
 import { buildForecastChartData } from '../model-lab/domain/buildForecastChartData';
 import { pearsonR } from '../model-lab/domain/pearsonR';
 import { useModelLabController } from '../model-lab/hooks/useModelLabController';
-
+import IngestStage from '../model-lab/components/IngestStage';
+import TrainStage from '../model-lab/components/TrainStage';
+import DssStage from '../model-lab/components/DssStage';
+import AlgorithmLabStage from '../model-lab/components/AlgorithmLabStage';
 // ═══════════════════════════════════════════════════════════════════════════
 //  API VALIDATION
 // ═══════════════════════════════════════════════════════════════════════════
@@ -961,112 +964,24 @@ if (signal.aborted) throw new Error('Cancelled');
               STAGE 1: DATA INGESTION — with DataHub picker
           ============================================================ */}
           {stage === 'ingest' && (
-            <PipelineErrorBoundary>
-              <div className="space-y-5 animate-in fade-in slide-in-from-bottom-4">
-
-                <div className="p-4 bg-blue-500/10 border border-blue-500/30 rounded-xl flex items-start gap-3">
-                  <Plane size={18} className="text-blue-400 mt-0.5 shrink-0"/>
-                  <div>
-                    <p className="text-sm font-bold text-blue-300">KJS International — Airline Booking Records</p>
-                    <p className="text-xs text-slate-400 mt-1">
-                      Each row = 1 passenger ticket. The pipeline counts pax per period as demand
-                      and sums Net Amount as commission revenue. Stats in the sidebar update live.
-                    </p>
-                  </div>
-                </div>
-
-                {/* DataHub picker */}
-                <div className="bg-slate-900/60 border border-violet-500/20 rounded-2xl p-5">
-                  <h3 className="font-bold text-white text-sm mb-3 flex items-center gap-2">
-                    <FlaskConical size={16} className="text-violet-400"/> Load from Data Hub
-                  </h3>
-                  <DataHubPicker onLoad={handleCSVLoad} loadingId={dhLoadingId} setLoadingId={setDhLoadingId}/>
-                </div>
-
-                {/* Manual upload */}
-                <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5">
-                  <h3 className="font-bold text-white text-sm mb-4 flex items-center gap-2">
-                    <Upload size={16} className="text-pink-400"/>
-                    {csvData ? 'Current Dataset' : 'Or Upload CSV Directly'}
-                  </h3>
-                  <CSVDropzone onLoad={handleCSVLoad} isLoaded={!!csvData} csvMeta={csvMeta}/>
-                </div>
-
-                {/* Preview once loaded */}
-                {csvData && adaptiveStats && (
-                  <>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      <MetricCard label="Total Pax Bookings"
-                        value={adaptiveStats.totalPax.toLocaleString()}
-                        sub={`${adaptiveStats.monthCount} months`} color="text-white"/>
-                      <MetricCard label="Total Commission"
-                        value={fmtPHP(adaptiveStats.totalRevenue)}
-                        sub={`₱${adaptiveStats.avgCommission.toFixed(2)}/pax avg`} color="text-emerald-400"/>
-                      <MetricCard label="Avg Monthly Pax"
-                        value={adaptiveStats.avgMonthlyPax.toLocaleString()}
-                        sub={adaptiveStats.dateRange} color="text-white"/>
-                      <MetricCard label="Peak Month"
-                        value={adaptiveStats.peak.demand.toLocaleString()}
-                        sub={adaptiveStats.peak.date} color="text-purple-400"/>
-                    </div>
-
-                    {/* Derived stats callout */}
-                    <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
-                      <h4 className="text-xs font-bold text-emerald-400 flex items-center gap-1.5 mb-2">
-                        <Sparkles size={12}/> Adaptive Stats Derived from Your CSV
-                      </h4>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-[10px]">
-                        {[
-                          ['Naive WMAPE', adaptiveStats.naiveWMAPE != null ? `${adaptiveStats.naiveWMAPE.toFixed(2)}%` : '—', 'Seasonal naive baseline'],
-                          // [v17.7] Naive DW removed — Ljung-Box comes from backend after pipeline run
-                          ['Auto Capacity', `${adaptiveStats.maxDailyBookings} pax/day`, '95th pctile daily demand'],
-                          ['Est. Risk',  fmtPHP(adaptiveStats.commissionRisk), 'Commission at over-cap days'],
-                        ].map(([label, value, hint]) => (
-                          <div key={label} className="bg-slate-900/60 rounded-lg p-2.5 border border-emerald-500/10">
-                            <p className="text-slate-500 mb-0.5">{label}</p>
-                            <p className="text-emerald-400 font-bold text-sm">{value}</p>
-                            <p className="text-slate-600 text-[9px] mt-0.5">{hint}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5">
-                      <div className="flex items-center gap-2 mb-3">
-                        <TrendingUp size={16} className="text-pink-400"/>
-                        <h4 className="font-bold text-white text-sm">Year-over-Year: Pax Bookings & Commission</h4>
-                        {adaptiveStats.yoy != null && (
-                          <span className={`ml-auto text-xs font-bold px-2 py-0.5 rounded-full ${
-                            adaptiveStats.yoy >= 0 ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400'
-                          }`}>YoY {adaptiveStats.yoy > 0 ? '+' : ''}{adaptiveStats.yoy}%</span>
-                        )}
-                      </div>
-                      <div className="h-56 bg-slate-950 rounded-xl border border-slate-800 p-3">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <ComposedChart data={yearlyData}>
-                            <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" vertical={false}/>
-                            <XAxis dataKey="year" stroke="#64748b" tick={{fontSize:10}}/>
-                            <YAxis yAxisId="l" stroke="#f472b6" tick={{fontSize:10}}/>
-                            <YAxis yAxisId="r" orientation="right" stroke="#10b981" tick={{fontSize:10}} tickFormatter={v => fmtPHP(v)}/>
-                            <Tooltip contentStyle={TT_STYLE}
-                              formatter={(v, name) => name === 'Commission (₱)' ? [fmtPHP(v), name] : [`${v} pax`, name]}/>
-                            <Bar yAxisId="l" dataKey="demand" fill="#f472b6" opacity={0.8} radius={[3,3,0,0]} name="Pax Bookings"/>
-                            <Line yAxisId="r" type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={2.5} dot name="Commission (₱)"/>
-                          </ComposedChart>
-                        </ResponsiveContainer>
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                <StageNav currentId="ingest" onBack={null}
-                  onComplete={csvData ? () => completeStage('ingest') : null}
-                  completeLabel="Data Loaded — Continue to Collinearity"
-                  completeDisabled={!csvData}
-                  completeColor="bg-pink-600 hover:bg-pink-500"/>
-              </div>
-            </PipelineErrorBoundary>
-          )}
+  <PipelineErrorBoundary>
+    <IngestStage
+      csvData={csvData}
+      adaptiveStats={adaptiveStats}
+      yearlyData={yearlyData}
+      csvMeta={csvMeta}
+      handleCSVLoad={handleCSVLoad}
+      dhLoadingId={dhLoadingId}
+      setDhLoadingId={setDhLoadingId}
+      completeStage={completeStage}
+      fmtPHP={fmtPHP}
+      DataHubPicker={DataHubPicker}
+      CSVDropzone={CSVDropzone}
+      MetricCard={MetricCard}
+      StageNav={StageNav}
+    />
+  </PipelineErrorBoundary>
+)}
 
           {/* ============================================================
               STAGE 2: COLLINEARITY
@@ -1232,626 +1147,86 @@ if (signal.aborted) throw new Error('Cancelled');
           {/* ============================================================
               STAGE 5: HYBRID TRAINING
           ============================================================ */}
-          {stage === 'train' && (
-            <PipelineErrorBoundary>
-              <div className="space-y-5 animate-in fade-in slide-in-from-bottom-4">
-                {!backendStatus?.ok && (
-                  <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-start gap-3" role="alert">
-                    <AlertTriangle size={18} className="text-amber-400 mt-0.5 shrink-0"/>
-                    <div>
-                      <p className="text-sm font-bold text-amber-300">Python backend required for live training</p>
-                      <p className="text-xs text-amber-400/80 mt-1">
-                        Run: <code className="bg-slate-900 px-1 rounded">uvicorn main:app --reload --port 8000</code>
-                        {adaptiveStats && <span className="text-slate-500"> · Adaptive stats from your CSV are still available</span>}
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                {!prediction && !isRunning && (
-                  <div className="flex justify-center">
-                    <button onClick={runPipeline} disabled={runGuard || !csvData}
-                      className="px-8 py-3 bg-pink-600 hover:bg-pink-500 text-white rounded-xl font-bold flex items-center gap-3 transition text-sm disabled:opacity-50 shadow-lg shadow-pink-900/30">
-                      <Target size={18}/> Run Hybrid Pipeline on Booking Data
-                    </button>
-                  </div>
-                )}
-
-                {/* Terminal */}
-                <div className="bg-slate-900/60 border border-slate-800 rounded-2xl overflow-hidden" role="log" aria-live="polite">
-                  <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800 bg-slate-900/40">
-                    <h3 className="font-bold text-white flex items-center gap-2 text-sm">
-                      <Terminal size={15} className="text-pink-400"/> Live Execution Terminal
-                    </h3>
-                    <div className="flex items-center gap-3">
-                      {isRunning && (
-                        <button onClick={cancelRun} className="text-[10px] text-red-400 hover:text-red-300 font-bold flex items-center gap-1 transition">
-                          <XCircle size={11}/> Cancel
-                        </button>
-                      )}
-                      <div className="w-24 h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                        <div className="h-full bg-pink-500 transition-all duration-300" style={{width:`${progress}%`}}/>
-                      </div>
-                      <span className="text-[9px] text-slate-500">{progress}%</span>
-                    </div>
-                  </div>
-                  <div className="bg-slate-950 p-4 font-mono text-xs h-52 overflow-y-auto space-y-1.5">
-                    {terminalLogs.length === 0
-                      ? <span className="text-slate-600">Waiting for pipeline execution...</span>
-                      : terminalLogs.map((log, i) => (
-                        <div key={i} className={
-                          log.type==='info'    ? 'text-slate-400' :
-                          log.type==='success' ? 'text-emerald-400 font-bold' :
-                          log.type==='warning' ? 'text-amber-400' :
-                          log.type==='error'   ? 'text-red-400 font-bold' :
-                          log.type==='divider' ? 'text-slate-700' : 'text-slate-500'
-                        }>{log.text}</div>
-                      ))}
-                    <div ref={logsEndRef}/>
-                  </div>
-                </div>
-
-                {/* Metrics cards — adaptive: show derived stats when no pipeline run yet */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <MetricCard loading={isRunning} label="WMAPE"
-                    value={fmtPct(EFF.wmape)}
-                    sub={liveMetrics ? 'Live pipeline' : adaptiveStats?.naiveWMAPE != null ? 'Naive baseline (CSV)' : 'Notebook ref'}
-                    color={liveMetrics ? 'text-emerald-400' : adaptiveStats?.naiveWMAPE != null ? 'text-sky-400' : 'text-slate-400'}/>
-                  <MetricCard loading={isRunning} label="SARIMAX AIC"
-                    value={EFF.aic != null ? EFF.aic : '—'}
-                    sub={EFF.aic != null ? 'Live pipeline' : 'Run pipeline to compute'}
-                    color={EFF.aic != null ? 'text-pink-400' : 'text-slate-500'}/>
-                  {/* [v17.7] DW replaced by Ljung-Box p-value card */}
-                  <MetricCard loading={isRunning} label="Ljung-Box p"
-                    value={EFF.ljungBoxPvalue != null ? EFF.ljungBoxPvalue.toFixed(4) : '—'}
-                    sub={EFF.ljungBoxPvalue != null
-                      ? (EFF.ljungBoxPvalue > 0.05 ? '✓ White noise (good)' : '⚠ Autocorrelation remains')
-                      : 'Run pipeline to compute'}
-                    color={EFF.ljungBoxPvalue != null
-                      ? (EFF.ljungBoxPvalue > 0.05 ? 'text-emerald-400' : 'text-amber-400')
-                      : 'text-slate-500'}/>
-                  <MetricCard loading={isRunning} label="Rec. Capacity"
-                    value={`${EFF.maxDailyBookings} /day`}
-                    sub={adaptiveStats ? `${EFF.overCapDays} over-cap · from CSV` : 'Notebook ref'}
-                    color={adaptiveStats ? 'text-red-400' : 'text-slate-400'}/>
-                </div>
-
-                {/* Forecast chart */}
-                {prediction && (
-                  <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5">
-                    <h4 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
-                      <LineChartIcon size={16} className="text-pink-400"/> Pax Booking Forecast vs Historical
-                      <span className="text-[10px] text-slate-500 ml-2">Monthly · 95% CI</span>
-                    </h4>
-                    <div className="h-60 bg-slate-950 rounded-xl border border-slate-800 p-3">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <ComposedChart data={forecastChartData}>
-                          <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" vertical={false}/>
-                          <XAxis dataKey="date" stroke="#64748b" tick={{fontSize:9}} minTickGap={20}/>
-                          <YAxis stroke="#64748b" tick={{fontSize:9}}/>
-                          <Tooltip contentStyle={TT_STYLE} formatter={v=>[v!=null?`${v.toFixed(0)} pax`:'—',undefined]}/>
-                          <Area type="monotone" dataKey="ci_upper" stroke="none" fill="#6366f1" fillOpacity={0.15}/>
-                          <Line type="monotone" dataKey="actual"   stroke="#94a3b8" strokeWidth={1.5} dot={false} name="Actual Pax"/>
-                          <Line type="monotone" dataKey="forecast" stroke="#ec4899" strokeWidth={2.5} dot={false} name="Forecast Pax"/>
-                          <ReferenceLine y={EFF.maxDailyBookings} stroke="#ef4444" strokeDasharray="4 4"
-                            label={{value:`Cap (${EFF.maxDailyBookings}/day)`,fill:'#ef4444',fontSize:9,position:'right'}}/>
-                        </ComposedChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </div>
-                )}
-
-                {/* [v17.7] Diagnostic plots: QQ, ACF, PACF — shown after pipeline runs */}
-                {prediction && (
-                  <div>
-                    <div className="flex items-center gap-2 mb-3">
-                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Residual Diagnostics</span>
-                      {EFF.ljungBoxPvalue != null && (
-                        <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold border ${
-                          EFF.ljungBoxPvalue > 0.05
-                            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-                            : 'bg-amber-500/10 border-amber-500/30 text-amber-400'
-                        }`}>
-                          Ljung-Box p={EFF.ljungBoxPvalue.toFixed(4)} — {EFF.ljungBoxPvalue > 0.05 ? 'Residuals are white noise ✓' : 'Autocorrelation present ⚠'}
-                        </span>
-                      )}
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <QQPlot
-                        theoretical={EFF.diagnostics?.qq_theoretical ?? []}
-                        sample={EFF.diagnostics?.qq_sample ?? []}
-                        height={220}
-                      />
-                      <ACFChart
-                        acf={EFF.diagnostics?.acf ?? []}
-                        ciBound={EFF.diagnostics?.ci_bound ?? 0.2}
-                        nObs={EFF.diagnostics?.n_obs ?? 0}
-                        height={220}
-                      />
-                      <PACFChart
-                        pacf={EFF.diagnostics?.pacf ?? []}
-                        ciBound={EFF.diagnostics?.ci_bound ?? 0.2}
-                        nObs={EFF.diagnostics?.n_obs ?? 0}
-                        height={220}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                <StageNav currentId="train" onBack={goBack}
-                  onComplete={prediction ? () => completeStage('train') : null}
-                  completeLabel="Training Complete — View DSS Dashboard"
-                  completeDisabled={!prediction}
-                  completeColor="bg-emerald-600 hover:bg-emerald-500"/>
-              </div>
-            </PipelineErrorBoundary>
-          )}
-
+         {stage === 'train' && (
+  <PipelineErrorBoundary>
+    <TrainStage
+      backendStatus={backendStatus}
+      adaptiveStats={adaptiveStats}
+      prediction={prediction}
+      isRunning={isRunning}
+      runGuard={runGuard}
+      csvData={csvData}
+      runPipeline={runPipeline}
+      cancelRun={cancelRun}
+      terminalLogs={terminalLogs}
+      progress={progress}
+      logsEndRef={logsEndRef}
+      EFF={EFF}
+      liveMetrics={liveMetrics}
+      forecastChartData={forecastChartData}
+      completeStage={completeStage}
+      goBack={goBack}
+      StageNav={StageNav}
+      MetricCard={MetricCard}
+      QQPlot={QQPlot}
+      ACFChart={ACFChart}
+      PACFChart={PACFChart}
+    />
+  </PipelineErrorBoundary>
+)}
 
           {/* ============================================================
               STAGE 6: DSS DASHBOARD — fully adaptive capacity & commission
           ============================================================ */}
-          {stage === 'dss' && (
-            <PipelineErrorBoundary>
-              <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
-
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="bg-emerald-950 text-emerald-400 border border-emerald-800 text-[9px] font-black uppercase px-2 py-0.5 rounded">DSS v17.4</span>
-                      {isDSSCalc && <span className="text-[9px] text-amber-400 flex items-center gap-1"><RefreshCw size={9} className="animate-spin"/> Recalculating...</span>}
-                      {adaptiveStats && <span className="text-[9px] text-sky-400 flex items-center gap-1"><Sparkles size={9}/> Using CSV-derived metrics</span>}
-                    </div>
-                    <h2 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
-                      <BarChart4 className="text-pink-400" size={22}/> Booking Capacity Decision Engine
-                    </h2>
-                    <p className="text-slate-500 text-xs mt-1">
-                      Capacity auto-set to <strong className="text-sky-400">{EFF.maxDailyBookings} pax/day</strong> (95th percentile from your CSV) · Adjust below
-                    </p>
-                  </div>
-
-                  {/* Capacity scenario panel */}
-                  <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3 min-w-[240px]">
-                    <div className="flex items-center justify-between">
-                      <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Capacity Scenario</p>
-                      {dssScenario.capacity !== null && (
-                        <button onClick={() => setDssScenario(p => ({...p, capacity: null}))}
-                          className="text-[9px] text-sky-400 hover:text-sky-300 font-bold transition">
-                          Reset to auto
-                        </button>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <label htmlFor="cap-in" className="text-[10px] text-slate-400 w-24 shrink-0">Daily booking limit</label>
-                      {/* [ISO 25010 - Usability][BUG-3 FIX] Capacity Input:
-                          onChange ONLY updates the displayed value (local string).
-                          It does NOT commit to dssScenario until onBlur fires.
-                          This prevents parseInt("") = NaN → capacity=1 bug
-                          that made all days show CRITICAL on partial entry. */}
-                      <input id="cap-in" type="number"
-                        min={FALLBACK.MIN_CAPACITY} max={FALLBACK.MAX_CAPACITY_INPUT}
-                        value={effectiveCapacity}
-                        onChange={e => {
-                          // [BUG-3 FIX] Validate but only commit on blur
-                          // [STRIDE-T] Sanitise: ignore non-numeric, empty, or out-of-range
-                          const raw = e.target.value;
-                          const n = parseInt(raw, 10);
-                          if (raw === '' || isNaN(n)) return; // wait for blur — don't commit NaN
-                          if (n >= FALLBACK.MIN_CAPACITY && n <= FALLBACK.MAX_CAPACITY_INPUT) {
-                            setDssScenario(p => ({ ...p, capacity: n }));
-                          }
-                        }}
-                        onBlur={e => updateCapacity(e.target.value)}  // [BUG-3 FIX] commit on blur
-                        className="w-20 bg-slate-800 border border-slate-700 text-white text-xs px-2 py-1 rounded outline-none"/>
-                      <span className="text-[9px] text-slate-600 shrink-0">pax/day</span>
-                    </div>
-                    {adaptiveStats && (
-                      <p className="text-[9px] text-sky-400 flex items-center gap-1">
-                        <Sparkles size={9}/>
-                        {/* [ISO 25010 - Usability][BUG-4 FIX] Show capacity from data, NOT avgCommission.
-                            avgCommission = avg ticket price (e.g. ₱5,070) — NOT the agency commission.
-                            Showing it here confused users into thinking commission = ticket price. */}
-                        Auto-capacity from your data: {adaptiveStats.maxDailyBookings} bookings/day
-                      </p>
-                    )}
-                    <p className="text-[9px] text-slate-500 flex items-center gap-1">
-                      Agency commission: <strong className="text-emerald-400">₱{FALLBACK.NET_COMMISSION_PHP.toFixed(2)}</strong> per ticket (fixed contractual rate)
-                    </p>
-                    <label className="flex items-center gap-2 text-[10px] text-slate-400 cursor-pointer">
-                      <input type="checkbox" checked={dssScenario.applyS}
-                        onChange={e => { setDssScenario(p=>({...p,applyS:e.target.checked})); addAudit('SURCHARGE',`${e.target.checked}`); }}
-                        className="accent-pink-500"/>
-                      Apply {FALLBACK.PEAK_SURCHARGE*100}% peak booking fee
-                    </label>
-                    <button onClick={runDSS} disabled={isDSSCalc}
-                      className="w-full text-[10px] font-bold bg-pink-600 text-white py-1.5 rounded-lg hover:bg-pink-500 transition disabled:opacity-50">
-                      {isDSSCalc ? 'Calculating...' : 'Apply Scenario'}
-                    </button>
-                  </div>
-                </div>
-
-                {activeDSS && (
-                  <>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                      <MetricCard loading={isDSSCalc} label="Potential Commission"
-                        value={fmtPHPk(activeDSS.potential_revenue)} sub="All demand served" color="text-slate-300"/>
-                      <MetricCard loading={isDSSCalc} label="Capped Commission"
-                        value={fmtPHPk(activeDSS.capped_revenue)} sub={`${effectiveCapacity} pax/day limit`} color="text-pink-400"/>
-                      <MetricCard loading={isDSSCalc} label="Commission at Risk"
-                        value={fmtPHPk(activeDSS.revenue_at_risk)} sub="Over-capacity lost sales" color="text-red-400"/>
-                      <MetricCard loading={isDSSCalc} label="Mitigated Commission"
-                        value={fmtPHPk(activeDSS.mitigated_revenue)} sub={`+${FALLBACK.PEAK_SURCHARGE*100}% peak fee`} color="text-emerald-400"/>
-                    </div>
-
-                    {/* Delta panel */}
-                    {dssBaseline && activeDSS && (
-                      <div className="bg-slate-900/60 border border-blue-500/20 rounded-2xl p-5">
-                        <h4 className="font-bold text-blue-300 text-sm mb-4 flex items-center gap-2">
-                          <Activity size={16}/> Scenario Delta vs Baseline ({dssBaseline.optimal_days + dssBaseline.warning_days + dssBaseline.high_days + dssBaseline.critical_days} days)
-                        </h4>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                          {[
-                            { label:'Commission Δ', delta: activeDSS.capped_revenue - dssBaseline.capped_revenue, note:'vs base capacity' },
-                            { label:'Risk Reduction', delta: dssBaseline.revenue_at_risk - activeDSS.revenue_at_risk, note:'lower = better' },
-                            { label:'Avg Daily Commission', delta:null, value:fmtPHPk(activeDSS.capped_revenue / Math.max(1, horizon)), note:`avg/day over ${horizon}d`, color:'text-slate-200' },
-                            { label:'Avg Daily at Risk', delta:null, value:fmtPHPk(activeDSS.revenue_at_risk / Math.max(1, horizon)), note:'avg loss/day', color:'text-red-400' },
-                          ].map(({ label, delta, value, note, color }) => (
-                            <div key={label} className="bg-slate-950/60 rounded-xl border border-slate-800 p-3">
-                              <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1">{label}</p>
-                              {delta !== null
-                                ? <p className={`text-xl font-black ${delta >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{fmtDelta(delta)}</p>
-                                : <p className={`text-xl font-black ${color || 'text-slate-200'}`}>{value}</p>}
-                              <p className="text-[9px] text-slate-500 mt-0.5">{note}</p>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Risk distribution */}
-                    <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5">
-                      <h4 className="font-bold text-white text-sm mb-4 flex items-center gap-2">
-                        <Activity size={16} className="text-pink-400"/> Booking Demand Risk Distribution — {horizon}-Day Window
-                      </h4>
-                      <div className="space-y-3">
-                        {[
-                          { label:'CRITICAL', count:activeDSS.critical_days, hex:'#ef4444', text:'text-red-400',    desc:'Demand exceeds capacity — commission lost' },
-                          { label:'HIGH',     count:activeDSS.high_days,     hex:'#f97316', text:'text-orange-400', desc:'88–100% of daily capacity' },
-                          { label:'WARNING',  count:activeDSS.warning_days,  hex:'#f59e0b', text:'text-amber-400',  desc:'70–88% of daily capacity' },
-                          { label:'OPTIMAL',  count:activeDSS.optimal_days,  hex:'#10b981', text:'text-emerald-400',desc:'Normal booking volume' },
-                        ].map(row => (
-                          <div key={row.label} className="flex items-center gap-3">
-                            <span className={`text-[10px] font-black w-16 text-right ${row.text}`}>{row.label}</span>
-                            <div className="flex-1 bg-slate-800 rounded-full h-2">
-                              <div className="h-full rounded-full transition-all duration-700"
-                                style={{width:`${horizon>0?Math.min(100,(row.count/horizon)*100):0}%`, backgroundColor:row.hex}}/>
-                            </div>
-                            <span className="text-xs font-bold text-slate-300 w-8 text-right">{row.count}d</span>
-                            <span className="text-[9px] text-slate-500 hidden sm:block">{row.desc}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Top risk dates */}
-                    {activeDSS.top_risk_dates?.length > 0 && (
-                      <div className="bg-slate-900/60 border border-red-500/20 rounded-2xl p-5">
-                        <h4 className="font-bold text-red-400 text-sm mb-4 flex items-center gap-2">
-                          <AlertCircle size={16}/> Top Commission-at-Risk Dates
-                        </h4>
-                        <ol className="space-y-2">
-                          {activeDSS.top_risk_dates.map((r, i) => (
-                            <li key={r.date} className="flex items-center justify-between p-2.5 bg-slate-900 rounded-lg border border-slate-800 text-xs">
-                              <div className="flex items-center gap-2">
-                                <span className="text-slate-600 font-mono">#{i+1}</span>
-                                <span className="text-slate-300 font-bold">{r.date}</span>
-                                <span className="text-slate-500">{Math.round(r.forecast)} pax · {Math.round(r.unmet)} unserved</span>
-                              </div>
-                              <span className="text-red-400 font-bold">{fmtPHPk(r.revenue_risk)} at risk</span>
-                            </li>
-                          ))}
-                        </ol>
-                      </div>
-                    )}
-
-                    {/* Demand heatmap */}
-                    {prediction && (
-                      <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5">
-                        <h4 className="font-bold text-white text-sm mb-3 flex items-center gap-2">
-                          <Plane size={16} className="text-pink-400"/> Booking Demand Heatmap — {horizon}d Forecast
-                        </h4>
-                        <div className="h-56 bg-slate-950 rounded-xl border border-slate-800 p-3">
-                          <ResponsiveContainer width="100%" height="100%">
-                            <ComposedChart data={forecastChartData}>
-                              <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" vertical={false}/>
-                              <XAxis dataKey="date" stroke="#64748b" tick={{fontSize:9}} minTickGap={15}/>
-                              <YAxis stroke="#64748b" tick={{fontSize:9}}/>
-                              <Tooltip contentStyle={TT_STYLE} formatter={v=>[v!=null?`${fmt(v,0)} pax`:'—',undefined]}/>
-                              <Area type="monotone" dataKey="ci_upper" stroke="none" fill="#ef4444" fillOpacity={0.07}/>
-                              <Line type="monotone" dataKey="actual"   stroke="#475569" strokeWidth={1.5} dot={false} name="Historical"/>
-                              <Line type="monotone" dataKey="forecast" stroke="#ec4899" strokeWidth={2.5} dot={false} name="Forecast"/>
-                              <ReferenceLine y={effectiveCapacity} stroke="#ef4444" strokeDasharray="4 4" strokeWidth={2}
-                                label={{value:`Cap (${effectiveCapacity}/day)`,fill:'#ef4444',fontSize:9,position:'insideTopRight'}}/>
-                            </ComposedChart>
-                          </ResponsiveContainer>
-                        </div>
-                      </div>
-                    )}
-                  </>
-                )}
-
-                {/* SWOT */}
-                <div className="bg-gradient-to-br from-slate-900 to-slate-950 border border-emerald-500/30 rounded-2xl p-6 relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-48 h-48 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none"/>
-                  <div className="relative z-10">
-                    <div className="flex items-center gap-2 mb-4">
-                      <span className="bg-emerald-950 text-emerald-400 border border-emerald-800 text-[9px] font-black uppercase px-2 py-0.5 rounded">SWOT</span>
-                      <h4 className="font-bold text-white text-sm">Strategic Recommendations — KJS International</h4>
-                      <Leaf size={14} className="text-emerald-500 ml-auto"/>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      {[
-                        {
-                          icon:Users, color:'text-red-400', bg:'border-red-500/20 bg-red-500/5',
-                          title:'1. Expand Processing Capacity',
-                          body:`On ${EFF.overCapDays} over-capacity days, ${fmtPHPk(EFF.commissionRisk)} in commission is at risk. Add booking desks, online self-service channels, or extended desk hours during peak periods.`,
-                        },
-                        {
-                          icon:DollarSign, color:'text-amber-400', bg:'border-amber-500/20 bg-amber-500/5',
-                          title:'2. Peak Season Booking Fee',
-                          body:`Apply a ${FALLBACK.PEAK_SURCHARGE*100}% priority processing fee on HIGH/CRITICAL days. Estimated uplift: ${activeDSS ? fmtPHPk(activeDSS.mitigated_revenue - activeDSS.capped_revenue) : '₱16k'}. Also incentivizes off-peak booking migration.`,
-                        },
-                        {
-                          icon:Activity, color:'text-emerald-400', bg:'border-emerald-500/20 bg-emerald-500/5',
-                          title:'3. GDS Live Availability Feed',
-                          body:'Replace the synthesized flight_density_index with live Amadeus/Sabre GDS data. Correlate airline seat availability with demand spikes. Target: WMAPE below 30%.',
-                        },
-                      ].map(({ icon:Icon, color, bg, title, body }) => (
-                        <article key={title} className={`p-4 rounded-xl border ${bg}`}>
-                          <h5 className={`font-bold text-sm flex items-center gap-2 mb-2 ${color}`}><Icon size={14}/> {title}</h5>
-                          <p className="text-xs text-slate-400 leading-relaxed">{body}</p>
-                        </article>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {!prediction && !activeDSS && (
-                  <div className="text-center py-12 border-2 border-dashed border-slate-800 rounded-xl">
-                    <BrainCircuit size={40} className="mx-auto text-slate-600 mb-3"/>
-                    <p className="text-slate-500 font-bold">Complete Stage 5 first</p>
-                    <button onClick={() => navigateTo('train')}
-                      className="mt-4 px-5 py-2 bg-pink-600 text-white rounded-xl font-bold hover:bg-pink-500 transition text-sm">
-                      Go to Training →
-                    </button>
-                  </div>
-                )}
-
-                <StageNav currentId="dss" onBack={goBack}
-                  onComplete={() => completeStage('dss')}
-                  completeLabel="Complete DSS Analysis"
-                  completeColor="bg-emerald-600 hover:bg-emerald-500"/>
-              </div>
-            </PipelineErrorBoundary>
-          )}
-
+         {stage === 'dss' && (
+  <PipelineErrorBoundary>
+    <DssStage
+      adaptiveStats={adaptiveStats}
+      isDSSCalc={isDSSCalc}
+      EFF={EFF}
+      dssScenario={dssScenario}
+      setDssScenario={setDssScenario}
+      effectiveCapacity={effectiveCapacity}
+      updateCapacity={updateCapacity}
+      runDSS={runDSS}
+      activeDSS={activeDSS}
+      dssBaseline={dssBaseline}
+      horizon={horizon}
+      prediction={prediction}
+      forecastChartData={forecastChartData}
+      navigateTo={navigateTo}
+      completeStage={completeStage}
+      goBack={goBack}
+      StageNav={StageNav}
+      MetricCard={MetricCard}
+      fmtPHPk={fmtPHPk}
+      fmtPHP={fmtPHP}
+      fmtDelta={fmtDelta}
+      FALLBACK={FALLBACK}
+    />
+  </PipelineErrorBoundary>
+)}
 
           {/* ============================================================
               STAGE 7: ALGORITHM LAB
           ============================================================ */}
           {stage === 'alglab' && (
-            <PipelineErrorBoundary>
-              <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
-
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-4">
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="bg-violet-950 text-violet-400 border border-violet-800 text-[9px] font-black uppercase px-2 py-0.5 rounded">ALGO LAB</span>
-                      <span className="text-[10px] text-slate-500">Ablation Study · Standalone</span>
-                    </div>
-                    <h2 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
-                      <FlaskConical className="text-violet-400" size={22}/> Algorithm Laboratory
-                    </h2>
-                    <p className="text-slate-500 text-xs mt-1">
-                      NB2-SARIMAX base · XGBoost meta-learner · KJS Pax Booking Demand
-                    </p>
-                  </div>
-                  <button onClick={() => { setIsAblation(v=>!v); addAudit('ABLATION',`active=${!isAblation}`); }}
-                    aria-pressed={isAblation}
-                    className={`flex items-center gap-3 px-4 py-2.5 rounded-xl border font-semibold text-sm transition-all shrink-0 ${
-                      isAblation ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-300' : 'bg-slate-800 border-slate-700 text-slate-400'
-                    }`}>
-                    {isAblation ? <ToggleRight size={22} className="text-emerald-400"/> : <ToggleLeft size={22} className="text-slate-500"/>}
-                    <span>
-                      Enable Ablation (Prune Macro Noise)
-                      <span className={`ml-2 text-xs px-1.5 py-0.5 rounded font-bold ${isAblation?'bg-emerald-500/20 text-emerald-300':'bg-slate-700 text-slate-400'}`}>
-                        {isAblation ? 'PRUNE MACRO' : 'INCLUDE MACRO'}
-                      </span>
-                    </span>
-                  </button>
-                </div>
-
-                {/* KPI cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  {/* [v17.7] DW card replaced by Ljung-Box p-value */}
-                  {[
-                    { label:'RMSE (Pax Error)',         value:modelData.metrics.rmse,        good:rmseOk,  threshold:'< 5.0 pax', icon:Target },
-                    { label:'WMAPE (Booking Accuracy)', value:`${modelData.metrics.wmape}%`, good:wmapeOk, threshold:'< 30%',      icon:TrendingUp },
-                    { label:'Ljung-Box p-value',        value:modelData.metrics.lb_pvalue,   good:lbOk,    threshold:'> 0.05',     icon:Activity },
-                  ].map(({ label, value, good, threshold, icon:Icon }) => (
-                    <div key={label} className={`rounded-2xl border p-4 sm:p-5 flex items-start gap-4 transition-all ${
-                      good ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-red-500/30 bg-red-500/5'
-                    }`}>
-                      <div className={`p-2 rounded-lg ${good?'bg-emerald-500/15':'bg-red-500/15'}`}>
-                        <Icon size={18} className={good?'text-emerald-400':'text-red-400'}/>
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">{label}</p>
-                        <p className={`text-3xl font-black ${good?'text-emerald-400':'text-red-400'}`}>{value}</p>
-                        <p className={`text-[10px] mt-0.5 flex items-center gap-1 ${good?'text-emerald-400':'text-red-400'}`}>
-                          {good ? <CheckCircle size={10}/> : <AlertTriangle size={10}/>}
-                          {good ? `Below threshold ${threshold}` : `Outside threshold ${threshold}`}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* 4-panel grid */}
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-
-                  <section className="lg:col-span-8 bg-slate-900/70 border border-slate-800 rounded-2xl p-5">
-                    <div className="flex items-center gap-2 mb-3">
-                      <TrendingUp size={16} className="text-pink-400"/>
-                      <h3 className="font-bold text-white text-sm">Pax Booking Forecast vs Actual</h3>
-                      <span className="ml-auto text-[10px] text-slate-500 bg-slate-800 px-2 py-0.5 rounded-full">14-day holdout</span>
-                    </div>
-                    <div className="h-64">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <ComposedChart data={modelData.forecast} margin={{top:5,right:10,bottom:0,left:-10}}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false}/>
-                          <XAxis dataKey="date" stroke="#475569" tick={{fontSize:10}}/>
-                          <YAxis stroke="#475569" tick={{fontSize:10}}/>
-                          <Tooltip contentStyle={TT_STYLE} formatter={(v,n) => [`${v} pax`, n]}/>
-                          <Line type="monotone" dataKey="actual"     stroke="#64748b" strokeWidth={1.5} strokeDasharray="5 3" dot={{fill:'#64748b',r:2}} name="Actual Pax"/>
-                          <Line type="monotone" dataKey="prediction" stroke="#34d399" strokeWidth={2.5} dot={{fill:'#34d399',r:2.5}} name="Predicted Pax"/>
-                        </ComposedChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </section>
-
-                  <section className="lg:col-span-4 bg-slate-900/70 border border-slate-800 rounded-2xl p-5">
-                    <div className="flex items-center gap-2 mb-3">
-                      <BarChart2 size={16} className="text-blue-400"/>
-                      <h3 className="font-bold text-white text-sm">Feature Gain</h3>
-                    </div>
-                    <div className="h-64">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <RechartsBarChart layout="vertical" data={modelData.featureGain} margin={{top:0,right:10,bottom:0,left:10}}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" horizontal={false}/>
-                          <XAxis type="number" stroke="#475569" tick={{fontSize:10}} domain={[0,0.7]}/>
-                          <YAxis type="category" dataKey="feature" stroke="#475569" tick={{fontSize:10}} width={95}/>
-                          <Tooltip contentStyle={TT_STYLE} formatter={v=>[v.toFixed(2),'Gain']}/>
-                          <Bar dataKey="gain" radius={[0,4,4,0]} name="Gain">
-                            {modelData.featureGain.map((_,i) => (
-                              <Cell key={i} fill={['#3b82f6','#60a5fa','#93c5fd'][i%3]} opacity={1-i*0.15}/>
-                            ))}
-                          </Bar>
-                        </RechartsBarChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </section>
-
-                  <section className="lg:col-span-6 bg-slate-900/70 border border-slate-800 rounded-2xl p-5">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Activity size={16} className="text-amber-400"/>
-                      <h3 className="font-bold text-white text-sm">Residual Variance</h3>
-                    </div>
-                    <div className="h-56">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <ScatterChart margin={{top:5,right:10,bottom:10,left:-10}}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#1e293b"/>
-                          <XAxis type="number" dataKey="prediction" name="Predicted Pax" stroke="#475569" tick={{fontSize:10}}
-                            label={{value:'Predicted Pax',position:'insideBottom',offset:-2,fontSize:10,fill:'#475569'}}/>
-                          <YAxis type="number" dataKey="residual" name="Residual" stroke="#475569" tick={{fontSize:10}}/>
-                          <Tooltip cursor={{strokeDasharray:'3 3'}} contentStyle={TT_STYLE} formatter={(v,n)=>[`${v.toFixed(1)} pax`,n]}/>
-                          <ReferenceLine y={0} stroke="#ef4444" strokeWidth={1.5} strokeDasharray="4 2"
-                            label={{value:'Zero Error',fill:'#ef4444',fontSize:9,position:'insideTopRight'}}/>
-                          <Scatter data={modelData.forecast} fill="#f59e0b" opacity={0.85} r={4} name="Residual"/>
-                        </ScatterChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </section>
-
-                  <section className="lg:col-span-6 bg-slate-900/70 border border-slate-800 rounded-2xl p-5">
-                    <div className="flex items-center gap-2 mb-4">
-                      <Settings size={16} className="text-purple-400"/>
-                      <h3 className="font-bold text-white text-sm">Algorithm Settings</h3>
-                    </div>
-                    <dl className="space-y-2.5">
-                      {[
-                        { icon:BrainCircuit, label:'Base Model',       value:'NB2-SARIMAX',                        col:'text-pink-400',    bg:'bg-pink-500/10' },
-                        { icon:Cpu,          label:'Meta-Learner',     value:'XGBoost',                            col:'text-blue-400',    bg:'bg-blue-500/10' },
-                        { icon:Zap,          label:'Optimization',     value:'Gradient Descent',                   col:'text-amber-400',   bg:'bg-amber-500/10' },
-                        { icon:Activity,     label:'Cyclic Encoding',  value:'Enabled',                            col:'text-emerald-400', bg:'bg-emerald-500/10' },
-                        { icon:Target,       label:'Loss Function',    value:'Huber (δ = 1.35)',                   col:'text-purple-400',  bg:'bg-purple-500/10' },
-                        { icon:Lock,         label:'Security Model',   value:'STRIDE v1.2',                        col:'text-violet-400',  bg:'bg-violet-500/10' },
-                        { icon:Plane,        label:'Domain',           value:'Airline Pax Booking Count',          col:'text-sky-400',     bg:'bg-sky-500/10' },
-                        { icon:Sparkles,     label:'Stats Source',
-                          value: adaptiveStats ? `CSV-derived (${adaptiveStats.monthCount} months)` : 'Notebook fallback',
-                          col: adaptiveStats ? 'text-emerald-400' : 'text-slate-400',
-                          bg:  adaptiveStats ? 'bg-emerald-500/10' : 'bg-slate-800' },
-                        { icon:FlaskConical, label:'Ablation Mode',
-                          value: isAblation ? 'Active — macro pruned' : 'Inactive — macro included',
-                          col: isAblation ? 'text-emerald-400' : 'text-slate-400',
-                          bg:  isAblation ? 'bg-emerald-500/10' : 'bg-slate-800' },
-                      ].map(({ icon:Icon, label, value, col, bg }) => (
-                        <div key={label} className="flex items-center justify-between p-2.5 bg-slate-950/60 rounded-xl border border-slate-800">
-                          <div className="flex items-center gap-2.5">
-                            <span className={`p-1.5 rounded-lg ${bg}`}><Icon size={13} className={col}/></span>
-                            <dt className="text-xs text-slate-400">{label}</dt>
-                          </div>
-                          <dd className={`text-xs font-bold ${col} text-right max-w-[160px] truncate`}>{value}</dd>
-                        </div>
-                      ))}
-                    </dl>
-                  </section>
-                </div>
-
-                {/* [v17.7] Live diagnostic plots from pipeline run */}
-                {EFF.diagnostics && (
-                  <div>
-                    <div className="flex items-center gap-2 mb-3">
-                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Live Residual Diagnostics</span>
-                      <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold border ${
-                        EFF.ljungBoxPvalue != null && EFF.ljungBoxPvalue > 0.05
-                          ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-                          : 'bg-amber-500/10 border-amber-500/30 text-amber-400'
-                      }`}>
-                        {EFF.ljungBoxPvalue != null
-                          ? `Ljung-Box p=${EFF.ljungBoxPvalue.toFixed(4)} — ${EFF.ljungBoxPvalue > 0.05 ? 'White noise ✓' : 'Autocorrelation ⚠'}`
-                          : 'Run pipeline for live diagnostics'}
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <QQPlot
-                        theoretical={EFF.diagnostics?.qq_theoretical ?? []}
-                        sample={EFF.diagnostics?.qq_sample ?? []}
-                        height={220}
-                      />
-                      <ACFChart
-                        acf={EFF.diagnostics?.acf ?? []}
-                        ciBound={EFF.diagnostics?.ci_bound ?? 0.2}
-                        nObs={EFF.diagnostics?.n_obs ?? 0}
-                        height={220}
-                      />
-                      <PACFChart
-                        pacf={EFF.diagnostics?.pacf ?? []}
-                        ciBound={EFF.diagnostics?.ci_bound ?? 0.2}
-                        nObs={EFF.diagnostics?.n_obs ?? 0}
-                        height={220}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex items-start gap-2 p-3 bg-slate-900/40 border border-slate-800/50 rounded-xl text-[10px] text-slate-500">
-                  <Info size={12} className="text-slate-600 mt-0.5 shrink-0"/>
-                  <span>
-                    Results reflect the 90-day holdout on KJS pax booking data.
-                    Toggle ablation to compare tactical-only regressors (paydays, peak months, flight density)
-                    vs full macro set (FX rate, fuel price).{' '}
-                    <strong className={isAblation ? 'text-emerald-400' : 'text-red-400'}>
-                      {isAblation ? 'Ablation active — macro pruned for thesis.' : 'Warning: macro noise degrades accuracy.'}
-                    </strong>
-                    {adaptiveStats && <span className="text-sky-400"> · Notebook Reference panel updated from your {adaptiveStats.monthCount}-month CSV.</span>}
-                  </span>
-                </div>
-
-              </div>
-            </PipelineErrorBoundary>
-          )}
-
+  <PipelineErrorBoundary>
+    <AlgorithmLabStage
+      isAblation={isAblation}
+      toggleAblation={toggleAblation}
+      modelData={modelData}
+      rmseOk={rmseOk}
+      wmapeOk={wmapeOk}
+      lbOk={lbOk}
+      adaptiveStats={adaptiveStats}
+      EFF={EFF}
+      QQPlot={QQPlot}
+      ACFChart={ACFChart}
+      PACFChart={PACFChart}
+    />
+  </PipelineErrorBoundary>
+)}
         </main>
       </div>
     </div>
