@@ -240,25 +240,6 @@ function parseCSV(text) {
     }
     if (isNaN(parsedDate.getTime())) { errors.push(`Row ${i + 2}: bad date "${rawDate}"`); return; }
 
-    const monthKey = `${parsedDate.getFullYear()}-${String(parsedDate.getMonth() + 1).padStart(2, '0')}`;
-    let netAmt = FALLBACK.NET_COMMISSION_PHP;
-    if (amtCol !== -1) { const r = parseFloat((cols[amtCol] || '').replace(/,/g, '')); if (isFinite(r) && r >= 0) netAmt = r; }
-
-    if (!monthly[monthKey]) monthly[monthKey] = { count: 0, revenue: 0 };
-    monthly[monthKey].count  += 1;
-    monthly[monthKey].revenue += netAmt;
-  });
-
-  const result = Object.entries(monthly).sort(([a], [b]) => a.localeCompare(b))
-    .map(([date, v]) => ({
-      date, demand: v.count, trueRevenue: v.revenue,
-      avgCommission: v.count > 0 ? v.revenue / v.count : FALLBACK.NET_COMMISSION_PHP,
-    }));
-
-  if (result.length < 3) throw new Error(`Only ${result.length} valid month(s) — need at least 3`);
-  return { data: result, warnings: errors.slice(0, 5), headers: rawHeaders, normHeaders, dateCol, amtCol };
-}
-
 // ═══════════════════════════════════════════════════════════════════════════
 //  PEARSON r
 // ═══════════════════════════════════════════════════════════════════════════
@@ -372,7 +353,7 @@ const CSVDropzone = memo(({ onLoad, isLoaded, csvMeta }) => {
     setParsing(true); setError(null);
     try {
       const text = await file.text();
-      onLoad(parseCSV(text), file.name);
+      onLoad(parseBookingCsv(text), file.name);
     } catch (e) { setError(e.message); }
     finally { setParsing(false); }
   }, [onLoad]);
@@ -456,7 +437,7 @@ const DataHubPicker = memo(({ onLoad, loadingId, setLoadingId }) => {
     try {
       const text = await getDatasetText(dataset.id);
       if (!text) throw new Error('File content unavailable — re-upload in Data Hub');
-      const result = parseCSV(text);
+      const result = parseBookingCsv(text);
       onLoad(result, dataset.name);
     } catch (e) {
       alert(`Failed to load "${dataset.name}": ${e.message}`);
