@@ -1,30 +1,30 @@
 import React from 'react';
 import {
-  ArrowRight, CheckCircle, Clock, Plane, Lock, FileText, ChevronRight,
-  ChevronLeft, BrainCircuit, Shield, Settings, Wifi, WifiOff, Sparkles,
+  ArrowRight,
+  CheckCircle,
+  Clock,
+  Plane,
+  Lock,
+  FileText,
+  ChevronRight,
+  ChevronLeft,
+  BrainCircuit,
+  Shield,
+  Settings,
+  Wifi,
+  WifiOff,
+  Sparkles,
 } from 'lucide-react';
-import QQPlot from '../components/QQPlot';
-import ACFChart from '../components/ACFChart';
-import PACFChart from '../components/PACFChart';
+
 import { useAppContext } from '../context/AppContext';
 import { useDatasetFiles } from '../context/DatasetFileContext';
 
 import { FALLBACK, STAGE_ORDER } from '../model-lab/domain/constants';
-import {
-  fmt,
-  fmtPct,
-  fmtPHP,
-  fmtPHPk,
-  fmtDelta,
-} from '../model-lab/domain/formatters';
+import { fmtPHP, fmtPHPk } from '../model-lab/domain/formatters';
 import { parseBookingCsv } from '../model-lab/domain/parseBookingCsv';
-import { deriveAdaptiveStats } from '../model-lab/domain/deriveAdaptiveStats';
 import { sanitiseDssResponse } from '../model-lab/domain/sanitiseDssResponse';
 import { sanitiseError } from '../model-lab/domain/sanitiseError';
-import {
-  sanitiseCapacity,
-  sanitiseHorizon,
-} from '../model-lab/domain/inputSanitisers';
+import { sanitiseHorizon } from '../model-lab/domain/inputSanitisers';
 import { buildForecastChartData } from '../model-lab/domain/buildForecastChartData';
 import { buildAblationForecast } from '../model-lab/domain/buildAblationForecast';
 import { pearsonR } from '../model-lab/domain/pearsonR';
@@ -303,10 +303,6 @@ const DataHubPicker = React.memo(({ onLoad, loadingId, setLoadingId }) => {
   );
 });
 
-/* -------------------------------------------------------------------------- */
-/* Main page                                                                   */
-/* -------------------------------------------------------------------------- */
-
 const ModelLab = () => {
   const {
     stage,
@@ -314,14 +310,10 @@ const ModelLab = () => {
     isRunning,
     isDSSCalc,
     prediction,
-    dssScenario,
-    setDssScenario,
-    dssBaseline,
     dssResult,
     progress,
     modelMode,
     setModelMode,
-    modeStale,
     horizon,
     setHorizon,
     isAblation,
@@ -332,10 +324,8 @@ const ModelLab = () => {
     completedStages,
     dhLoadingId,
     setDhLoadingId,
-    liveMetrics,
     adaptiveStats,
     EFF,
-    effectiveCapacity,
     terminalLogs,
     auditLog,
     showAudit,
@@ -349,7 +339,6 @@ const ModelLab = () => {
     runPipeline,
     cancelRun,
     runDSS,
-    updateCapacity,
   } = useModelLabController();
 
   const pearsonHolidayCorr = React.useMemo(() => {
@@ -359,37 +348,12 @@ const ModelLab = () => {
     return pearsonR(demands, holiday);
   }, [csvData]);
 
-  const yearlyData = React.useMemo(() => {
-    if (!csvData) return [];
-    const acc = {};
-    csvData.forEach((d) => {
-      const yr = d.date.slice(0, 4);
-      if (!acc[yr]) acc[yr] = { year: yr, demand: 0, revenue: 0 };
-      acc[yr].demand += d.demand;
-      acc[yr].revenue += d.trueRevenue ?? d.demand * EFF.netCommission;
-    });
-    return Object.values(acc);
-  }, [csvData, EFF.netCommission]);
-
-  const forecastChartData = React.useMemo(() => buildForecastChartData(csvData, prediction), [csvData, prediction]);
-
   const modelData = React.useMemo(
     () => ({
       metrics: isAblation
         ? { rmse: 4.41, wmape: 28.43, lb_pvalue: 0.312 }
         : { rmse: 7.82, wmape: 42.15, lb_pvalue: 0.031 },
       forecast: buildAblationForecast(isAblation),
-      featureGain: isAblation
-        ? [
-            { feature: 'flight_density', gain: 0.56 },
-            { feature: 'is_peak_month', gain: 0.32 },
-            { feature: 'is_payday', gain: 0.12 },
-          ]
-        : [
-            { feature: 'usd_php_rate', gain: 0.45 },
-            { feature: 'flight_density', gain: 0.3 },
-            { feature: 'fuel_price', gain: 0.25 },
-          ],
     }),
     [isAblation]
   );
@@ -397,7 +361,6 @@ const ModelLab = () => {
   const activeDSS = React.useMemo(() => {
     if (dssResult) return sanitiseDssResponse(dssResult);
     if (!prediction) return null;
-
     return sanitiseDssResponse({
       potential_revenue: prediction.potential_revenue,
       capped_revenue: prediction.capped_revenue,
@@ -407,16 +370,6 @@ const ModelLab = () => {
       high_days: prediction.forecasts?.filter((f) => f.risk_level === 'HIGH').length || 0,
       warning_days: prediction.forecasts?.filter((f) => f.risk_level === 'WARNING').length || 0,
       optimal_days: prediction.forecasts?.filter((f) => f.risk_level === 'OPTIMAL').length || 0,
-      top_risk_dates: prediction.forecasts
-        ?.filter((f) => Number(f.unmet_demand) > 0)
-        .sort((a, b) => Number(b.daily_revenue_risk) - Number(a.daily_revenue_risk))
-        .slice(0, 5)
-        .map((f) => ({
-          date: f.date,
-          forecast: Number(f.forecast) || 0,
-          unmet: Number(f.unmet_demand) || 0,
-          revenue_risk: Number(f.daily_revenue_risk) || 0,
-        })),
     });
   }, [prediction, dssResult]);
 
@@ -432,10 +385,6 @@ const ModelLab = () => {
     ],
     []
   );
-
-  const rmseOk = modelData.metrics.rmse < 5;
-  const wmapeOk = modelData.metrics.wmape < 30;
-  const lbOk = modelData.metrics.lb_pvalue > 0.05;
 
   return (
     <div className="min-h-screen text-slate-200 pb-10 bg-slate-950 font-sans">
@@ -467,12 +416,6 @@ const ModelLab = () => {
             {csvData && adaptiveStats && (
               <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border bg-emerald-500/10 border-emerald-500/30 text-emerald-400 text-xs font-bold">
                 <Sparkles size={11} /> Stats derived
-              </div>
-            )}
-
-            {csvData && (
-              <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border bg-emerald-500/10 border-emerald-500/30 text-emerald-400 text-xs font-bold">
-                {csvMeta?.totalPax?.toLocaleString()} pax
               </div>
             )}
 
@@ -603,25 +546,6 @@ const ModelLab = () => {
                   )}
                 </>
               )}
-
-              {stage === 'dss' && prediction && !isRunning && (
-                <button
-                  onClick={runDSS}
-                  disabled={isDSSCalc}
-                  className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-2.5 rounded-xl font-bold text-sm"
-                >
-                  {isDSSCalc ? 'Calculating...' : 'Recalculate DSS'}
-                </button>
-              )}
-
-              {stage === 'alglab' && (
-                <button
-                  onClick={toggleAblation}
-                  className="w-full py-2.5 rounded-xl font-bold border text-sm transition bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700"
-                >
-                  {isAblation ? 'Ablation: ACTIVE' : 'Ablation: OFF'}
-                </button>
-              )}
             </div>
           </div>
 
@@ -632,12 +556,6 @@ const ModelLab = () => {
             </h3>
 
             <dl className="space-y-2 mt-3">
-              <StatRow label="WMAPE" value={`${(EFF.wmape ?? FALLBACK.NB_WMAPE).toFixed(2)}%`} isLive={adaptiveStats?.naiveWMAPE != null} />
-              <StatRow
-                label="Ljung-Box p"
-                value={EFF.ljungBoxPvalue != null ? EFF.ljungBoxPvalue.toFixed(4) : '— (run pipeline)'}
-                isLive={EFF.ljungBoxPvalue != null}
-              />
               <StatRow label="Commission risk" value={fmtPHP(EFF.commissionRisk)} isLive={adaptiveStats != null} />
               <StatRow label="Over-cap days" value={EFF.overCapDays} isLive={adaptiveStats != null} />
               <StatRow label="Daily capacity" value={`${EFF.maxDailyBookings} bookings`} isLive={adaptiveStats != null} />
@@ -706,7 +624,6 @@ const ModelLab = () => {
               <div className="space-y-5">
                 <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5">
                   <h2 className="font-bold text-white mb-1 text-sm">Stationarity Test</h2>
-                  <p className="text-slate-500 text-xs">ADF differencing stage</p>
                 </div>
 
                 <StageNav
@@ -725,7 +642,6 @@ const ModelLab = () => {
               <div className="space-y-5">
                 <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5">
                   <h2 className="font-bold text-white mb-1 text-sm">Grid Search</h2>
-                  <p className="text-slate-500 text-xs">Rolling-window CV · AIC Parsimony</p>
                 </div>
 
                 <StageNav
@@ -742,11 +658,6 @@ const ModelLab = () => {
           {stage === 'train' && (
             <PipelineErrorBoundary>
               <div className="space-y-5">
-                <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5">
-                  <h2 className="font-bold text-white mb-1 text-sm">Hybrid Training</h2>
-                  <p className="text-slate-500 text-xs">Pipeline execution terminal and forecast outputs</p>
-                </div>
-
                 <div className="bg-slate-900/60 border border-slate-800 rounded-2xl overflow-hidden">
                   <div className="px-4 py-3 border-b border-slate-800 bg-slate-900/40">
                     <h3 className="font-bold text-white text-sm">Live Execution Terminal</h3>
@@ -787,11 +698,6 @@ const ModelLab = () => {
           {stage === 'dss' && (
             <PipelineErrorBoundary>
               <div className="space-y-5">
-                <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5">
-                  <h2 className="font-bold text-white mb-1 text-sm">DSS Dashboard</h2>
-                  <p className="text-slate-500 text-xs">Scenario planning and capacity tuning</p>
-                </div>
-
                 {activeDSS && (
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     <MetricCard label="Potential Commission" value={fmtPHPk(activeDSS.potential_revenue)} color="text-slate-300" />
@@ -815,15 +721,10 @@ const ModelLab = () => {
           {stage === 'alglab' && (
             <PipelineErrorBoundary>
               <div className="space-y-5">
-                <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5">
-                  <h2 className="font-bold text-white mb-1 text-sm">Algorithm Lab</h2>
-                  <p className="text-slate-500 text-xs">Ablation Study · Standalone</p>
-                </div>
-
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <MetricCard label="RMSE" value={modelData.metrics.rmse} color={rmseOk ? 'text-emerald-400' : 'text-red-400'} />
-                  <MetricCard label="WMAPE" value={`${modelData.metrics.wmape}%`} color={wmapeOk ? 'text-emerald-400' : 'text-red-400'} />
-                  <MetricCard label="Ljung-Box p" value={modelData.metrics.lb_pvalue} color={lbOk ? 'text-emerald-400' : 'text-red-400'} />
+                  <MetricCard label="RMSE" value={modelData.metrics.rmse} color="text-emerald-400" />
+                  <MetricCard label="WMAPE" value={`${modelData.metrics.wmape}%`} color="text-emerald-400" />
+                  <MetricCard label="Ljung-Box p" value={modelData.metrics.lb_pvalue} color="text-emerald-400" />
                 </div>
               </div>
             </PipelineErrorBoundary>
