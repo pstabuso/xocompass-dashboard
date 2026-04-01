@@ -54,95 +54,6 @@ import {
 import { parseBookingCsv } from '../features/model-lab/domain/parseBookingCsv';
 import { deriveAdaptiveStats } from '../features/model-lab/domain/deriveAdaptiveStats';
 
-// ═══════════════════════════════════════════════════════════════════════════
-//  ADAPTIVE STATS — derived from parsed CSV (client-side, no backend needed)
-// ═══════════════════════════════════════════════════════════════════════════
-function pctile(arr, p) {
-  if (!arr.length) return 0;
-  const s = [...arr].sort((a, b) => a - b);
-  return s[Math.min(Math.floor((p / 100) * (s.length - 1)), s.length - 1)];
-}
-
-function computeNaiveWMAPE(data) {
-  if (data.length < 6) return null;
-  const holdout = Math.max(3, Math.floor(data.length * 0.2));
-  const split = data.length - holdout;
-  let errSum = 0, actSum = 0;
-  for (let i = split; i < data.length; i++) {
-    const actual = data[i].demand;
-    const fi = i - 12;
-    const forecast = fi >= 0 ? data[fi].demand : data[i - 1]?.demand ?? actual;
-    errSum += Math.abs(actual - forecast);
-    actSum += actual;
-  }
-  return actSum > 0 ? parseFloat(((errSum / actSum) * 100).toFixed(2)) : null;
-}
-
-// [v17.7] computeNaiveDW removed — DW replaced by Ljung-Box + ACF/PACF/QQ diagnostics
-
-function computeNaiveRMSE(data) {
-  if (data.length < 6) return null;
-  const holdout = Math.max(3, Math.floor(data.length * 0.2));
-  const split = data.length - holdout;
-  let sq = 0, n = 0;
-  for (let i = split; i < data.length; i++) {
-    const a = data[i].demand;
-    const fi = i - 12;
-    const f = fi >= 0 ? data[fi].demand : data[i - 1]?.demand ?? a;
-    sq += (a - f) ** 2; n++;
-  }
-  return n > 0 ? parseFloat(Math.sqrt(sq / n).toFixed(2)) : null;
-}
-
-/**
- * Derive all adaptive stats from parsed monthly booking data.
- * These replace the hardcoded FALLBACK values once a CSV is loaded.
- */
-function deriveStats(monthlyData) {
-  if (!monthlyData || monthlyData.length < 3) return null;
-  const demands = monthlyData.map(d => d.demand);
-  const revenues = monthlyData.map(d => d.trueRevenue ?? 0);
-  const total = demands.reduce((s, v) => s + v, 0);
-  const totalRev = revenues.reduce((s, v) => s + v, 0);
-  const avgCommission = total > 0 ? totalRev / total : FALLBACK.NET_COMMISSION_PHP;
-
-  // Daily demand estimates
-  const daily = monthlyData.map(m => {
-    const [yr, mo] = m.date.split('-').map(Number);
-    return m.demand / new Date(yr, mo, 0).getDate();
-  });
-  const p95 = pctile(daily, 95);
-  const maxDaily = Math.max(50, Math.ceil(p95 / 25) * 25);
-
-  // Over-capacity analysis
-  const overCapMonths = daily.filter(d => d > maxDaily);
-  const excessDemand = overCapMonths.reduce((s, d) => s + (d - maxDaily), 0);
-  const commissionRisk = excessDemand * avgCommission * 30;
-
-  // Year-over-year
-  const yrs = {};
-  monthlyData.forEach(m => { const y = m.date.slice(0, 4); yrs[y] = (yrs[y] || 0) + m.demand; });
-  const yk = Object.keys(yrs).sort().slice(-2);
-  const yoy = yk.length === 2 && yrs[yk[0]] > 0
-    ? parseFloat((((yrs[yk[1]] - yrs[yk[0]]) / yrs[yk[0]]) * 100).toFixed(1)) : null;
-
-  return {
-    totalPax:          total,
-    totalRevenue:      totalRev,
-    avgMonthlyPax:     Math.round(total / monthlyData.length),
-    avgCommission:     parseFloat(avgCommission.toFixed(2)),
-    maxDailyBookings:  maxDaily,
-    overCapDays:       overCapMonths.length,
-    commissionRisk:    parseFloat(commissionRisk.toFixed(2)),
-    naiveWMAPE:        computeNaiveWMAPE(monthlyData),
-    // [v17.7] naiveDW removed — Ljung-Box p-value comes from backend after pipeline run
-    naiveRMSE:         computeNaiveRMSE(monthlyData),
-    yoy,
-    peak:              monthlyData.reduce((m, d) => d.demand > m.demand ? d : m, monthlyData[0]),
-    dateRange:         `${monthlyData[0].date} → ${monthlyData[monthlyData.length - 1].date}`,
-    monthCount:        monthlyData.length,
-  };
-}
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  INPUT SANITISATION
@@ -559,7 +470,7 @@ const ModelLab = () => {
   }, []);
 
   // ── Derive adaptive stats whenever csvData changes ────────────────────
-  const adaptiveStats = useMemo(() => deriveStats(csvData), [csvData]);
+  const adaptiveStats = useMemo(() => deriveAdaptiveStats(csvData), [csvData]);
 
   // ── Effective values — live stats from data, or fallback ─────────────
   const EFF = useMemo(() => ({
@@ -627,7 +538,7 @@ const ModelLab = () => {
   const handleCSVLoad = useCallback((result, filename) => {
     if (!result) { setCsvData(null); setCsvMeta(null); return; }
     setCsvData(result.data);
-    const stats = deriveStats(result.data);
+    const stats = deriveAdaptiveStats(result.data);
     setCsvMeta({
       filename,
       months: result.data.length,
