@@ -795,5 +795,5 @@ class ErrorBoundary extends React.Component {
   }
 }
 
-const App = () => <ErrorBoundary><ThemeProvider><AppProvider><AppContent /></AppProvider></ThemeProvider></ErrorBoundary>;
+const App = () => <ErrorBoundary><ThemeProvider><AppProvider><DatasetFileProvider><AppContent /></AppProvider></ThemeProvider></></ErrorBoundary>DatasetFileProvider></AppProvider></ThemeProvider></ErrorBoundary>;
 export default App;
