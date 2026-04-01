@@ -52,6 +52,7 @@ import {
 } from '../features/model-lab/domain/formatters';
 
 import { parseBookingCsv } from '../features/model-lab/domain/parseBookingCsv';
+import { deriveAdaptiveStats } from '../features/model-lab/domain/deriveAdaptiveStats';
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  ADAPTIVE STATS — derived from parsed CSV (client-side, no backend needed)
