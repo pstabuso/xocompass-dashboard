@@ -29,10 +29,12 @@ import {
   CartesianGrid, Area, ComposedChart, BarChart as RechartsBarChart,
   Bar, ReferenceLine, Cell, ScatterChart, Scatter,
 } from 'recharts';
+import { recalculateDSS } from '../lib/sarimax-api';
 import {
-  isBackendAvailable, predictHybrid,
-  recalculateDSS, monthlyToDailyObservations,
-} from '../lib/sarimax-api';
+  checkForecastBackend,
+  buildDailyObservations,
+  runForecastPipeline,
+} from '../model-lab/services/forecastService';
 // [ISO 25010 - Functional Suitability] v17.7 diagnostic chart components
 import QQPlot   from '../components/QQPlot';
 import ACFChart  from '../components/ACFChart';
@@ -451,7 +453,7 @@ const ModelLab = () => {
   useEffect(() => {
     let alive = true;
     (async () => {
-      const s = await isBackendAvailable();
+      const s = await checkForecastBackend();
       if (alive) { setBackendStatus(s); addAudit('BACKEND_CHECK', s.ok ? `engine=${s.engine}` : 'offline', 'system'); }
     })();
     return () => { alive = false; };
@@ -659,7 +661,7 @@ const ModelLab = () => {
 
     try {
       addLog('[S1] Converting monthly bookings to daily observations...', 'info');
-      const dailyObs = monthlyToDailyObservations(csvData);
+      const dailyObs = buildDailyObservations(csvData);
       if (!Array.isArray(dailyObs) || dailyObs.length === 0) throw new Error('Daily conversion failed');
       addLog(`[S1] ✓ ${dailyObs.length} daily records`, 'info'); setProgress(15);
 
@@ -670,13 +672,17 @@ const ModelLab = () => {
       addLog('[S4] Grid search → (0,0,1)(0,0,0,7)', 'info'); setProgress(50);
       addLog(`[S5] Dispatching to FastAPI (${backendStatus.engine})...`, 'info');
 
-      const raw = await predictHybrid({
-        data: dailyObs, horizon: sanitiseHorizon(horizon), modelMode,
-        order: [0,0,1], seasonalOrder: [0,0,0,7], maxDailyBookings: cap, signal,
-      });
+     const raw = await runForecastPipeline({
+      data: dailyObs,
+      horizon: sanitiseHorizon(horizon),
+      modelMode,
+      order: [0, 0, 1],
+      seasonalOrder: [0, 0, 0, 7],
+      maxDailyBookings: cap,
+      signal,
+    });
 
-      if (signal.aborted) throw new Error('Cancelled');
-      validatePredictionResponse(raw);
+if (signal.aborted) throw new Error('Cancelled');
 
       setProgress(80);
       addLog('─'.repeat(58), 'divider');
