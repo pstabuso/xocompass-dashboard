@@ -1,36 +1,12 @@
-/**
- * App.jsx — XoCompass v17.8
- * =========================
- * THE CRITICAL FIX: DatasetFileProvider wraps AppContent so that both
- * DataHub and ModelLab share the same file registry instance.
- *
- * Without this wrapper, useDatasetFiles() in ModelLab.jsx throws:
- *   "Cannot read properties of null (reading 'datasetFiles')"
- * ...which crashes the entire pipeline silently on first load.
- *
- * Change from original App.jsx:
- *   1. Added import { DatasetFileProvider } from './context/DatasetFileContext'
- *   2. Wrapped <AppContent /> with <DatasetFileProvider>
- *
- * Everything else (ErrorBoundary, routing, AppContext, ThemeProvider)
- * is preserved exactly as-is from the original structure.
- *
- * [ISO 25010 - Reliability] Context provider prevents null-ref crash on mount.
- * [STRIDE-I] ErrorBoundary strips internal stack traces from the UI.
- */
-
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Outlet, NavLink } from 'react-router-dom';
 
-import { AppProvider, useAppContext }       from './context/AppContext';
-import { DatasetFileProvider }              from './context/DatasetFileContext'; // ← ADDED
+import { AppProvider, useAppContext } from './context/AppContext';
+import { DatasetFileProvider } from './context/DatasetFileContext';
 
-import DataHub   from './pages/DataHub';
-import ModelLab  from './pages/ModelLab';
+import DataHub from './pages/DataHub';
+import ModelLab from './pages/ModelLab';
 
-// ── Error Boundary ──────────────────────────────────────────────────────────
-// [STRIDE-I] Catches render errors and shows a safe fallback instead of
-// exposing raw stack traces in the browser UI.
 class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
@@ -42,7 +18,6 @@ class ErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, info) {
-    // Log internally — never surface raw stack to UI
     console.error('[XoCompass ErrorBoundary]', error, info?.componentStack);
   }
 
@@ -67,12 +42,78 @@ class ErrorBoundary extends React.Component {
   }
 }
 
-// ── App Content ──────────────────────────────────────────────────────────────
-// Reads auth state from AppContext. Renders authenticated routes or login.
-const AppContent = () => {
-  const { user, loading } = useAppContext();
+const Layout = () => {
+  const { user, signOut } = useAppContext();
 
-  if (loading) {
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-200">
+      <header className="sticky top-0 z-20 border-b border-slate-800 bg-slate-900/90 backdrop-blur-md">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <h1 className="text-lg sm:text-xl font-black text-white">XoCompass Dashboard</h1>
+            <p className="text-[11px] sm:text-xs text-slate-500 truncate">
+              Data Hub and Model Lab
+            </p>
+          </div>
+
+          <nav className="flex items-center gap-2">
+            <NavLink
+              to="/data"
+              className={({ isActive }) =>
+                `px-3 py-1.5 rounded-lg text-sm font-bold transition ${
+                  isActive
+                    ? 'bg-pink-600 text-white'
+                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                }`
+              }
+            >
+              Data Hub
+            </NavLink>
+
+            <NavLink
+              to="/lab"
+              className={({ isActive }) =>
+                `px-3 py-1.5 rounded-lg text-sm font-bold transition ${
+                  isActive
+                    ? 'bg-pink-600 text-white'
+                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                }`
+              }
+            >
+              Model Lab
+            </NavLink>
+          </nav>
+
+          <div className="flex items-center gap-2 shrink-0">
+            {user?.name && (
+              <span className="hidden sm:inline text-xs text-slate-400">
+                {user.name}
+              </span>
+            )}
+            {typeof signOut === 'function' && (
+              <button
+                onClick={signOut}
+                className="px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 text-sm font-bold transition"
+              >
+                Sign out
+              </button>
+            )}
+          </div>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-7xl px-4 sm:px-6 py-4">
+        <Outlet />
+      </main>
+    </div>
+  );
+};
+
+const AppContent = () => {
+  const { user, authLoading, loading } = useAppContext();
+  const isLoading = authLoading ?? loading ?? false;
+
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center">
         <div className="w-8 h-8 border-2 border-pink-500 border-t-transparent rounded-full animate-spin" />
@@ -80,32 +121,27 @@ const AppContent = () => {
     );
   }
 
+  if (!user) {
+    return <Navigate to="/data" replace />;
+  }
+
   return (
     <Routes>
-      {/* Authenticated routes */}
       <Route path="/" element={<Layout />}>
-        <Route index        element={<Navigate to="/data" replace />} />
-        <Route path="data"  element={<DataHub />} />
-        <Route path="lab"   element={<ModelLab />} />
-        {/* Catch-all redirect for unknown paths */}
-        <Route path="*"     element={<Navigate to="/data" replace />} />
+        <Route index element={<Navigate to="/data" replace />} />
+        <Route path="data" element={<DataHub />} />
+        <Route path="lab" element={<ModelLab />} />
+        <Route path="*" element={<Navigate to="/data" replace />} />
       </Route>
     </Routes>
   );
 };
 
-// ── Root App ─────────────────────────────────────────────────────────────────
-// Provider order (outer → inner):
-//   ErrorBoundary      — catches render crashes from any child
-//   BrowserRouter      — provides routing context
-//   AppProvider        — provides auth/user context
-//   DatasetFileProvider — ← NEW: provides file registry to DataHub + ModelLab
-//   AppContent         — renders the actual page tree
 const App = () => (
   <ErrorBoundary>
     <BrowserRouter>
       <AppProvider>
-        <DatasetFileProvider>  {/* ← THE FIX: shared file registry */}
+        <DatasetFileProvider>
           <AppContent />
         </DatasetFileProvider>
       </AppProvider>
