@@ -40,6 +40,17 @@ import PACFChart from '../components/PACFChart';
 import { useAppContext } from '../context/AppContext';
 import { useDatasetFiles } from '../context/DatasetFileContext';
 
+import { FALLBACK, STAGE_ORDER } from '../features/model-lab/domain/constants';
+import {
+  safeN,
+  fmt,
+  fmtPct,
+  fmtPHP,
+  fmtPHPk,
+  fmtDelta,
+  paxInt,
+} from '../features/model-lab/domain/formatters';
+
 // ═══════════════════════════════════════════════════════════════════════════
 //  FALLBACK CONSTANTS (used only when no CSV is loaded)
 // ═══════════════════════════════════════════════════════════════════════════
