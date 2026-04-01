@@ -8,9 +8,6 @@ import {
 import { useAppContext } from '../context/AppContext';
 import { useDatasetFiles } from '../context/DatasetFileContext';
 
-// Session-scoped store: keeps actual File objects for download within the session
-const fileStore = new Map();
-
 const ALLOWED_EXTENSIONS = ['.csv', '.tsv', '.txt', '.json', '.xlsx', '.xls'];
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
 
@@ -43,14 +40,14 @@ const parseRows = (r) => {
   return 0;
 };
 
-const DataHub = () => {
-  const { datasets, addDataset, updateDataset, deleteDataset, user, requestAccess } = useAppContext();
-  const {
-    registerDatasetFile,
-    removeDatasetFile,
-    updateDatasetFileStatus,
-    hasDatasetFile,
-  } = useDatasetFiles();
+const {
+  registerDatasetFile,
+  removeDatasetFile,
+  updateDatasetFileStatus,
+  hasDatasetFile,
+  downloadDatasetFile,
+  getDatasetFile,
+} = useDatasetFiles();
 
   const canCreate = user?.permissions?.canCreate;
   const canDelete = user?.permissions?.canDelete;
@@ -123,25 +120,15 @@ const DataHub = () => {
   };
 
   const handleDelete = () => {
-    if (!canDelete) return;
-    fileStore.delete(deleteConfirmId);
-    removeDatasetFile(deleteConfirmId);    // ← unregister from DatasetFileContext
-    deleteDataset(deleteConfirmId);
-    setDeleteConfirmId(null);
-  };
+  if (!canDelete) return;
+  removeDatasetFile(deleteConfirmId);
+  deleteDataset(deleteConfirmId);
+  setDeleteConfirmId(null);
+};
 
   const handleDownload = (dataset) => {
-    const file = fileStore.get(dataset.id);
-    if (!file) return;
-    const url = URL.createObjectURL(file);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = dataset.name;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
+  downloadDatasetFile(dataset.id, dataset.name);
+};
 
   const processFile = (file) => {
     if (!file) return;
@@ -203,10 +190,8 @@ const DataHub = () => {
     } else {
       const id = crypto.randomUUID();
       if (pendingFileRef.current) {
-        fileStore.set(id, pendingFileRef.current);
-        // ← Register the File in DatasetFileContext so ModelLab can access it
-        registerDatasetFile(id, pendingFileRef.current, formData.name, formData.type, formData.status);
-      }
+  registerDatasetFile(id, pendingFileRef.current, formData.name, formData.type, formData.status);
+}
       addDataset({ id, name: formData.name, type: formData.type, status: formData.status, size: formData.size, rows: formData.rows });
     }
     closeModal();
@@ -367,7 +352,7 @@ const DataHub = () => {
               <tbody className="divide-y divide-slate-800">
                 {filteredDatasets.map((d) => {
                   const Icon = getFileIcon(d.name);
-                  const canDownload = fileStore.has(d.id);
+                  const canDownload = !!getDatasetFile(d.id);
                   const sarimaxReady = hasDatasetFile(d.id);
                   return (
                     <tr key={d.id} className="hover:bg-slate-800/50 transition duration-200">
@@ -426,7 +411,7 @@ const DataHub = () => {
           <div className="md:hidden space-y-3">
             {filteredDatasets.map((d) => {
               const Icon = getFileIcon(d.name);
-              const canDownload = fileStore.has(d.id);
+              const canDownload = !!getDatasetFile(d.id);
               const sarimaxReady = hasDatasetFile(d.id);
               return (
                 <div key={d.id} className="bg-slate-900/50 rounded-xl border border-slate-800 p-3 space-y-2.5">
