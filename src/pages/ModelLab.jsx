@@ -14,13 +14,35 @@ import {
   Wifi,
   WifiOff,
   Sparkles,
+  TrendingUp,
+  Upload,
+  FlaskConical,
+  AlertTriangle,
+  Terminal,
+  Activity,
+  BarChart4,
+  AlertCircle,
 } from 'lucide-react';
+import {
+  ResponsiveContainer,
+  ComposedChart,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Bar,
+  Line,
+  Area,
+  ReferenceLine,
+  BarChart as ReBarChart,
+  Cell,
+} from 'recharts';
 
 import { useAppContext } from '../context/AppContext';
 import { useDatasetFiles } from '../context/DatasetFileContext';
 
 import { FALLBACK, STAGE_ORDER } from '../model-lab/domain/constants';
-import { fmtPHP, fmtPHPk } from '../model-lab/domain/formatters';
+import { fmtPHP, fmtPHPk, fmtDelta } from '../model-lab/domain/formatters';
 import { parseBookingCsv } from '../model-lab/domain/parseBookingCsv';
 import { sanitiseDssResponse } from '../model-lab/domain/sanitiseDssResponse';
 import { sanitiseError } from '../model-lab/domain/sanitiseError';
@@ -29,6 +51,13 @@ import { buildForecastChartData } from '../model-lab/domain/buildForecastChartDa
 import { buildAblationForecast } from '../model-lab/domain/buildAblationForecast';
 import { pearsonR } from '../model-lab/domain/pearsonR';
 import { useModelLabController } from '../model-lab/hooks/useModelLabController';
+
+const TT_STYLE = Object.freeze({
+  backgroundColor: '#0f172a',
+  borderColor: '#334155',
+  borderRadius: '8px',
+  fontSize: 11,
+});
 
 /* -------------------------------------------------------------------------- */
 /* Error Boundary                                                              */
@@ -69,7 +98,7 @@ class PipelineErrorBoundary extends React.Component {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Small local UI pieces kept here for stability                               */
+/* Small UI pieces                                                             */
 /* -------------------------------------------------------------------------- */
 
 const MetricCard = React.memo(({ label, value, sub, color = 'text-pink-400', loading = false }) => (
@@ -310,6 +339,9 @@ const ModelLab = () => {
     isRunning,
     isDSSCalc,
     prediction,
+    dssScenario,
+    setDssScenario,
+    dssBaseline,
     dssResult,
     progress,
     modelMode,
@@ -326,6 +358,7 @@ const ModelLab = () => {
     setDhLoadingId,
     adaptiveStats,
     EFF,
+    effectiveCapacity,
     terminalLogs,
     auditLog,
     showAudit,
@@ -339,6 +372,7 @@ const ModelLab = () => {
     runPipeline,
     cancelRun,
     runDSS,
+    updateCapacity,
   } = useModelLabController();
 
   const pearsonHolidayCorr = React.useMemo(() => {
@@ -348,12 +382,40 @@ const ModelLab = () => {
     return pearsonR(demands, holiday);
   }, [csvData]);
 
+  const yearlyData = React.useMemo(() => {
+    if (!csvData) return [];
+    const acc = {};
+    csvData.forEach((d) => {
+      const yr = d.date.slice(0, 4);
+      if (!acc[yr]) acc[yr] = { year: yr, demand: 0, revenue: 0 };
+      acc[yr].demand += d.demand;
+      acc[yr].revenue += d.trueRevenue ?? d.demand * EFF.netCommission;
+    });
+    return Object.values(acc);
+  }, [csvData, EFF.netCommission]);
+
+  const forecastChartData = React.useMemo(
+    () => buildForecastChartData(csvData, prediction),
+    [csvData, prediction]
+  );
+
   const modelData = React.useMemo(
     () => ({
       metrics: isAblation
         ? { rmse: 4.41, wmape: 28.43, lb_pvalue: 0.312 }
         : { rmse: 7.82, wmape: 42.15, lb_pvalue: 0.031 },
       forecast: buildAblationForecast(isAblation),
+      featureGain: isAblation
+        ? [
+            { feature: 'flight_density', gain: 0.56 },
+            { feature: 'is_peak_month', gain: 0.32 },
+            { feature: 'is_payday', gain: 0.12 },
+          ]
+        : [
+            { feature: 'usd_php_rate', gain: 0.45 },
+            { feature: 'flight_density', gain: 0.30 },
+            { feature: 'fuel_price', gain: 0.25 },
+          ],
     }),
     [isAblation]
   );
@@ -370,6 +432,16 @@ const ModelLab = () => {
       high_days: prediction.forecasts?.filter((f) => f.risk_level === 'HIGH').length || 0,
       warning_days: prediction.forecasts?.filter((f) => f.risk_level === 'WARNING').length || 0,
       optimal_days: prediction.forecasts?.filter((f) => f.risk_level === 'OPTIMAL').length || 0,
+      top_risk_dates: prediction.forecasts
+        ?.filter((f) => Number(f.unmet_demand) > 0)
+        .sort((a, b) => Number(b.daily_revenue_risk) - Number(a.daily_revenue_risk))
+        .slice(0, 5)
+        .map((f) => ({
+          date: f.date,
+          forecast: Number(f.forecast) || 0,
+          unmet: Number(f.unmet_demand) || 0,
+          revenue_risk: Number(f.daily_revenue_risk) || 0,
+        })),
     });
   }, [prediction, dssResult]);
 
@@ -546,6 +618,25 @@ const ModelLab = () => {
                   )}
                 </>
               )}
+
+              {stage === 'dss' && prediction && (
+                <button
+                  onClick={runDSS}
+                  disabled={isDSSCalc}
+                  className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-2.5 rounded-xl font-bold text-sm disabled:opacity-50"
+                >
+                  {isDSSCalc ? 'Calculating...' : 'Recalculate DSS'}
+                </button>
+              )}
+
+              {stage === 'alglab' && (
+                <button
+                  onClick={toggleAblation}
+                  className="w-full py-2.5 rounded-xl font-bold border text-sm transition bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700"
+                >
+                  {isAblation ? 'Ablation: ACTIVE' : 'Ablation: OFF'}
+                </button>
+              )}
             </div>
           </div>
 
@@ -568,23 +659,72 @@ const ModelLab = () => {
           {stage === 'ingest' && (
             <PipelineErrorBoundary>
               <div className="space-y-5">
+                <div className="p-4 bg-blue-500/10 border border-blue-500/30 rounded-xl flex items-start gap-3">
+                  <Plane size={18} className="text-blue-400 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-sm font-bold text-blue-300">KJS International — Airline Booking Records</p>
+                    <p className="text-xs text-slate-400 mt-1">
+                      Each row = 1 passenger ticket. The pipeline counts pax per period as demand
+                      and sums Net Amount as commission revenue.
+                    </p>
+                  </div>
+                </div>
+
                 <div className="bg-slate-900/60 border border-violet-500/20 rounded-2xl p-5">
-                  <h3 className="font-bold text-white text-sm mb-3">Load from Data Hub</h3>
+                  <h3 className="font-bold text-white text-sm mb-3 flex items-center gap-2">
+                    <FlaskConical size={16} className="text-violet-400" /> Load from Data Hub
+                  </h3>
                   <DataHubPicker onLoad={handleCSVLoad} loadingId={dhLoadingId} setLoadingId={setDhLoadingId} />
                 </div>
 
                 <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5">
-                  <h3 className="font-bold text-white text-sm mb-4">{csvData ? 'Current Dataset' : 'Upload CSV Directly'}</h3>
+                  <h3 className="font-bold text-white text-sm mb-4 flex items-center gap-2">
+                    <Upload size={16} className="text-pink-400" />
+                    {csvData ? 'Current Dataset' : 'Upload CSV Directly'}
+                  </h3>
                   <CSVDropzone onLoad={handleCSVLoad} isLoaded={!!csvData} csvMeta={csvMeta} />
                 </div>
 
                 {csvData && adaptiveStats && (
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <MetricCard label="Total Pax Bookings" value={adaptiveStats.totalPax.toLocaleString()} sub={`${adaptiveStats.monthCount} months`} color="text-white" />
-                    <MetricCard label="Total Commission" value={fmtPHP(adaptiveStats.totalRevenue)} sub={`₱${adaptiveStats.avgCommission.toFixed(2)}/pax avg`} color="text-emerald-400" />
-                    <MetricCard label="Avg Monthly Pax" value={adaptiveStats.avgMonthlyPax.toLocaleString()} sub={adaptiveStats.dateRange} color="text-white" />
-                    <MetricCard label="Peak Month" value={adaptiveStats.peak.demand.toLocaleString()} sub={adaptiveStats.peak.date} color="text-purple-400" />
-                  </div>
+                  <>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <MetricCard label="Total Pax Bookings" value={adaptiveStats.totalPax.toLocaleString()} sub={`${adaptiveStats.monthCount} months`} color="text-white" />
+                      <MetricCard label="Total Commission" value={fmtPHP(adaptiveStats.totalRevenue)} sub={`₱${adaptiveStats.avgCommission.toFixed(2)}/pax avg`} color="text-emerald-400" />
+                      <MetricCard label="Avg Monthly Pax" value={adaptiveStats.avgMonthlyPax.toLocaleString()} sub={adaptiveStats.dateRange} color="text-white" />
+                      <MetricCard label="Peak Month" value={adaptiveStats.peak.demand.toLocaleString()} sub={adaptiveStats.peak.date} color="text-purple-400" />
+                    </div>
+
+                    <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5">
+                      <div className="flex items-center gap-2 mb-3">
+                        <TrendingUp size={16} className="text-pink-400" />
+                        <h4 className="font-bold text-white text-sm">Year-over-Year: Pax Bookings & Commission</h4>
+                      </div>
+                      <div className="h-60 bg-slate-950 rounded-xl border border-slate-800 p-3">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <ComposedChart data={yearlyData}>
+                            <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" vertical={false} />
+                            <XAxis dataKey="year" stroke="#64748b" tick={{ fontSize: 10 }} />
+                            <YAxis yAxisId="l" stroke="#f472b6" tick={{ fontSize: 10 }} />
+                            <YAxis
+                              yAxisId="r"
+                              orientation="right"
+                              stroke="#10b981"
+                              tick={{ fontSize: 10 }}
+                              tickFormatter={(v) => fmtPHP(v)}
+                            />
+                            <Tooltip
+                              contentStyle={TT_STYLE}
+                              formatter={(v, name) =>
+                                name === 'Commission (₱)' ? [fmtPHP(v), name] : [`${v} pax`, name]
+                              }
+                            />
+                            <Bar yAxisId="l" dataKey="demand" fill="#f472b6" opacity={0.8} radius={[3, 3, 0, 0]} name="Pax Bookings" />
+                            <Line yAxisId="r" type="monotone" dataKey="revenue" stroke="#10b981" strokeWidth={2.5} dot name="Commission (₱)" />
+                          </ComposedChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  </>
                 )}
 
                 <StageNav
@@ -658,16 +798,51 @@ const ModelLab = () => {
           {stage === 'train' && (
             <PipelineErrorBoundary>
               <div className="space-y-5">
+                {!backendStatus?.ok && (
+                  <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-start gap-3">
+                    <AlertTriangle size={18} className="text-amber-400 mt-0.5 shrink-0" />
+                    <div>
+                      <p className="text-sm font-bold text-amber-300">Python backend required for live training</p>
+                      <p className="text-xs text-amber-400/80 mt-1">
+                        Run: <code className="bg-slate-900 px-1 rounded">uvicorn main:app --reload --port 8000</code>
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 <div className="bg-slate-900/60 border border-slate-800 rounded-2xl overflow-hidden">
-                  <div className="px-4 py-3 border-b border-slate-800 bg-slate-900/40">
-                    <h3 className="font-bold text-white text-sm">Live Execution Terminal</h3>
+                  <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800 bg-slate-900/40">
+                    <h3 className="font-bold text-white text-sm flex items-center gap-2">
+                      <Terminal size={15} className="text-pink-400" /> Live Execution Terminal
+                    </h3>
+                    <div className="flex items-center gap-3">
+                      <div className="w-24 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                        <div className="h-full bg-pink-500 transition-all duration-300" style={{ width: `${progress}%` }} />
+                      </div>
+                      <span className="text-[9px] text-slate-500">{progress}%</span>
+                    </div>
                   </div>
                   <div className="bg-slate-950 p-4 font-mono text-xs h-52 overflow-y-auto space-y-1.5">
                     {terminalLogs.length === 0 ? (
                       <span className="text-slate-600">Waiting for pipeline execution...</span>
                     ) : (
                       terminalLogs.map((log, i) => (
-                        <div key={i} className="text-slate-400">
+                        <div
+                          key={i}
+                          className={
+                            log.type === 'info'
+                              ? 'text-slate-400'
+                              : log.type === 'success'
+                              ? 'text-emerald-400 font-bold'
+                              : log.type === 'warning'
+                              ? 'text-amber-400'
+                              : log.type === 'error'
+                              ? 'text-red-400 font-bold'
+                              : log.type === 'divider'
+                              ? 'text-slate-700'
+                              : 'text-slate-500'
+                          }
+                        >
                           {log.text}
                         </div>
                       ))
@@ -682,6 +857,41 @@ const ModelLab = () => {
                   <MetricCard loading={isRunning} label="Ljung-Box p" value={EFF.ljungBoxPvalue != null ? EFF.ljungBoxPvalue.toFixed(4) : '—'} color="text-emerald-400" />
                   <MetricCard loading={isRunning} label="Rec. Capacity" value={`${EFF.maxDailyBookings} /day`} color="text-red-400" />
                 </div>
+
+                {prediction && (
+                  <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5">
+                    <h4 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
+                      <TrendingUp size={16} className="text-pink-400" /> Pax Booking Forecast vs Historical
+                    </h4>
+                    <div className="h-60 bg-slate-950 rounded-xl border border-slate-800 p-3">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <ComposedChart data={forecastChartData}>
+                          <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" vertical={false} />
+                          <XAxis dataKey="date" stroke="#64748b" tick={{ fontSize: 9 }} minTickGap={20} />
+                          <YAxis stroke="#64748b" tick={{ fontSize: 9 }} />
+                          <Tooltip
+                            contentStyle={TT_STYLE}
+                            formatter={(v) => [v != null ? `${Number(v).toFixed(0)} pax` : '—', undefined]}
+                          />
+                          <Area type="monotone" dataKey="ci_upper" stroke="none" fill="#6366f1" fillOpacity={0.15} />
+                          <Line type="monotone" dataKey="actual" stroke="#94a3b8" strokeWidth={1.5} dot={false} name="Actual Pax" />
+                          <Line type="monotone" dataKey="forecast" stroke="#ec4899" strokeWidth={2.5} dot={false} name="Forecast Pax" />
+                          <ReferenceLine
+                            y={EFF.maxDailyBookings}
+                            stroke="#ef4444"
+                            strokeDasharray="4 4"
+                            label={{
+                              value: `Cap (${EFF.maxDailyBookings}/day)`,
+                              fill: '#ef4444',
+                              fontSize: 9,
+                              position: 'right',
+                            }}
+                          />
+                        </ComposedChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                )}
 
                 <StageNav
                   currentId="train"
@@ -698,13 +908,150 @@ const ModelLab = () => {
           {stage === 'dss' && (
             <PipelineErrorBoundary>
               <div className="space-y-5">
-                {activeDSS && (
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                    <MetricCard label="Potential Commission" value={fmtPHPk(activeDSS.potential_revenue)} color="text-slate-300" />
-                    <MetricCard label="Capped Commission" value={fmtPHPk(activeDSS.capped_revenue)} color="text-pink-400" />
-                    <MetricCard label="Commission at Risk" value={fmtPHPk(activeDSS.revenue_at_risk)} color="text-red-400" />
-                    <MetricCard label="Mitigated Commission" value={fmtPHPk(activeDSS.mitigated_revenue)} color="text-emerald-400" />
+                <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Capacity Scenario</p>
+                    {dssScenario.capacity !== null && (
+                      <button
+                        onClick={() => setDssScenario((prev) => ({ ...prev, capacity: null }))}
+                        className="text-[9px] text-sky-400 hover:text-sky-300 font-bold transition"
+                      >
+                        Reset to auto
+                      </button>
+                    )}
                   </div>
+
+                  <div className="flex items-center gap-2">
+                    <label htmlFor="cap-in" className="text-[10px] text-slate-400 w-24 shrink-0">
+                      Daily booking limit
+                    </label>
+                    <input
+                      id="cap-in"
+                      type="number"
+                      min={FALLBACK.MIN_CAPACITY}
+                      max={FALLBACK.MAX_CAPACITY_INPUT}
+                      value={effectiveCapacity}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        const n = parseInt(raw, 10);
+                        if (raw === '' || isNaN(n)) return;
+                        if (n >= FALLBACK.MIN_CAPACITY && n <= FALLBACK.MAX_CAPACITY_INPUT) {
+                          setDssScenario((prev) => ({ ...prev, capacity: n }));
+                        }
+                      }}
+                      onBlur={(e) => updateCapacity(e.target.value)}
+                      className="w-20 bg-slate-800 border border-slate-700 text-white text-xs px-2 py-1 rounded outline-none"
+                    />
+                    <span className="text-[9px] text-slate-600 shrink-0">pax/day</span>
+                  </div>
+
+                  <label className="flex items-center gap-2 text-[10px] text-slate-400 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={dssScenario.applyS}
+                      onChange={(e) => setDssScenario((prev) => ({ ...prev, applyS: e.target.checked }))}
+                      className="accent-pink-500"
+                    />
+                    Apply {FALLBACK.PEAK_SURCHARGE * 100}% peak booking fee
+                  </label>
+                </div>
+
+                {activeDSS && (
+                  <>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <MetricCard label="Potential Commission" value={fmtPHPk(activeDSS.potential_revenue)} sub="All demand served" color="text-slate-300" />
+                      <MetricCard label="Capped Commission" value={fmtPHPk(activeDSS.capped_revenue)} sub={`${effectiveCapacity} pax/day limit`} color="text-pink-400" />
+                      <MetricCard label="Commission at Risk" value={fmtPHPk(activeDSS.revenue_at_risk)} sub="Over-capacity lost sales" color="text-red-400" />
+                      <MetricCard label="Mitigated Commission" value={fmtPHPk(activeDSS.mitigated_revenue)} sub={`+${FALLBACK.PEAK_SURCHARGE * 100}% peak fee`} color="text-emerald-400" />
+                    </div>
+
+                    {dssBaseline && (
+                      <div className="bg-slate-900/60 border border-blue-500/20 rounded-2xl p-5">
+                        <h4 className="font-bold text-blue-300 text-sm mb-4 flex items-center gap-2">
+                          <Activity size={16} /> Scenario Delta vs Baseline
+                        </h4>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                          <div className="bg-slate-950/60 rounded-xl border border-slate-800 p-3">
+                            <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1">Commission Δ</p>
+                            <p className={`text-xl font-black ${(activeDSS.capped_revenue - dssBaseline.capped_revenue) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                              {fmtDelta(activeDSS.capped_revenue - dssBaseline.capped_revenue)}
+                            </p>
+                          </div>
+                          <div className="bg-slate-950/60 rounded-xl border border-slate-800 p-3">
+                            <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1">Risk Reduction</p>
+                            <p className="text-xl font-black text-emerald-400">
+                              {fmtDelta(dssBaseline.revenue_at_risk - activeDSS.revenue_at_risk)}
+                            </p>
+                          </div>
+                          <div className="bg-slate-950/60 rounded-xl border border-slate-800 p-3">
+                            <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1">Avg Daily Commission</p>
+                            <p className="text-xl font-black text-slate-200">
+                              {fmtPHPk(activeDSS.capped_revenue / Math.max(1, horizon))}
+                            </p>
+                          </div>
+                          <div className="bg-slate-950/60 rounded-xl border border-slate-800 p-3">
+                            <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1">Avg Daily at Risk</p>
+                            <p className="text-xl font-black text-red-400">
+                              {fmtPHPk(activeDSS.revenue_at_risk / Math.max(1, horizon))}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5">
+                      <h4 className="font-bold text-white text-sm mb-4 flex items-center gap-2">
+                        <BarChart4 size={16} className="text-pink-400" /> Booking Demand Risk Distribution
+                      </h4>
+                      <div className="space-y-3">
+                        {[
+                          { label: 'CRITICAL', count: activeDSS.critical_days, hex: '#ef4444', text: 'text-red-400' },
+                          { label: 'HIGH', count: activeDSS.high_days, hex: '#f97316', text: 'text-orange-400' },
+                          { label: 'WARNING', count: activeDSS.warning_days, hex: '#f59e0b', text: 'text-amber-400' },
+                          { label: 'OPTIMAL', count: activeDSS.optimal_days, hex: '#10b981', text: 'text-emerald-400' },
+                        ].map((row) => (
+                          <div key={row.label} className="flex items-center gap-3">
+                            <span className={`text-[10px] font-black w-16 text-right ${row.text}`}>{row.label}</span>
+                            <div className="flex-1 bg-slate-800 rounded-full h-2">
+                              <div
+                                className="h-full rounded-full transition-all duration-700"
+                                style={{
+                                  width: `${horizon > 0 ? Math.min(100, (row.count / horizon) * 100) : 0}%`,
+                                  backgroundColor: row.hex,
+                                }}
+                              />
+                            </div>
+                            <span className="text-xs font-bold text-slate-300 w-8 text-right">{row.count}d</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {activeDSS.top_risk_dates?.length > 0 && (
+                      <div className="bg-slate-900/60 border border-red-500/20 rounded-2xl p-5">
+                        <h4 className="font-bold text-red-400 text-sm mb-4 flex items-center gap-2">
+                          <AlertCircle size={16} /> Top Commission-at-Risk Dates
+                        </h4>
+                        <ol className="space-y-2">
+                          {activeDSS.top_risk_dates.map((risk, i) => (
+                            <li
+                              key={risk.date}
+                              className="flex items-center justify-between p-2.5 bg-slate-900 rounded-lg border border-slate-800 text-xs"
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className="text-slate-600 font-mono">#{i + 1}</span>
+                                <span className="text-slate-300 font-bold">{risk.date}</span>
+                                <span className="text-slate-500">
+                                  {Math.round(risk.forecast)} pax · {Math.round(risk.unmet)} unserved
+                                </span>
+                              </div>
+                              <span className="text-red-400 font-bold">{fmtPHPk(risk.revenue_risk)} at risk</span>
+                            </li>
+                          ))}
+                        </ol>
+                      </div>
+                    )}
+                  </>
                 )}
 
                 <StageNav
@@ -725,6 +1072,45 @@ const ModelLab = () => {
                   <MetricCard label="RMSE" value={modelData.metrics.rmse} color="text-emerald-400" />
                   <MetricCard label="WMAPE" value={`${modelData.metrics.wmape}%`} color="text-emerald-400" />
                   <MetricCard label="Ljung-Box p" value={modelData.metrics.lb_pvalue} color="text-emerald-400" />
+                </div>
+
+                <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5">
+                  <h4 className="font-bold text-white text-sm mb-3 flex items-center gap-2">
+                    <TrendingUp size={16} className="text-pink-400" /> Ablation Forecast vs Actual
+                  </h4>
+                  <div className="h-60 bg-slate-950 rounded-xl border border-slate-800 p-3">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ComposedChart data={modelData.forecast}>
+                        <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" vertical={false} />
+                        <XAxis dataKey="date" stroke="#64748b" tick={{ fontSize: 10 }} />
+                        <YAxis stroke="#64748b" tick={{ fontSize: 10 }} />
+                        <Tooltip contentStyle={TT_STYLE} formatter={(v) => [`${v} pax`, undefined]} />
+                        <Line type="monotone" dataKey="actual" stroke="#94a3b8" strokeWidth={1.5} dot={{ r: 2 }} name="Actual" />
+                        <Line type="monotone" dataKey="prediction" stroke="#10b981" strokeWidth={2.5} dot={{ r: 2.5 }} name="Prediction" />
+                      </ComposedChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5">
+                  <h4 className="font-bold text-white text-sm mb-3 flex items-center gap-2">
+                    <BarChart4 size={16} className="text-blue-400" /> Feature Gain
+                  </h4>
+                  <div className="h-60 bg-slate-950 rounded-xl border border-slate-800 p-3">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ReBarChart layout="vertical" data={modelData.featureGain}>
+                        <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" horizontal={false} />
+                        <XAxis type="number" stroke="#64748b" tick={{ fontSize: 10 }} />
+                        <YAxis type="category" dataKey="feature" stroke="#64748b" tick={{ fontSize: 10 }} width={100} />
+                        <Tooltip contentStyle={TT_STYLE} formatter={(v) => [Number(v).toFixed(2), 'Gain']} />
+                        <Bar dataKey="gain" radius={[0, 4, 4, 0]}>
+                          {modelData.featureGain.map((_, i) => (
+                            <Cell key={i} fill={['#3b82f6', '#60a5fa', '#93c5fd'][i % 3]} />
+                          ))}
+                        </Bar>
+                      </ReBarChart>
+                    </ResponsiveContainer>
+                  </div>
                 </div>
               </div>
             </PipelineErrorBoundary>
