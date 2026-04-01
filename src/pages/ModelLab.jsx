@@ -33,6 +33,10 @@ import {
   isBackendAvailable, predictHybrid,
   recalculateDSS, monthlyToDailyObservations,
 } from '../lib/sarimax-api';
+// [ISO 25010 - Functional Suitability] v17.7 diagnostic chart components
+import QQPlot   from '../components/QQPlot';
+import ACFChart  from '../components/ACFChart';
+import PACFChart from '../components/PACFChart';
 import { useAppContext } from '../context/AppContext';
 import { useDatasetFiles } from '../context/DatasetFileContext';
 
@@ -44,7 +48,8 @@ const FALLBACK = Object.freeze({
   NET_COMMISSION_PHP: 69.35,
   GROSS_FARE_PHP:     95.0,
   NB_WMAPE:           46.45,
-  NB_DW:              1.8378,
+  // [v17.7] DW removed — replaced by Ljung-Box + ACF/PACF/QQ diagnostics
+  NB_LB_PVALUE:       0.23,    // fallback Ljung-Box p-value (notebook reference)
   NB_AIC:             3216.52,
   NB_REV_RISK:        106_511.41,
   OVER_CAP_DAYS:      10,
@@ -83,14 +88,7 @@ function computeNaiveWMAPE(data) {
   return actSum > 0 ? parseFloat(((errSum / actSum) * 100).toFixed(2)) : null;
 }
 
-function computeNaiveDW(data) {
-  if (data.length < 4) return null;
-  const d = data.map(x => x.demand);
-  const r = d.slice(1).map((v, i) => v - d[i]);
-  let num = 0, den = 0;
-  for (let i = 1; i < r.length; i++) { num += (r[i] - r[i - 1]) ** 2; den += r[i] ** 2; }
-  return den > 0 ? parseFloat((num / den).toFixed(4)) : 2.0;
-}
+// [v17.7] computeNaiveDW removed — DW replaced by Ljung-Box + ACF/PACF/QQ diagnostics
 
 function computeNaiveRMSE(data) {
   if (data.length < 6) return null;
@@ -147,7 +145,7 @@ function deriveStats(monthlyData) {
     overCapDays:       overCapMonths.length,
     commissionRisk:    parseFloat(commissionRisk.toFixed(2)),
     naiveWMAPE:        computeNaiveWMAPE(monthlyData),
-    naiveDW:           computeNaiveDW(monthlyData),
+    // [v17.7] naiveDW removed — Ljung-Box p-value comes from backend after pipeline run
     naiveRMSE:         computeNaiveRMSE(monthlyData),
     yoy,
     peak:              monthlyData.reduce((m, d) => d.demand > m.demand ? d : m, monthlyData[0]),
@@ -642,7 +640,11 @@ const ModelLab = () => {
     netCommission:    FALLBACK.NET_COMMISSION_PHP,   // ← always ₱69.35, never CSV-derived
 
     wmape:            liveMetrics?.wmape  ?? adaptiveStats?.naiveWMAPE  ?? FALLBACK.NB_WMAPE,
-    dw:               liveMetrics?.dw     ?? adaptiveStats?.naiveDW     ?? FALLBACK.NB_DW,
+    // [v17.7] DW replaced by Ljung-Box. p-value only available after pipeline run.
+    // p > 0.05 = residuals are white noise (good). p < 0.05 = autocorrelation remains.
+    ljungBoxPvalue:   liveMetrics?.ljungBoxPvalue ?? null,
+    ljungBoxStat:     liveMetrics?.ljungBoxStat   ?? null,
+    diagnostics:      liveMetrics?.diagnostics     ?? null,  // ACF/PACF/QQ arrays
     aic:              liveMetrics?.aic    ?? null,  // only from pipeline
     rmse:             liveMetrics?.rmse   ?? adaptiveStats?.naiveRMSE   ?? null,
     commissionRisk:   liveMetrics?.revRisk ?? adaptiveStats?.commissionRisk ?? FALLBACK.NB_REV_RISK,
@@ -748,8 +750,11 @@ const ModelLab = () => {
     return [...history, ...future];
   }, [csvData, prediction]);
 
+  // [v17.7] modelData: dw_stat replaced by lb_pvalue (Ljung-Box p-value)
   const modelData = useMemo(() => ({
-    metrics: isAblation ? { rmse:4.41, wmape:28.43, dw_stat:2.005 } : { rmse:7.82, wmape:42.15, dw_stat:1.542 },
+    metrics: isAblation
+      ? { rmse:4.41, wmape:28.43, lb_pvalue:0.312 }   // > 0.05 = white noise = good
+      : { rmse:7.82, wmape:42.15, lb_pvalue:0.031 },  // < 0.05 = autocorrelation remains
     forecast: buildAblationForecast(isAblation),
     featureGain: isAblation
       ? [{ feature:'flight_density', gain:0.56 }, { feature:'is_peak_month', gain:0.32 }, { feature:'is_payday', gain:0.12 }]
@@ -831,14 +836,23 @@ const ModelLab = () => {
       if (raw.nb2_aic)     addLog(`[METRICS] NB2 AIC: ${raw.nb2_aic}`, 'success');
       if (raw.sarimax_aic) addLog(`[METRICS] SARIMAX AIC: ${raw.sarimax_aic}`, 'success');
       const m = raw.metrics;
-      if (m?.wmape != null) addLog(`[METRICS] WMAPE: ${fmtPct(m.wmape)} | RMSE: ${fmt(m.rmse)} pax | DW: ${fmt(m.durbin_watson, 4)}`, 'success');
+      if (m?.wmape != null) {
+        const lbInfo = m?.ljung_box_pvalue != null
+          ? `LB p=${m.ljung_box_pvalue.toFixed(4)} ${m.ljung_box_pvalue > 0.05 ? '✓ white noise' : '⚠ autocorrelation'}`
+          : 'LB not computed';
+        // [v17.7] DW removed from terminal — LB p-value replaces it
+        addLog(`[METRICS] WMAPE: ${fmtPct(m.wmape)} | RMSE: ${fmt(m.rmse)} pax | ${lbInfo}`, 'success');
+      }
       addLog(`[DSS] Commission at risk: ${fmtPHP(raw.revenue_at_risk)} | Critical days: ${raw.critical_days}`, 'success');
       addLog('[SYSTEM] ✓ XoCompass DSS v17.4 ready.', 'success');
 
       // ← Store live metrics — these update the Notebook Reference panel
       setLiveMetrics({
         wmape:    m?.wmape    ?? null,
-        dw:       m?.durbin_watson ?? null,
+        // [v17.7] Store Ljung-Box + diagnostic arrays from backend response
+        ljungBoxPvalue: m?.ljung_box_pvalue  ?? null,
+        ljungBoxStat:   m?.ljung_box_stat    ?? null,
+        diagnostics:    m?.diagnostics       ?? null,  // DiagnosticPlots: acf/pacf/qq
         aic:      raw.sarimax_aic  ?? null,
         rmse:     m?.rmse         ?? null,
         revRisk:  raw.revenue_at_risk,
@@ -926,7 +940,8 @@ const ModelLab = () => {
 
   const rmseOk  = modelData.metrics.rmse  < 5;
   const wmapeOk = modelData.metrics.wmape < 30;
-  const dwOk    = modelData.metrics.dw_stat >= 1.9 && modelData.metrics.dw_stat <= 2.1;
+  // [v17.7] lbOk: p > 0.05 means we fail to reject H₀ (residuals are white noise = good)
+  const lbOk    = modelData.metrics.lb_pvalue > 0.05;
 
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -1127,9 +1142,12 @@ const ModelLab = () => {
               <StatRow label="WMAPE"
                 value={`${(EFF.wmape ?? FALLBACK.NB_WMAPE).toFixed(2)}%`}
                 isLive={adaptiveStats?.naiveWMAPE != null} />
-              <StatRow label="Durbin-Watson"
-                value={(EFF.dw ?? FALLBACK.NB_DW).toFixed(4)}
-                isLive={adaptiveStats?.naiveDW != null} />
+              {/* [v17.7] DW replaced by Ljung-Box p-value */}
+              <StatRow label="Ljung-Box p"
+                value={EFF.ljungBoxPvalue != null
+                  ? EFF.ljungBoxPvalue.toFixed(4)
+                  : '— (run pipeline)'}
+                isLive={EFF.ljungBoxPvalue != null} />
               <StatRow label="Commission risk"
                 value={fmtPHP(EFF.commissionRisk)}
                 isLive={adaptiveStats != null} />
@@ -1215,7 +1233,7 @@ const ModelLab = () => {
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-[10px]">
                         {[
                           ['Naive WMAPE', adaptiveStats.naiveWMAPE != null ? `${adaptiveStats.naiveWMAPE.toFixed(2)}%` : '—', 'Seasonal naive baseline'],
-                          ['Naive DW',   adaptiveStats.naiveDW    != null ? adaptiveStats.naiveDW.toFixed(4)         : '—', 'First-diff autocorrelation'],
+                          // [v17.7] Naive DW removed — Ljung-Box comes from backend after pipeline run
                           ['Auto Capacity', `${adaptiveStats.maxDailyBookings} pax/day`, '95th pctile daily demand'],
                           ['Est. Risk',  fmtPHP(adaptiveStats.commissionRisk), 'Commission at over-cap days'],
                         ].map(([label, value, hint]) => (
@@ -1498,10 +1516,15 @@ const ModelLab = () => {
                     value={EFF.aic != null ? EFF.aic : '—'}
                     sub={EFF.aic != null ? 'Live pipeline' : 'Run pipeline to compute'}
                     color={EFF.aic != null ? 'text-pink-400' : 'text-slate-500'}/>
-                  <MetricCard loading={isRunning} label="Durbin-Watson"
-                    value={fmt(EFF.dw, 4)}
-                    sub={liveMetrics ? 'Live pipeline' : adaptiveStats?.naiveDW != null ? 'Naive baseline (CSV)' : 'Notebook ref'}
-                    color={liveMetrics ? 'text-amber-400' : adaptiveStats?.naiveDW != null ? 'text-sky-400' : 'text-slate-400'}/>
+                  {/* [v17.7] DW replaced by Ljung-Box p-value card */}
+                  <MetricCard loading={isRunning} label="Ljung-Box p"
+                    value={EFF.ljungBoxPvalue != null ? EFF.ljungBoxPvalue.toFixed(4) : '—'}
+                    sub={EFF.ljungBoxPvalue != null
+                      ? (EFF.ljungBoxPvalue > 0.05 ? '✓ White noise (good)' : '⚠ Autocorrelation remains')
+                      : 'Run pipeline to compute'}
+                    color={EFF.ljungBoxPvalue != null
+                      ? (EFF.ljungBoxPvalue > 0.05 ? 'text-emerald-400' : 'text-amber-400')
+                      : 'text-slate-500'}/>
                   <MetricCard loading={isRunning} label="Rec. Capacity"
                     value={`${EFF.maxDailyBookings} /day`}
                     sub={adaptiveStats ? `${EFF.overCapDays} over-cap · from CSV` : 'Notebook ref'}
@@ -1529,6 +1552,43 @@ const ModelLab = () => {
                             label={{value:`Cap (${EFF.maxDailyBookings}/day)`,fill:'#ef4444',fontSize:9,position:'right'}}/>
                         </ComposedChart>
                       </ResponsiveContainer>
+                    </div>
+                  </div>
+                )}
+
+                {/* [v17.7] Diagnostic plots: QQ, ACF, PACF — shown after pipeline runs */}
+                {prediction && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Residual Diagnostics</span>
+                      {EFF.ljungBoxPvalue != null && (
+                        <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold border ${
+                          EFF.ljungBoxPvalue > 0.05
+                            ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                            : 'bg-amber-500/10 border-amber-500/30 text-amber-400'
+                        }`}>
+                          Ljung-Box p={EFF.ljungBoxPvalue.toFixed(4)} — {EFF.ljungBoxPvalue > 0.05 ? 'Residuals are white noise ✓' : 'Autocorrelation present ⚠'}
+                        </span>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <QQPlot
+                        theoretical={EFF.diagnostics?.qq_theoretical ?? []}
+                        sample={EFF.diagnostics?.qq_sample ?? []}
+                        height={220}
+                      />
+                      <ACFChart
+                        acf={EFF.diagnostics?.acf ?? []}
+                        ciBound={EFF.diagnostics?.ci_bound ?? 0.2}
+                        nObs={EFF.diagnostics?.n_obs ?? 0}
+                        height={220}
+                      />
+                      <PACFChart
+                        pacf={EFF.diagnostics?.pacf ?? []}
+                        ciBound={EFF.diagnostics?.ci_bound ?? 0.2}
+                        nObs={EFF.diagnostics?.n_obs ?? 0}
+                        height={220}
+                      />
                     </div>
                   </div>
                 )}
@@ -1828,10 +1888,11 @@ const ModelLab = () => {
 
                 {/* KPI cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  {/* [v17.7] DW card replaced by Ljung-Box p-value */}
                   {[
-                    { label:'RMSE (Pax Error)',          value:modelData.metrics.rmse,        good:rmseOk,  threshold:'< 5.0 pax',  icon:Target },
-                    { label:'WMAPE (Booking Accuracy)',  value:`${modelData.metrics.wmape}%`, good:wmapeOk, threshold:'< 30%',       icon:TrendingUp },
-                    { label:'Durbin-Watson (Residuals)', value:modelData.metrics.dw_stat,     good:dwOk,    threshold:'[1.9 – 2.1]', icon:Activity },
+                    { label:'RMSE (Pax Error)',         value:modelData.metrics.rmse,        good:rmseOk,  threshold:'< 5.0 pax', icon:Target },
+                    { label:'WMAPE (Booking Accuracy)', value:`${modelData.metrics.wmape}%`, good:wmapeOk, threshold:'< 30%',      icon:TrendingUp },
+                    { label:'Ljung-Box p-value',        value:modelData.metrics.lb_pvalue,   good:lbOk,    threshold:'> 0.05',     icon:Activity },
                   ].map(({ label, value, good, threshold, icon:Icon }) => (
                     <div key={label} className={`rounded-2xl border p-4 sm:p-5 flex items-start gap-4 transition-all ${
                       good ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-red-500/30 bg-red-500/5'
@@ -1951,6 +2012,43 @@ const ModelLab = () => {
                     </dl>
                   </section>
                 </div>
+
+                {/* [v17.7] Live diagnostic plots from pipeline run */}
+                {EFF.diagnostics && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Live Residual Diagnostics</span>
+                      <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold border ${
+                        EFF.ljungBoxPvalue != null && EFF.ljungBoxPvalue > 0.05
+                          ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                          : 'bg-amber-500/10 border-amber-500/30 text-amber-400'
+                      }`}>
+                        {EFF.ljungBoxPvalue != null
+                          ? `Ljung-Box p=${EFF.ljungBoxPvalue.toFixed(4)} — ${EFF.ljungBoxPvalue > 0.05 ? 'White noise ✓' : 'Autocorrelation ⚠'}`
+                          : 'Run pipeline for live diagnostics'}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <QQPlot
+                        theoretical={EFF.diagnostics?.qq_theoretical ?? []}
+                        sample={EFF.diagnostics?.qq_sample ?? []}
+                        height={220}
+                      />
+                      <ACFChart
+                        acf={EFF.diagnostics?.acf ?? []}
+                        ciBound={EFF.diagnostics?.ci_bound ?? 0.2}
+                        nObs={EFF.diagnostics?.n_obs ?? 0}
+                        height={220}
+                      />
+                      <PACFChart
+                        pacf={EFF.diagnostics?.pacf ?? []}
+                        ciBound={EFF.diagnostics?.ci_bound ?? 0.2}
+                        nObs={EFF.diagnostics?.n_obs ?? 0}
+                        height={220}
+                      />
+                    </div>
+                  </div>
+                )}
 
                 <div className="flex items-start gap-2 p-3 bg-slate-900/40 border border-slate-800/50 rounded-xl text-[10px] text-slate-500">
                   <Info size={12} className="text-slate-600 mt-0.5 shrink-0"/>
