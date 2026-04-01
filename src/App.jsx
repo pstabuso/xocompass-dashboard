@@ -1,26 +1,25 @@
 /**
  * App.jsx — XoCompass v17.8
  * =========================
- * Fixes applied in this version:
+ * Fixes in this version:
  *
- * 1. vercel.json rewrite  (separate file — live alongside this one)
- *    Old: "destination": "/"   → Vercel 404s on /data, /lab hard refreshes
- *    New: "destination": "/index.html" → Vite SPA handles all client routes
+ * 1. REMOVED Layout import — Layout.jsx does not exist in this repo.
+ *    Both DataHub and ModelLab are self-contained pages with their own
+ *    headers. Routes render directly without a shell wrapper.
  *
- * 2. AppContent blank-screen fix
+ * 2. AppContent blank-screen fix:
  *    Old: early `if (!user) return null` blocked ALL route rendering,
- *         showing a blank screen whenever auth state was undefined/null on
- *         first load or after a hard refresh.
- *    New: auth guard moved INSIDE <Routes> — /lab redirects to /data when
- *         user is null, everything else renders unconditionally.
+ *         causing a blank screen on hard-refresh or direct URL navigation.
+ *    New: auth guard is inline on the /lab route only. /data is always public.
  *
- * 3. DatasetFileProvider (carried forward from v17.8)
- *    Wraps AppContent so DataHub and ModelLab share the same file registry.
- *    Without this, useDatasetFiles() throws on ModelLab mount.
+ * 3. DatasetFileProvider bridges DataHub uploads → ModelLab CSV parser.
  *
- * [ISO 25010 - Reliability]  Context provider prevents null-ref crash.
- * [ISO 25010 - Usability]    No blank screen on hard-refresh or direct URL.
- * [STRIDE-I]                 ErrorBoundary strips stack traces from UI.
+ * 4. vercel.json (separate file) rewrites all paths to /index.html so
+ *    Vite's client-side router handles /data and /lab correctly on Vercel.
+ *
+ * [ISO 25010 - Reliability] No Layout import = no UNRESOLVED_IMPORT build error.
+ * [ISO 25010 - Usability]   No blank screen on hard-refresh or direct URL.
+ * [STRIDE-I]                ErrorBoundary strips stack traces from UI.
  */
 
 import React from 'react';
@@ -29,7 +28,8 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider, useAppContext }  from './context/AppContext';
 import { DatasetFileProvider }         from './context/DatasetFileContext';
 
-import Layout   from './components/Layout';
+// Pages are self-contained — each has its own header/nav built in.
+// There is no shared Layout shell in this repo.
 import DataHub  from './pages/DataHub';
 import ModelLab from './pages/ModelLab';
 
@@ -72,22 +72,13 @@ class ErrorBoundary extends React.Component {
 
 // ── App Content ──────────────────────────────────────────────────────────────
 // [ISO 25010 - Usability] Blank-screen fix:
-//   The previous version had `if (!user) return null` which blocked ALL route
-//   rendering when auth state was loading or user was guest. This caused a
-//   blank white screen on hard-refresh or direct URL navigation.
-//
-//   Fix: remove the early return. Auth guard lives INSIDE <Routes> on /lab
-//   only. All other routes (/data, /) render regardless of auth state.
-//
-//   authLoading ?? loading ?? false:
-//     - AppContext may expose either `authLoading` (Supabase async auth) or
-//       `loading` (legacy name). The double nullish-coalesce handles both
-//       without crashing if one field is undefined.
+//   authLoading ?? loading ?? false handles both naming conventions that
+//   AppContext may use. If neither field exists, isLoading = false and
+//   the spinner never locks permanently.
 const AppContent = () => {
   const { user, authLoading, loading } = useAppContext();
   const isLoading = authLoading ?? loading ?? false;
 
-  // Show spinner while auth state is resolving (first paint only)
   if (isLoading) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center">
@@ -98,34 +89,32 @@ const AppContent = () => {
 
   return (
     <Routes>
-      <Route path="/" element={<Layout />}>
-        {/* Default: always redirect root to /data */}
-        <Route index element={<Navigate to="/data" replace />} />
+      {/* Root: redirect to Data Hub */}
+      <Route index element={<Navigate to="/data" replace />} />
 
-        {/* Data Hub: public — no auth required */}
-        <Route path="data" element={<DataHub />} />
+      {/* Data Hub — public, no auth required */}
+      <Route path="/data" element={<DataHub />} />
 
-        {/* Model Lab: protected — redirect to /data if not authenticated.
-            This replaces the old blanket `if (!user) return null` pattern
-            which blocked the entire app rather than just this one route. */}
-        <Route
-          path="lab"
-          element={user ? <ModelLab /> : <Navigate to="/data" replace />}
-        />
+      {/* Model Lab — protected. Redirects to /data if not authenticated.
+          Inline guard replaces the old `if (!user) return null` that blocked
+          ALL routes and caused a blank screen on load. */}
+      <Route
+        path="/lab"
+        element={user ? <ModelLab /> : <Navigate to="/data" replace />}
+      />
 
-        {/* Catch-all: unknown paths → /data */}
-        <Route path="*" element={<Navigate to="/data" replace />} />
-      </Route>
+      {/* Catch-all: unknown paths → Data Hub */}
+      <Route path="*" element={<Navigate to="/data" replace />} />
     </Routes>
   );
 };
 
 // ── Root App ─────────────────────────────────────────────────────────────────
-// Provider order matters — outer to inner:
-//   ErrorBoundary       — must be outermost to catch any child crash
-//   BrowserRouter       — must wrap everything that uses useNavigate/Routes
-//   AppProvider         — auth context; AppContent reads from this
-//   DatasetFileProvider — file registry; DataHub writes, ModelLab reads
+// Provider order (outer → inner):
+//   ErrorBoundary       — outermost: catches any child render crash
+//   BrowserRouter       — routing context for Routes/Navigate/useNavigate
+//   AppProvider         — auth + dataset metadata context
+//   DatasetFileProvider — in-memory File registry: DataHub writes, ModelLab reads
 //   AppContent          — page tree; consumes all providers above
 const App = () => (
   <ErrorBoundary>
