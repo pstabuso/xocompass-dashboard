@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { LayoutDashboard, CheckSquare, Calendar, Book, FolderOpen, LogOut, User, Database, Shield, BrainCircuit, Users, Cloud, CloudOff, Loader2, Mail, Lock, Eye, EyeOff, Menu, X, Bell, LockKeyhole, Send, ArrowRight, Sun, Moon, AlertTriangle, RefreshCw, WifiOff, ChevronLeft } from 'lucide-react';
-import { AppProvider, useAppContext, ROLE_ROUTES, isNotificationForUser } from './context/AppContext';
+import { AppProvider, useAppContext, isNotificationForUser } from './context/AppContext';
+import { ROLE_ROUTES } from "./auth/domain/roles";
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { isCloudEnabled } from './lib/supabase';
 
