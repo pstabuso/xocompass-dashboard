@@ -17,24 +17,9 @@ const AppContext = createContext();
  *  Always forces PM role for the canonical PM email, regardless of DB state. */
 const buildUser = buildUserFromProfile;
 
-// Available roles for admin role-assignment (NOT for sign-up — new users always start as guest)
-export const AVAILABLE_ROLES = [
-  { id: 'pm', label: 'Project Manager & Docs Head' },
-  { id: 'backend', label: 'Backend Developer' },
-  { id: 'frontend', label: 'Frontend Developer' },
-  { id: 'guest', label: 'Guest Viewer' },
-];
 
 // Route access by role. null = all routes. Guests get view-only basics.
 // SARIMAX Lab, Calendar, Minutes are locked for guests until PM grants a role.
-export const ROLE_ROUTES = {
-  pm:         null,
-  backend:    null,
-  frontend:   null,
-  guest:      ['/', '/tasks', '/data', '/defense', '/resources'],
-  restricted: ['/'],
-};
-
 /** Check if a notification is addressed to a given user.
  *  Matches by email (preferred) or falls back to first-name in to_user. */
 export const isNotificationForUser = (n, user) => {
