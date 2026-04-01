@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Outlet, NavLink } from 'react-router-dom';
 
 import { AppProvider, useAppContext } from './context/AppContext';
 import { DatasetFileProvider } from './context/DatasetFileContext';
@@ -42,6 +42,73 @@ class ErrorBoundary extends React.Component {
   }
 }
 
+const AppShell = () => {
+  const { user, signOut } = useAppContext();
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-200">
+      <header className="sticky top-0 z-30 border-b border-slate-800 bg-slate-900/90 backdrop-blur-md">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <h1 className="text-lg sm:text-xl font-black text-white">XoCompass Dashboard</h1>
+            <p className="text-[11px] sm:text-xs text-slate-500 truncate">
+              Data Hub · Model Lab
+            </p>
+          </div>
+
+          <nav className="flex items-center gap-2">
+            <NavLink
+              to="/lab"
+              className={({ isActive }) =>
+                `px-3 py-1.5 rounded-lg text-sm font-bold transition ${
+                  isActive
+                    ? 'bg-pink-600 text-white'
+                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                }`
+              }
+            >
+              Model Lab
+            </NavLink>
+
+            <NavLink
+              to="/data"
+              className={({ isActive }) =>
+                `px-3 py-1.5 rounded-lg text-sm font-bold transition ${
+                  isActive
+                    ? 'bg-pink-600 text-white'
+                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                }`
+              }
+            >
+              Data Hub
+            </NavLink>
+          </nav>
+
+          <div className="flex items-center gap-2 shrink-0">
+            {user?.name && (
+              <span className="hidden sm:inline text-xs text-slate-400">
+                {user.name}
+              </span>
+            )}
+            {typeof signOut === 'function' && user && (
+              <button
+                onClick={signOut}
+                className="px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 text-sm font-bold transition"
+              >
+                Sign out
+              </button>
+            )}
+          </div>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-7xl px-4 sm:px-6 py-4">
+        <Outlet />
+      </main>
+    </div>
+  );
+};
+
 const AppContent = () => {
   const { authLoading, loading } = useAppContext();
   const isLoading = authLoading ?? loading ?? false;
@@ -56,10 +123,12 @@ const AppContent = () => {
 
   return (
     <Routes>
-      <Route index element={<Navigate to="/data" replace />} />
-      <Route path="/data" element={<DataHub />} />
-      <Route path="/lab" element={<ModelLab />} />
-      <Route path="*" element={<Navigate to="/data" replace />} />
+      <Route path="/" element={<AppShell />}>
+        <Route index element={<Navigate to="/lab" replace />} />
+        <Route path="lab" element={<ModelLab />} />
+        <Route path="data" element={<DataHub />} />
+        <Route path="*" element={<Navigate to="/lab" replace />} />
+      </Route>
     </Routes>
   );
 };
