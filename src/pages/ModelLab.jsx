@@ -40,7 +40,7 @@ import PACFChart from '../components/PACFChart';
 import { useAppContext } from '../context/AppContext';
 import { useDatasetFiles } from '../context/DatasetFileContext';
 
-import { FALLBACK, STAGE_ORDER } from '../features/model-lab/domain/constants';
+import { FALLBACK, STAGE_ORDER } from '../model-lab/domain/constants';
 import {
   safeN,
   fmt,
@@ -49,10 +49,11 @@ import {
   fmtPHPk,
   fmtDelta,
   paxInt,
-} from '../features/model-lab/domain/formatters';
+} from '../model-lab/domain/formatters';
 
-import { parseBookingCsv } from '../features/model-lab/domain/parseBookingCsv';
-import { deriveAdaptiveStats } from '../features/model-lab/domain/deriveAdaptiveStats';
+import { parseBookingCsv } from '../model-lab/domain/parseBookingCsv';
+import { deriveAdaptiveStats } from '../model-lab/domain/deriveAdaptiveStats';
+import { validatePredictionResponse } from '../model-lab/domain/validatePrediction';
 
 
 // ═══════════════════════════════════════════════════════════════════════════
