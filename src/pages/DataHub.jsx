@@ -9,7 +9,7 @@ import { useAppContext } from '../context/AppContext';
 import { useDatasetFiles } from '../context/DatasetFileContext';
 
 const ALLOWED_EXTENSIONS = ['.csv', '.tsv', '.txt', '.json', '.xlsx', '.xls'];
-const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
+const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
 const getFileIcon = (name = '') => {
   const ext = '.' + name.split('.').pop().toLowerCase();
@@ -53,8 +53,8 @@ const DataHub = () => {
     getDatasetFile,
   } = useDatasetFiles();
 
-  const canCreate = user?.permissions?.canCreate;
-  const canDelete = user?.permissions?.canDelete;
+  const canCreate = user?.permissions?.canCreate ?? true;
+  const canDelete = user?.permissions?.canDelete ?? true;
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -82,8 +82,8 @@ const DataHub = () => {
     const totalRecords = datasets.reduce((sum, d) => sum + parseRows(d.rows), 0);
     const verifiedCount = datasets.filter((d) => d.status === 'Verified').length;
     const integrityPct = datasets.length === 0 ? 0 : Math.round((verifiedCount / datasets.length) * 100);
-    const sarimaxReady = datasets.filter((d) => hasDatasetFile(d.id)).length;
-    return { totalRecords, integrityPct, sarimaxReady };
+    const availableNow = datasets.filter((d) => hasDatasetFile(d.id)).length;
+    return { totalRecords, integrityPct, availableNow };
   }, [datasets, hasDatasetFile]);
 
   const filteredDatasets = useMemo(() => {
@@ -268,7 +268,7 @@ const DataHub = () => {
           ) : (
             <button
               onClick={() => {
-                requestAccess('Edit on Data Hub', 'action');
+                requestAccess?.('Edit on Data Hub', 'action');
                 setAccessSent(true);
               }}
               className="text-[10px] px-2.5 py-1 bg-pink-600 text-white rounded font-bold hover:bg-pink-500 transition shrink-0"
@@ -279,17 +279,13 @@ const DataHub = () => {
         </div>
       )}
 
-      {stats.sarimaxReady > 0 && (
-        <div className="p-3 bg-violet-500/10 border border-violet-500/20 rounded-xl flex items-center gap-3">
-          <FlaskConical size={16} className="text-violet-400 shrink-0" />
-          <p className="text-xs text-violet-300 flex-1">
-            <span className="font-bold">
-              {stats.sarimaxReady} dataset{stats.sarimaxReady > 1 ? 's' : ''}
-            </span>{' '}
-            available in the SARIMAX Lab. Go to <span className="font-bold">SARIMAX Lab → Stage 1</span> and select from the Data Hub panel.
-          </p>
-        </div>
-      )}
+      <div className="p-3 bg-violet-500/10 border border-violet-500/20 rounded-xl flex items-center gap-3">
+        <FlaskConical size={16} className="text-violet-400 shrink-0" />
+        <p className="text-xs text-violet-300 flex-1">
+          <span className="font-bold">{stats.availableNow}</span> dataset{stats.availableNow !== 1 ? 's are' : ' is'} currently available in this session for Model Lab.
+          <span className="text-slate-400"> Uploaded file contents are session-only and must be re-uploaded after refresh.</span>
+        </p>
+      </div>
 
       <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div>
@@ -307,7 +303,7 @@ const DataHub = () => {
       </header>
 
       <div className="grid grid-cols-4 gap-2 sm:gap-4">
-        <div className="bg-slate-900/50 p-3 sm:p-5 rounded-xl border border-slate-800 transition hover:shadow-md hover:-translate-y-1 duration-300">
+        <div className="bg-slate-900/50 p-3 sm:p-5 rounded-xl border border-slate-800">
           <div className="flex items-center gap-1.5 sm:gap-3 text-slate-400 mb-1 sm:mb-2">
             <Database size={14} className="sm:w-[20px] sm:h-[20px]" />
             <span className="text-[10px] sm:text-sm">Records</span>
@@ -315,7 +311,7 @@ const DataHub = () => {
           <p className="text-lg sm:text-3xl font-bold text-slate-100">{stats.totalRecords.toLocaleString()}</p>
         </div>
 
-        <div className="bg-slate-900/50 p-3 sm:p-5 rounded-xl border border-slate-800 transition hover:shadow-md hover:-translate-y-1 duration-300">
+        <div className="bg-slate-900/50 p-3 sm:p-5 rounded-xl border border-slate-800">
           <div className="flex items-center gap-1.5 sm:gap-3 text-slate-400 mb-1 sm:mb-2">
             <AlertCircle size={14} className="sm:w-[20px] sm:h-[20px]" />
             <span className="text-[10px] sm:text-sm">Integrity</span>
@@ -323,16 +319,9 @@ const DataHub = () => {
           <p className="text-lg sm:text-3xl font-bold text-emerald-400">
             {datasets.length === 0 ? '--' : `${stats.integrityPct}%`}
           </p>
-          <p className="text-[10px] sm:text-xs text-slate-500 hidden sm:block">
-            {datasets.length === 0
-              ? 'No datasets loaded'
-              : stats.integrityPct === 100
-              ? 'All verified'
-              : `${datasets.filter((d) => d.status === 'Verified').length} of ${datasets.length} verified`}
-          </p>
         </div>
 
-        <div className="bg-slate-900/50 p-3 sm:p-5 rounded-xl border border-slate-800 transition hover:shadow-md hover:-translate-y-1 duration-300">
+        <div className="bg-slate-900/50 p-3 sm:p-5 rounded-xl border border-slate-800">
           <div className="flex items-center gap-1.5 sm:gap-3 text-slate-400 mb-1 sm:mb-2">
             <FileSpreadsheet size={14} className="sm:w-[20px] sm:h-[20px]" />
             <span className="text-[10px] sm:text-sm">Datasets</span>
@@ -340,13 +329,13 @@ const DataHub = () => {
           <p className="text-lg sm:text-3xl font-bold text-pink-400">{datasets.length}</p>
         </div>
 
-        <div className="bg-slate-900/50 p-3 sm:p-5 rounded-xl border border-violet-500/20 transition hover:shadow-md hover:-translate-y-1 duration-300">
+        <div className="bg-slate-900/50 p-3 sm:p-5 rounded-xl border border-violet-500/20">
           <div className="flex items-center gap-1.5 sm:gap-3 text-violet-400 mb-1 sm:mb-2">
             <FlaskConical size={14} className="sm:w-[20px] sm:h-[20px]" />
-            <span className="text-[10px] sm:text-sm">SARIMAX Ready</span>
+            <span className="text-[10px] sm:text-sm">Available Now</span>
           </div>
-          <p className="text-lg sm:text-3xl font-bold text-violet-400">{stats.sarimaxReady}</p>
-          <p className="text-[10px] sm:text-xs text-slate-500 hidden sm:block">available in lab</p>
+          <p className="text-lg sm:text-3xl font-bold text-violet-400">{stats.availableNow}</p>
+          <p className="text-[10px] sm:text-xs text-slate-500 hidden sm:block">session file registry</p>
         </div>
       </div>
 
@@ -406,12 +395,6 @@ const DataHub = () => {
               {sortDir === 'asc' ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
             </button>
           </div>
-
-          {(filterType !== 'All' || filterStatus !== 'All') && (
-            <span className="text-[10px] text-slate-500">
-              {filteredDatasets.length} of {datasets.length}
-            </span>
-          )}
         </div>
       )}
 
@@ -453,7 +436,7 @@ const DataHub = () => {
                     Rows <SortIcon field="rows" />
                   </th>
                   <th className="p-4">Status</th>
-                  <th className="p-4">SARIMAX</th>
+                  <th className="p-4">Session File</th>
                   <th className="p-4 text-right">Actions</th>
                 </tr>
               </thead>
@@ -461,7 +444,7 @@ const DataHub = () => {
                 {filteredDatasets.map((d) => {
                   const Icon = getFileIcon(d.name);
                   const canDownload = !!getDatasetFile(d.id);
-                  const sarimaxReady = hasDatasetFile(d.id);
+                  const availableNow = hasDatasetFile(d.id);
 
                   return (
                     <tr key={d.id} className="hover:bg-slate-800/50 transition duration-200">
@@ -483,12 +466,12 @@ const DataHub = () => {
                         </span>
                       </td>
                       <td className="p-4">
-                        {sarimaxReady ? (
+                        {availableNow ? (
                           <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 bg-violet-500/15 text-violet-400 border border-violet-500/20 rounded font-bold">
-                            <FlaskConical size={9} /> Ready
+                            <FlaskConical size={9} /> Available
                           </span>
                         ) : (
-                          <span className="text-[10px] text-slate-600">—</span>
+                          <span className="text-[10px] text-slate-500">Re-upload needed</span>
                         )}
                       </td>
                       <td className="p-4">
@@ -496,7 +479,7 @@ const DataHub = () => {
                           <button
                             onClick={() => handleDownload(d)}
                             className={`p-2 rounded-lg transition ${canDownload ? 'text-slate-500 hover:text-emerald-400 hover:bg-emerald-500/10' : 'text-slate-700 cursor-not-allowed'}`}
-                            title={canDownload ? 'Download file' : 'File only available right after upload'}
+                            title={canDownload ? 'Download file' : 'File content unavailable after refresh — re-upload to restore'}
                             disabled={!canDownload}
                           >
                             <Download size={16} />
@@ -542,7 +525,7 @@ const DataHub = () => {
             {filteredDatasets.map((d) => {
               const Icon = getFileIcon(d.name);
               const canDownload = !!getDatasetFile(d.id);
-              const sarimaxReady = hasDatasetFile(d.id);
+              const availableNow = hasDatasetFile(d.id);
 
               return (
                 <div key={d.id} className="bg-slate-900/50 rounded-xl border border-slate-800 p-3 space-y-2.5">
@@ -562,11 +545,9 @@ const DataHub = () => {
                         <span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[d.status] || STATUS_DOT.Raw}`} />
                         {d.status}
                       </span>
-                      {sarimaxReady && (
-                        <span className="inline-flex items-center gap-1 text-violet-400">
-                          <FlaskConical size={9} /> Lab
-                        </span>
-                      )}
+                      <span className={availableNow ? 'text-violet-400' : 'text-slate-500'}>
+                        {availableNow ? 'Available' : 'Re-upload'}
+                      </span>
                     </div>
 
                     <div className="flex gap-1 shrink-0">
@@ -674,11 +655,9 @@ const DataHub = () => {
                         <p className="text-xs text-slate-500">
                           {formData.size} • {Number(formData.rows).toLocaleString()} rows
                         </p>
-                        {formData.name.endsWith('.csv') && (
-                          <p className="text-[10px] text-violet-400 mt-1 flex items-center gap-1">
-                            <FlaskConical size={10} /> Will be available in SARIMAX Lab
-                          </p>
-                        )}
+                        <p className="text-[10px] text-violet-400 mt-1 flex items-center gap-1">
+                          <FlaskConical size={10} /> Available in Model Lab for this session after upload
+                        </p>
                       </div>
                     ) : (
                       <>
@@ -689,7 +668,7 @@ const DataHub = () => {
                         </div>
                         <p className="text-xs text-slate-500">CSV, TSV, JSON, XLSX, TXT — max 50 MB</p>
                         <p className="text-[10px] text-violet-400 flex items-center justify-center gap-1">
-                          <FlaskConical size={10} /> CSV files link to the SARIMAX Lab
+                          <FlaskConical size={10} /> File contents do not persist after refresh
                         </p>
                       </>
                     )}
