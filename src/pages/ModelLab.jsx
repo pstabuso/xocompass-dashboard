@@ -57,10 +57,12 @@ import {
   sanitiseCapacity,
   sanitiseHorizon,
 } from '../model-lab/domain/inputSanitisers';
+
 import { parseBookingCsv } from '../model-lab/domain/parseBookingCsv';
 import { deriveAdaptiveStats } from '../model-lab/domain/deriveAdaptiveStats';
 import { sanitiseDssResponse } from '../model-lab/domain/sanitiseDssResponse';
 import { sanitiseError } from '../model-lab/domain/sanitiseError';
+import { buildForecastChartData } from '../model-lab/domain/buildForecastChartData';
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  API VALIDATION
@@ -541,27 +543,10 @@ const ModelLab = () => {
     return Object.values(acc);
   }, [csvData, EFF.netCommission]);
 
-  const forecastChartData = useMemo(() => {
-    if (!csvData) return [];
-    const history = csvData.slice(-24).map(d => ({ date: d.date, actual: d.demand, forecast: null, ci_upper: null }));
-    if (!prediction?.forecasts) return history;
-    const monthly = {};
-    prediction.forecasts.forEach(fp => {
-      const mo = fp.date.slice(0,7);
-      if (!monthly[mo]) monthly[mo] = { date: mo, actual: null, demands: [], ci_ups: [] };
-      // [BUG-1 FIX] Use paxInt for chart aggregation — fp.forecast is already an integer
-      // from the backend (f_int), but paxInt() guards against any legacy float values
-      // and documents that chart bars represent whole passengers, not fractional counts.
-      monthly[mo].demands.push(paxInt(fp.forecast));
-      monthly[mo].ci_ups.push(safeN(fp.ci_upper));   // CI can remain float for smooth bands
-    });
-    const future = Object.values(monthly).map(m => ({
-      date: m.date, actual: null,
-      forecast: m.demands.reduce((s,v)=>s+v, 0),     // already integer sum
-      ci_upper: +fmt(m.ci_ups.reduce((s,v)=>s+v,0)),
-    }));
-    return [...history, ...future];
-  }, [csvData, prediction]);
+  const forecastChartData = useMemo(
+  () => buildForecastChartData(csvData, prediction),
+  [csvData, prediction]
+);
 
   // [v17.7] modelData: dw_stat replaced by lb_pvalue (Ljung-Box p-value)
   const modelData = useMemo(() => ({
