@@ -63,6 +63,7 @@ import { deriveAdaptiveStats } from '../model-lab/domain/deriveAdaptiveStats';
 import { sanitiseDssResponse } from '../model-lab/domain/sanitiseDssResponse';
 import { sanitiseError } from '../model-lab/domain/sanitiseError';
 import { buildForecastChartData } from '../model-lab/domain/buildForecastChartData';
+import { pearsonR } from '../model-lab/domain/pearsonR';
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  API VALIDATION
@@ -124,20 +125,6 @@ function parseCSV(text) {
       if (p[0].length === 2) parsedDate = new Date(`${p[2]}-${p[1]}-${p[0]}`);
     }
     if (isNaN(parsedDate.getTime())) { errors.push(`Row ${i + 2}: bad date "${rawDate}"`); return; }
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  PEARSON r
-// ═══════════════════════════════════════════════════════════════════════════
-function pearsonR(xs, ys) {
-  const n = xs.length;
-  if (n < 2 || n !== ys.length) return 0;
-  const mx = xs.reduce((s, v) => s + v, 0) / n;
-  const my = ys.reduce((s, v) => s + v, 0) / n;
-  let num = 0, dx = 0, dy = 0;
-  for (let i = 0; i < n; i++) { const ex = xs[i]-mx, ey = ys[i]-my; num+=ex*ey; dx+=ex*ex; dy+=ey*ey; }
-  const d = Math.sqrt(dx * dy);
-  return d === 0 ? 0 : +(num / d).toFixed(3);
-}
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  ABLATION MOCK DATA
