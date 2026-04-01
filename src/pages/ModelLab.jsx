@@ -55,7 +55,6 @@ import {
 
 import { parseBookingCsv } from '../model-lab/domain/parseBookingCsv';
 import { deriveAdaptiveStats } from '../model-lab/domain/deriveAdaptiveStats';
-import { validatePredictionResponse } from '../model-lab/domain/validatePrediction';
 
 
 // ═══════════════════════════════════════════════════════════════════════════
