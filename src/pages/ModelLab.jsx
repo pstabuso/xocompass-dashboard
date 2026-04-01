@@ -55,7 +55,7 @@ import {
 
 import { parseBookingCsv } from '../model-lab/domain/parseBookingCsv';
 import { deriveAdaptiveStats } from '../model-lab/domain/deriveAdaptiveStats';
-
+import { sanitiseDssResponse } from '../model-lab/domain/sanitiseDssResponse';
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  INPUT SANITISATION
@@ -80,18 +80,6 @@ function validatePredictionResponse(data) {
     if (!isFinite(Number(fp.forecast))) throw new Error('Non-numeric forecast value');
   }
   return true;
-}
-
-function sanitiseDSSResponse(data) {
-  if (!data || typeof data !== 'object') return null;
-  const s = v => (isFinite(Number(v)) && Number(v) >= 0 ? Number(v) : 0);
-  return {
-    ...data,
-    potential_revenue: s(data.potential_revenue), capped_revenue: s(data.capped_revenue),
-    revenue_at_risk: s(data.revenue_at_risk), mitigated_revenue: s(data.mitigated_revenue),
-    critical_days: s(data.critical_days), high_days: s(data.high_days),
-    warning_days: s(data.warning_days), optimal_days: s(data.optimal_days),
-  };
 }
 
 function sanitiseError(err) {
@@ -611,9 +599,9 @@ const ModelLab = () => {
   }), [isAblation]);
 
   const activeDSS = useMemo(() => {
-    if (dssResult) return sanitiseDSSResponse(dssResult);
+    if (dssResult) return sanitiseDssResponse(dssResult);
     if (!prediction) return null;
-    return sanitiseDSSResponse({
+    return sanitiseDssResponse({
       potential_revenue: prediction.potential_revenue,
       capped_revenue:    prediction.capped_revenue,
       revenue_at_risk:   prediction.revenue_at_risk,
@@ -777,7 +765,7 @@ if (signal.aborted) throw new Error('Cancelled');
       commissionPerPax: FALLBACK.NET_COMMISSION_PHP,
       applySurcharge: dssScenario.applyS,
     });
-      const sane = sanitiseDSSResponse(result);
+      const sane = sanitiseDssResponse(result);
       setDssBaseline(prev => prev || sane);
       setDssResult(sane);
       addAudit('DSS_CALC', `cap=${safeCapacity} commission=₱${FALLBACK.NET_COMMISSION_PHP}`);
