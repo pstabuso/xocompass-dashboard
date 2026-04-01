@@ -25,7 +25,6 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider, useAppContext }       from './context/AppContext';
 import { DatasetFileProvider }              from './context/DatasetFileContext'; // ← ADDED
 
-import Layout    from './components/Layout';
 import DataHub   from './pages/DataHub';
 import ModelLab  from './pages/ModelLab';
 
