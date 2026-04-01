@@ -67,7 +67,7 @@ const sanitiseHorizon  = v => Math.round(clamp(v, FALLBACK.MIN_HORIZON, FALLBACK
 // ═══════════════════════════════════════════════════════════════════════════
 //  API VALIDATION
 // ═══════════════════════════════════════════════════════════════════════════
-function validatePredictResponse(data) {
+function validatePredictionResponse(data) {
   if (!data || typeof data !== 'object') throw new Error('Invalid response: not an object');
   if (!Array.isArray(data.forecasts) || data.forecasts.length === 0)
     throw new Error('Invalid response: forecasts missing or empty');
@@ -676,7 +676,7 @@ const ModelLab = () => {
       });
 
       if (signal.aborted) throw new Error('Cancelled');
-      validatePredictResponse(raw);
+      validatePredictionResponse(raw);
 
       setProgress(80);
       addLog('─'.repeat(58), 'divider');
