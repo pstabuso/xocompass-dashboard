@@ -29,7 +29,7 @@ import {
   CartesianGrid, Area, ComposedChart, BarChart as RechartsBarChart,
   Bar, ReferenceLine, Cell, ScatterChart, Scatter,
 } from 'recharts';
-import { recalculateDSS } from '../lib/sarimax-api';
+import { runDssScenario } from '../model-lab/services/dssService';
 import {
   checkForecastBackend,
   buildDailyObservations,
@@ -771,12 +771,12 @@ if (signal.aborted) throw new Error('Cancelled');
 
     setIsDSSCalc(true);
     try {
-      const result = await recalculateDSS({
-        forecasts: prediction.forecasts,
-        dailyCapacity: safeCapacity,           // [BUG-3 FIX] fresh value, not stale closure
-        commissionPerPax: FALLBACK.NET_COMMISSION_PHP,  // [BUG-2 FIX] always ₱69.35
-        applySurcharge: dssScenario.applyS,
-      });
+     const result = await runDssScenario({
+      forecasts: prediction.forecasts,
+      dailyCapacity: safeCapacity,
+      commissionPerPax: FALLBACK.NET_COMMISSION_PHP,
+      applySurcharge: dssScenario.applyS,
+    });
       const sane = sanitiseDSSResponse(result);
       setDssBaseline(prev => prev || sane);
       setDssResult(sane);
