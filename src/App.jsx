@@ -1,10 +1,35 @@
 import React from 'react';
-import { BrowserRouter, Routes, Route, Navigate, Outlet, NavLink } from 'react-router-dom';
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  Outlet,
+  NavLink,
+} from 'react-router-dom';
+import {
+  LayoutDashboard,
+  CheckSquare,
+  CalendarDays,
+  Database,
+  Shield,
+  BookOpen,
+  Settings,
+  BrainCircuit,
+  FileText,
+} from 'lucide-react';
 
 import { AppProvider, useAppContext } from './context/AppContext';
 import { DatasetFileProvider } from './context/DatasetFileContext';
 
+import Dashboard from './pages/Dashboard';
+import TaskTracker from './pages/TaskTracker';
+import Schedule from './pages/Schedule';
 import DataHub from './pages/DataHub';
+import Defense from './pages/Defense';
+import AdminPanel from './pages/AdminPanel';
+import Resources from './pages/Resources';
+import Minutes from './pages/Minutes';
 import ModelLab from './pages/ModelLab';
 
 class ErrorBoundary extends React.Component {
@@ -42,6 +67,18 @@ class ErrorBoundary extends React.Component {
   }
 }
 
+const navItems = [
+  { to: '/', label: 'Overview', icon: LayoutDashboard, end: true },
+  { to: '/tasks', label: 'Task Tracker', icon: CheckSquare },
+  { to: '/schedule', label: 'Calendar', icon: CalendarDays },
+  { to: '/minutes', label: 'Minutes', icon: FileText },
+  { to: '/data', label: 'Data Hub', icon: Database },
+  { to: '/lab', label: 'Model Lab', icon: BrainCircuit },
+  { to: '/defense', label: 'Defense Hub', icon: Shield },
+  { to: '/resources', label: 'Resources', icon: BookOpen },
+  { to: '/admin', label: 'Admin Panel', icon: Settings },
+];
+
 const AppShell = () => {
   const { user, signOut } = useAppContext();
 
@@ -52,41 +89,13 @@ const AppShell = () => {
           <div className="min-w-0">
             <h1 className="text-lg sm:text-xl font-black text-white">XoCompass Dashboard</h1>
             <p className="text-[11px] sm:text-xs text-slate-500 truncate">
-              Data Hub · Model Lab
+              Overview · Tasks · Schedule · Data · Defense · Admin · Model Lab
             </p>
           </div>
 
-          <nav className="flex items-center gap-2">
-            <NavLink
-              to="/lab"
-              className={({ isActive }) =>
-                `px-3 py-1.5 rounded-lg text-sm font-bold transition ${
-                  isActive
-                    ? 'bg-pink-600 text-white'
-                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-                }`
-              }
-            >
-              Model Lab
-            </NavLink>
-
-            <NavLink
-              to="/data"
-              className={({ isActive }) =>
-                `px-3 py-1.5 rounded-lg text-sm font-bold transition ${
-                  isActive
-                    ? 'bg-pink-600 text-white'
-                    : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
-                }`
-              }
-            >
-              Data Hub
-            </NavLink>
-          </nav>
-
           <div className="flex items-center gap-2 shrink-0">
             {user?.name && (
-              <span className="hidden sm:inline text-xs text-slate-400">
+              <span className="hidden md:inline text-xs text-slate-400">
                 {user.name}
               </span>
             )}
@@ -102,9 +111,35 @@ const AppShell = () => {
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl px-4 sm:px-6 py-4">
-        <Outlet />
-      </main>
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 py-4 grid grid-cols-1 lg:grid-cols-[240px_minmax(0,1fr)] gap-4 sm:gap-6">
+        <aside className="lg:sticky lg:top-[76px] lg:self-start">
+          <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-3">
+            <nav className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-1 gap-2">
+              {navItems.map(({ to, label, icon: Icon, end }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  end={end}
+                  className={({ isActive }) =>
+                    `flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-bold transition ${
+                      isActive
+                        ? 'bg-pink-600 text-white'
+                        : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                    }`
+                  }
+                >
+                  <Icon size={16} />
+                  <span className="truncate">{label}</span>
+                </NavLink>
+              ))}
+            </nav>
+          </div>
+        </aside>
+
+        <main className="min-w-0">
+          <Outlet />
+        </main>
+      </div>
     </div>
   );
 };
@@ -124,10 +159,16 @@ const AppContent = () => {
   return (
     <Routes>
       <Route path="/" element={<AppShell />}>
-        <Route index element={<Navigate to="/lab" replace />} />
-        <Route path="lab" element={<ModelLab />} />
+        <Route index element={<Dashboard />} />
+        <Route path="tasks" element={<TaskTracker />} />
+        <Route path="schedule" element={<Schedule />} />
+        <Route path="minutes" element={<Minutes />} />
         <Route path="data" element={<DataHub />} />
-        <Route path="*" element={<Navigate to="/lab" replace />} />
+        <Route path="lab" element={<ModelLab />} />
+        <Route path="defense" element={<Defense />} />
+        <Route path="resources" element={<Resources />} />
+        <Route path="admin" element={<AdminPanel />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
   );
