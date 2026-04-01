@@ -118,12 +118,40 @@ def _guard_arr(arr: Any, fallback: float = 0.0) -> np.ndarray:
 
 def _clean_list(arr: Any, fallback: float = 0.0) -> List[float]:
     """
-    Convert any array-like to a clean Python list[float] with all
-    NaN/Inf coerced to fallback.  Used before JSON serialisation.
-    [STRIDE-T] Prevents NaN propagation into the API response.
+    Convert any array-like to a clean Python list[float] with ALL
+    non-finite values coerced to fallback.
+
+    [iOS FIX] Root cause of WebKit crash: Python's json module renders
+    float('nan') as the bare token NaN — which is NOT valid JSON per RFC 8259.
+    Desktop Chrome/V8 silently accepts it; iOS WebKit's JSON.parse() throws
+    a SyntaxError, causing the pipeline to hang/fail silently on Safari.
+
+    Four-layer defence (in order):
+      1. Reject None / empty input early — return [] without touching numpy.
+      2. np.asarray(..., dtype=float) with error coercion — handles object
+         arrays, masked arrays, scipy sparse, and Python None inside lists.
+      3. np.where(np.isfinite(a), a, fallback) — vectorised in-place
+         replacement covers numpy nan, inf, -inf in a single pass.
+      4. Per-element math.isfinite() on Python floats — belt-and-braces
+         for any edge type that survives the numpy conversion.
+
+    [STRIDE-T] Guarantees every serialised float is RFC-8259 compliant.
     """
-    return [float(x) if math.isfinite(float(x)) else fallback
-            for x in np.asarray(arr, dtype=float).tolist()]
+    # Layer 1: reject None / non-iterable early
+    if arr is None:
+        return []
+    # Layer 2: convert to float64 numpy array; errors → NaN (handled next)
+    try:
+        a = np.asarray(arr, dtype=float)
+    except (TypeError, ValueError):
+        return []
+    # Flatten to 1-D so ProbPlot 2-D outputs are handled safely
+    if a.ndim != 1:
+        a = a.ravel()
+    # Layer 3: vectorised NaN/Inf replacement
+    a = np.where(np.isfinite(a), a, fallback)
+    # Layer 4: per-element Python-level check (handles rare edge types)
+    return [v if math.isfinite(v) else fallback for v in a.tolist()]
 
 
 def _wmape(actual: np.ndarray, forecast: np.ndarray) -> float:
@@ -217,38 +245,54 @@ def _diagnostics(residuals: np.ndarray, n_obs: int) -> Optional["DiagnosticResul
         return None
 
     try:
+        # ── Guard: skip diagnostics when residuals are near-constant ──────
+        # [iOS FIX] When residual std ≈ 0, ACF/PACF produce NaN columns
+        # and ProbPlot standardisation divides by zero → NaN arrays →
+        # invalid JSON → iOS WebKit SyntaxError on JSON.parse().
+        r_std_scalar = float(np.std(r))
+        if not math.isfinite(r_std_scalar) or r_std_scalar < 1e-8:
+            log.warning("Diagnostics skipped — near-zero residual variance (std=%.2e)", r_std_scalar)
+            return None
+
         # ── 1. Ljung-Box test ─────────────────────────────────────────────
         # [ISO 25010 - Functional Suitability] Tests H₀: residuals are iid.
-        # p > 0.05 → fail to reject → residuals are white noise → model is adequate.
-        # p < 0.05 → reject → systematic autocorrelation remains → model can improve.
-        lags = min(DIAG_LAGS, n // 2 - 1)
-        lb_result  = acorr_ljungbox(r, lags=[lags], return_df=True)
-        lb_stat    = float(lb_result["lb_stat"].iloc[-1])
-        lb_pvalue  = float(lb_result["lb_pvalue"].iloc[-1])
-        lb_stat    = lb_stat  if math.isfinite(lb_stat)   else 0.0
-        lb_pvalue  = lb_pvalue if math.isfinite(lb_pvalue) else 1.0
+        # p > 0.05 → fail to reject → residuals are white noise → model adequate.
+        # p < 0.05 → reject → systematic autocorrelation remains → needs work.
+        lags      = max(1, min(DIAG_LAGS, n // 2 - 1))
+        lb_result = acorr_ljungbox(r, lags=[lags], return_df=True)
+        lb_stat   = _guard(lb_result["lb_stat"].iloc[-1],   0.0, "lb_stat")
+        lb_pvalue = _guard(lb_result["lb_pvalue"].iloc[-1], 1.0, "lb_pvalue")
 
         # ── 2. ACF ───────────────────────────────────────────────────────
-        # [ISO 25010 - Functional Suitability] Lag correlations for BarChart.
-        # nlags capped at n//2 - 1 to stay within valid statsmodels range.
-        acf_lags  = min(DIAG_ACF_LAGS, n // 2 - 1)
-        acf_vals  = sm_acf(r, nlags=acf_lags, fft=True)
-        acf_clean = _clean_list(acf_vals[1:])  # drop lag-0 (always 1.0)
+        # [iOS FIX] fft=False avoids scipy FFT edge cases that produce NaN
+        # on short or degenerate series on older WebKit runtimes.
+        # nlags capped at n//2 - 1 to stay in valid statsmodels range.
+        acf_lags  = max(1, min(DIAG_ACF_LAGS, n // 2 - 1))
+        acf_vals  = sm_acf(r, nlags=acf_lags, fft=False)
+        acf_clean = _clean_list(acf_vals[1:])   # drop lag-0 (always 1.0)
 
         # ── 3. PACF ──────────────────────────────────────────────────────
-        pacf_lags  = min(DIAG_ACF_LAGS, n // 2 - 1)
-        pacf_vals  = sm_pacf(r, nlags=pacf_lags, method="ywm")
+        # method="ols" is more numerically stable than "ywm" on short series
+        pacf_lags  = max(1, min(DIAG_ACF_LAGS, n // 2 - 1))
+        pacf_vals  = sm_pacf(r, nlags=pacf_lags, method="ols")
         pacf_clean = _clean_list(pacf_vals[1:])  # drop lag-0 (always 1.0)
 
         # ── 4. Q-Q quantiles ─────────────────────────────────────────────
-        # [ISO 25010 - Functional Suitability] Standardise residuals first.
-        # ProbPlot maps sample order statistics to N(0,1) theoretical quantiles.
-        r_std  = (r - r.mean()) / (r.std() + 1e-10)  # avoid div-by-zero
-        pp     = sm.ProbPlot(r_std, fit=True)
+        # [iOS FIX] Clamp standardised residuals to [-10, 10] before ProbPlot.
+        # Extreme outliers cause theoretical_quantiles to be ±Inf which
+        # serialises as the bare token Infinity — invalid JSON on WebKit.
+        r_standardised = (r - r.mean()) / (r_std_scalar + 1e-10)
+        r_standardised = np.clip(r_standardised, -10.0, 10.0)  # [iOS FIX]
+        pp             = sm.ProbPlot(r_standardised, fit=True)
         qq_theoretical = _clean_list(pp.theoretical_quantiles)
         qq_sample      = _clean_list(pp.sample_quantiles)
 
-        # ── 95% confidence interval band width for ACF/PACF ──────────────
+        # ── Guard: reject empty arrays (statsmodels edge cases) ───────────
+        if not acf_clean or not pacf_clean or not qq_theoretical:
+            log.warning("Diagnostics produced empty arrays — returning None")
+            return None
+
+        # ── 95% CI half-width for ACF/PACF bar charts ─────────────────────
         ci_bound = round(1.96 / math.sqrt(n), 4)
 
         log.info(
@@ -263,12 +307,12 @@ def _diagnostics(residuals: np.ndarray, n_obs: int) -> Optional["DiagnosticResul
             "pacf":             pacf_clean,
             "qq_theoretical":   qq_theoretical,
             "qq_sample":        qq_sample,
-            "ci_bound":         ci_bound,    # ±1.96/√n for frontend reference lines
+            "ci_bound":         ci_bound,
             "n_obs":            n_obs,
         }
 
     except Exception as exc:
-        # [STRIDE-I] Log internally but never expose traceback to API response.
+        # [STRIDE-I] Never expose internal traceback to API response.
         log.warning("Diagnostics computation failed: %s", exc)
         return None
 
