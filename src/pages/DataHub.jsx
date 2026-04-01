@@ -270,7 +270,6 @@ const DataHub = () => {
               onClick={() => {
                requestAccess?.('Edit on Data Hub', 'action');
                setAccessSent(true);
-}}
               }}
               className="text-[10px] px-2.5 py-1 bg-pink-600 text-white rounded font-bold hover:bg-pink-500 transition shrink-0"
             >
