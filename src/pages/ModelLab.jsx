@@ -42,28 +42,13 @@ import PACFChart from '../components/PACFChart';
 import { useAppContext } from '../context/AppContext';
 import { useDatasetFiles } from '../context/DatasetFileContext';
 
-import { FALLBACK, STAGE_ORDER } from '../model-lab/domain/constants';
-import {
-  safeN,
-  fmt,
-  fmtPct,
-  fmtPHP,
-  fmtPHPk,
-  fmtDelta,
-  paxInt,
-} from '../model-lab/domain/formatters';
-import {
-  clamp,
-  sanitiseCapacity,
-  sanitiseHorizon,
-} from '../model-lab/domain/inputSanitisers';
-
 import { parseBookingCsv } from '../model-lab/domain/parseBookingCsv';
 import { deriveAdaptiveStats } from '../model-lab/domain/deriveAdaptiveStats';
 import { sanitiseDssResponse } from '../model-lab/domain/sanitiseDssResponse';
 import { sanitiseError } from '../model-lab/domain/sanitiseError';
 import { buildForecastChartData } from '../model-lab/domain/buildForecastChartData';
 import { pearsonR } from '../model-lab/domain/pearsonR';
+import { useModelLabController } from '../model-lab/hooks/useModelLabController';
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  API VALIDATION
@@ -368,62 +353,53 @@ const StageNav = memo(({ currentId, onBack, onComplete, completeLabel, completeD
     </div>
   );
 });
-
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  MAIN COMPONENT
-// ═══════════════════════════════════════════════════════════════════════════
-const ModelLab = () => {
-  const [stage, setStage]               = useState('ingest');
-  const [backendStatus, setBackendStatus] = useState(null);
-  const [isRunning, setIsRunning]       = useState(false);
-  const [isDSSCalc, setIsDSSCalc]       = useState(false);
-  const [prediction, setPrediction]     = useState(null);
-  const [dssScenario, setDssScenario]   = useState({ capacity: null, applyS: true }); // null = use derived
-  const [dssBaseline, setDssBaseline]   = useState(null);
-  const [dssResult, setDssResult]       = useState(null);
- const {
+const {
+  stage,
+  backendStatus,
+  isRunning,
+  isDSSCalc,
+  prediction,
+  dssScenario,
+  setDssScenario,
+  dssBaseline,
+  dssResult,
+  progress,
+  modelMode,
+  setModelMode,
+  modeStale,
+  horizon,
+  setHorizon,
+  isAblation,
+  toggleAblation,
+  runGuard,
+  csvData,
+  csvMeta,
+  completedStages,
+  dhLoadingId,
+  setDhLoadingId,
+  liveMetrics,
+  adaptiveStats,
+  EFF,
+  effectiveCapacity,
   terminalLogs,
-  setTerminalLogs,
   auditLog,
   showAudit,
   setShowAudit,
   addAudit,
   addLog,
-} = useModelLabConsole();
-  // [ISO 25010 - Usability][BUG-2 FIX] Track whether model mode changed
-  // AFTER a pipeline run — triggers "Re-run Required" banner so user knows
-  // the displayed results no longer match the selected mode.
-  const [modeStale, setModeStale]       = useState(false);
-  const [horizon, setHorizon]           = useState(90);
-  const [isAblation, setIsAblation]     = useState(true);
-  const [auditLog, setAuditLog]         = useState([]);
-  const [runGuard, setRunGuard]         = useState(false);
-  const [showAudit, setShowAudit]       = useState(false);
-  const [csvData, setCsvData]           = useState(null);
-  const [csvMeta, setCsvMeta]           = useState(null);
-  const [completedStages, setCompleted] = useState(new Set());
-  const [dhLoadingId, setDhLoadingId]   = useState(null);
-  // Live model metrics (filled after pipeline run)
-  const [liveMetrics, setLiveMetrics]   = useState(null);
-
-  const logsEndRef  = useRef(null);
-  const abortRef    = useRef(null);
-  const dssTimerRef = useRef(null);
-
-  useEffect(() => { logsEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [terminalLogs]);
-
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      const s = await checkForecastBackend();
-      if (alive) { setBackendStatus(s); addAudit('BACKEND_CHECK', s.ok ? `engine=${s.engine}` : 'offline', 'system'); }
-    })();
-    return () => { alive = false; };
-  }, []);
-
-  useEffect(() => () => { abortRef.current?.abort(); clearTimeout(dssTimerRef.current); }, []);
-
+  logsEndRef,
+  isUnlocked,
+  completeStage,
+  goBack,
+  navigateTo,
+  handleCSVLoad,
+  parseAndLoadCsvText,
+  runPipeline,
+  cancelRun,
+  runDSS,
+  updateCapacity,
+} = useModelLabController();
+    
   // ── Derive adaptive stats whenever csvData changes ────────────────────
   const adaptiveStats = useMemo(() => deriveAdaptiveStats(csvData), [csvData]);
 
