@@ -216,41 +216,6 @@ let _seq = 0;
 const mkAudit = (action, detail, actor = 'user') =>
   Object.freeze({ seq: ++_seq, ts: new Date().toISOString(), actor, action, detail });
 
-// ═══════════════════════════════════════════════════════════════════════════
-//  FINANCIAL FORMATTERS
-// ═══════════════════════════════════════════════════════════════════════════
-const safeN = v => (typeof v === 'number' && isFinite(v) ? v : 0);
-const fmt    = (v, d = 1) => safeN(v).toFixed(d);
-const fmtPct = v => `${safeN(v).toFixed(1)}%`;
-function fmtPHP(v) {
-  const n = safeN(v);
-  if (n === 0) return '₱0';
-  if (n < 10_000)    return `₱${Math.round(n).toLocaleString()}`;
-  if (n < 1_000_000) return `₱${(n / 1_000).toFixed(1)}k`;
-  return `₱${(n / 1_000_000).toFixed(2)}M`;
-}
-function fmtPHPk(v) {
-  const n = safeN(v);
-  if (n === 0) return '₱0';
-  if (n < 1_000) return `₱${Math.round(n)}`;
-  return `₱${(n / 1_000).toFixed(1)}k`;
-}
-function fmtDelta(v) {
-  const n = safeN(v);
-  return `${n >= 0 ? '+' : ''}${fmtPHP(n)}`;
-}
-
-/**
- * Convert a float pax forecast to a whole-integer headcount.
- *
- * [BUG-1 FIX] JS Math.round() uses round-half-up (10.5 → 11), which matches
- * Python's _pax_int(). Both sides of the API now agree on every pax count.
- * Named explicitly so financial math is never accidentally done on raw floats.
- *
- * @param {number} v - float forecast from model
- * @returns {number} integer pax count
- */
-const paxInt = v => Math.round(safeN(v));
 
 
 // ═══════════════════════════════════════════════════════════════════════════
