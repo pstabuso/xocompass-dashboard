@@ -13,28 +13,6 @@ import { DatasetFileProvider } from './DatasetFileContext';
 
 const AppContext = createContext();
 
-// The canonical PM account — always gets PM role regardless of DB state
-const PM_EMAIL = 'pstabuso@fit.edu.ph';
-
-// ─── ROLE → PERMISSIONS MAP (non-hardcoded users, roles from DB) ──
-// Roles are stored in the `profiles` table; permissions derived here.
-// Only PM can create/edit/delete/download. Everyone else is strictly view-only.
-const ROLE_PERMISSIONS = {
-  pm:         { canCreate: true, canDelete: true, canNudge: true, canDownload: true, viewAll: true, isAdmin: true },
-  backend:    { canCreate: false, canDelete: false, canNudge: false, canDownload: false, viewAll: true, isAdmin: false },
-  frontend:   { canCreate: false, canDelete: false, canNudge: false, canDownload: false, viewAll: true, isAdmin: false },
-  guest:      { canCreate: false, canDelete: false, canNudge: false, canDownload: false, viewAll: true, isAdmin: false },
-  restricted: { canCreate: false, canDelete: false, canNudge: false, canDownload: false, viewAll: false, isAdmin: false },
-};
-
-const ROLE_LABELS = {
-  pm:         'Project Manager & Documentations Head',
-  backend:    'Backend Developer',
-  frontend:   'Frontend Developer',
-  guest:      'Guest Viewer',
-  restricted: 'Restricted',
-};
-
 /** Build a user object from a Supabase profile row.
  *  Always forces PM role for the canonical PM email, regardless of DB state. */
 const buildUser = buildUserFromProfile;
