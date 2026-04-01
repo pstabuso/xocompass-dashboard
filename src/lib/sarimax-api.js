@@ -87,14 +87,39 @@ export async function predictHybrid({
       seasonal_order:     seasonalOrder,
       max_daily_bookings: maxDailyBookings,
     }),
-    signal: signal ?? AbortSignal.timeout(300_000),  // [BUG-1] use passed signal
+    signal: signal ?? AbortSignal.timeout(300_000),
   });
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }));
     throw new Error(err.detail || `Backend returned ${res.status}`);
   }
-  return res.json();
+
+  // [iOS FIX] Explicit JSON parse with typed error surfacing.
+  //
+  // Desktop Chrome/V8 silently accepts JSON containing bare NaN/Infinity tokens.
+  // iOS WebKit's JSON.parse() throws a SyntaxError on those tokens, causing the
+  // pipeline to fail silently — the catch block in runPipeline sees nothing.
+  //
+  // By calling res.text() first and then JSON.parse() manually, we:
+  //   1. Get a SyntaxError with the raw payload so we can log which field is bad.
+  //   2. Surface a human-readable error in the terminal UI on the device itself.
+  //   3. Distinguish network failures (TypeError) from parse failures (SyntaxError).
+  let text;
+  try {
+    text = await res.text();
+  } catch (networkErr) {
+    // [iOS FIX] TypeError: network failure mid-stream (common on iOS background tab)
+    throw new TypeError(`[iOS] Network read failed: ${networkErr.message}`);
+  }
+  try {
+    return JSON.parse(text);
+  } catch (parseErr) {
+    // [iOS FIX] SyntaxError: backend sent NaN/Infinity or malformed JSON.
+    // Attach a snippet of the raw text so the terminal shows which field is bad.
+    const snippet = text.slice(0, 200).replace(/\s+/g, ' ');
+    throw new SyntaxError(`[iOS] JSON parse failed — raw: ${snippet}… (${parseErr.message})`);
+  }
 }
 
 /**
