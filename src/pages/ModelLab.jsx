@@ -765,6 +765,8 @@ if (signal.aborted) throw new Error('Cancelled');
       commissionPerPax: FALLBACK.NET_COMMISSION_PHP,
       applySurcharge: dssScenario.applyS,
     });
+    setDssBaseline(prev => prev || result);
+    setDssResult(result);
       const sane = sanitiseDssResponse(result);
       setDssBaseline(prev => prev || sane);
       setDssResult(sane);
