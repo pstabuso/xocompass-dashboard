@@ -1,3 +1,12 @@
+import {
+  PM_EMAIL,
+  ROLE_PERMISSIONS,
+  ROLE_LABELS,
+  AVAILABLE_ROLES,
+  ROLE_ROUTES,
+  buildUserFromProfile,
+} from '../auth/domain/roles';
+
 import React, { createContext, useState, useEffect, useContext, useCallback, useRef } from 'react';
 import { supabase, isCloudEnabled, fetchProfile } from '../lib/supabase';
 import { DatasetFileProvider } from './DatasetFileContext';
@@ -28,18 +37,7 @@ const ROLE_LABELS = {
 
 /** Build a user object from a Supabase profile row.
  *  Always forces PM role for the canonical PM email, regardless of DB state. */
-const buildUser = (profile) => {
-  const effectiveRole = profile.email === PM_EMAIL ? 'pm' : profile.role;
-  return {
-    id: profile.id,
-    email: profile.email,
-    name: profile.name,
-    role: ROLE_LABELS[effectiveRole] || effectiveRole,
-    roleKey: effectiveRole,
-    permissions: ROLE_PERMISSIONS[effectiveRole] || ROLE_PERMISSIONS.guest,
-    avatar_url: profile.avatar_url,
-  };
-};
+const buildUser = buildUserFromProfile;
 
 // Available roles for admin role-assignment (NOT for sign-up — new users always start as guest)
 export const AVAILABLE_ROLES = [
