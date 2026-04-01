@@ -52,19 +52,15 @@ import {
   fmtDelta,
   paxInt,
 } from '../model-lab/domain/formatters';
-
+import {
+  clamp,
+  sanitiseCapacity,
+  sanitiseHorizon,
+} from '../model-lab/domain/inputSanitisers';
 import { parseBookingCsv } from '../model-lab/domain/parseBookingCsv';
 import { deriveAdaptiveStats } from '../model-lab/domain/deriveAdaptiveStats';
 import { sanitiseDssResponse } from '../model-lab/domain/sanitiseDssResponse';
 import { sanitiseError } from '../model-lab/domain/sanitiseError';
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  INPUT SANITISATION
-// ═══════════════════════════════════════════════════════════════════════════
-const clamp = (v, lo, hi, fb = lo) => { const n = Number(v); return isFinite(n) ? Math.max(lo, Math.min(hi, n)) : fb; };
-const sanitiseCapacity = (v, max = FALLBACK.MAX_DAILY_BOOKINGS) =>
-  Math.round(clamp(v, FALLBACK.MIN_CAPACITY, FALLBACK.MAX_CAPACITY_INPUT, max));
-const sanitiseHorizon  = v => Math.round(clamp(v, FALLBACK.MIN_HORIZON, FALLBACK.MAX_HORIZON, 90) / 30) * 30;
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  API VALIDATION
