@@ -72,13 +72,20 @@ export default function PACFChart({
   height    = 220,
   className = '',
 }) {
-  // [ISO 25010 - Reliability] Sanitise input and annotate with CI bound
+  // [iOS FIX + ISO 25010 - Reliability]
+  // Guard: coerce incoming pacf prop to a safe array before any processing.
+  // On iOS, if the parent renders before liveMetrics is populated the prop may
+  // arrive as undefined, causing .map() to throw a TypeError that silently
+  // swallows the error and leaves the chart blank.
+  const safePACF = Array.isArray(pacf) ? pacf : [];
+
   const data = useMemo(() => {
     const ci = Number.isFinite(ciBound) && ciBound > 0 ? ciBound : 0.2;
-    return pacf
-      .map((v, i) => ({ lag: i + 1, value: Number.isFinite(v) ? v : 0, ci }))
+    return safePACF
+      // [iOS FIX] Explicit Number() coercion — ensures no bare NaN reaches Recharts SVG
+      .map((v, i) => ({ lag: i + 1, value: Number.isFinite(Number(v)) ? Number(v) : 0, ci }))
       .filter(d => Number.isFinite(d.value));
-  }, [pacf, ciBound]);
+  }, [safePACF, ciBound]);
 
   const effectiveCi = useMemo(() => {
     if (Number.isFinite(ciBound) && ciBound > 0) return ciBound;
@@ -127,7 +134,11 @@ export default function PACFChart({
         </p>
       )}
 
-      <div style={{ height }} className="bg-slate-950 rounded-xl border border-slate-800">
+      {/* [iOS FIX] Explicit minHeight prevents Safari ResponsiveContainer collapse */}
+      <div
+        style={{ height, minHeight: height }}
+        className="bg-slate-950 rounded-xl border border-slate-800"
+      >
         {isEmpty ? (
           <EmptyState />
         ) : (
