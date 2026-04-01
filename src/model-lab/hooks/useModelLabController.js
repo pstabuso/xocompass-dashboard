@@ -5,7 +5,6 @@ import { FALLBACK, STAGE_ORDER } from '../domain/constants'
 import { deriveAdaptiveStats } from '../domain/deriveAdaptiveStats'
 import { parseBookingCsv } from '../domain/parseBookingCsv'
 import { sanitiseCapacity, sanitiseHorizon } from '../domain/inputSanitisers'
-import { sanitiseDssResponse } from '../domain/sanitiseDssResponse'
 import { sanitiseError } from '../domain/sanitiseError'
 import {
   buildDailyObservations,
@@ -50,37 +49,41 @@ export function useModelLabController() {
   } = useModelLabConsole()
 
   useEffect(() => {
-  let alive = true
+    logsEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [terminalLogs])
 
-  ;(async () => {
-    try {
-      const status = await checkForecastBackend()
-      const safeStatus =
-        status && typeof status === 'object'
-          ? status
-          : { ok: false, engine: null }
+  useEffect(() => {
+    let alive = true
 
-      if (alive) {
-        setBackendStatus(safeStatus)
-        addAudit(
-          'BACKEND_CHECK',
-          safeStatus.ok ? `engine=${safeStatus.engine}` : 'offline',
-          'system'
-        )
+    ;(async () => {
+      try {
+        const status = await checkForecastBackend()
+        const safeStatus =
+          status && typeof status === 'object'
+            ? status
+            : { ok: false, engine: null }
+
+        if (alive) {
+          setBackendStatus(safeStatus)
+          addAudit(
+            'BACKEND_CHECK',
+            safeStatus.ok ? `engine=${safeStatus.engine}` : 'offline',
+            'system'
+          )
+        }
+      } catch (error) {
+        if (alive) {
+          const fallbackStatus = { ok: false, engine: null }
+          setBackendStatus(fallbackStatus)
+          addAudit('BACKEND_CHECK', 'offline', 'system')
+        }
       }
-    } catch (error) {
-      if (alive) {
-        const fallbackStatus = { ok: false, engine: null }
-        setBackendStatus(fallbackStatus)
-        addAudit('BACKEND_CHECK', 'offline', 'system')
-      }
+    })()
+
+    return () => {
+      alive = false
     }
-  })()
-
-  return () => {
-    alive = false
-  }
-}, [addAudit])
+  }, [addAudit])
 
   useEffect(() => {
     return () => {
@@ -419,12 +422,12 @@ export function useModelLabController() {
   )
 
   const toggleAblation = useCallback(() => {
-  setIsAblation((prev) => {
-    const next = !prev
-    addAudit('ABLATION', `active=${next}`)
-    return next
-  })
-}, [addAudit])
+    setIsAblation((prev) => {
+      const next = !prev
+      addAudit('ABLATION', `active=${next}`)
+      return next
+    })
+  }, [addAudit])
 
   return {
     stage,
