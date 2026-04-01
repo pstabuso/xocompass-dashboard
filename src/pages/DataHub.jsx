@@ -54,7 +54,7 @@ const DataHub = () => {
   } = useDatasetFiles();
 
   const canCreate = user?.permissions?.canCreate ?? true;
-  const canDelete = user?.permissions?.canDelete ?? true;
+  const canDelete = user?.permissions?.canDelete ?? true;;
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -255,7 +255,7 @@ const DataHub = () => {
 
   return (
     <div className="space-y-3 sm:space-y-6 animate-enter">
-      {!canCreate && (
+      {!!user && !canCreate && (
         <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center gap-3">
           <LockKeyhole size={16} className="text-amber-400 shrink-0" />
           <p className="text-xs text-amber-300 flex-1">
@@ -268,8 +268,9 @@ const DataHub = () => {
           ) : (
             <button
               onClick={() => {
-                requestAccess?.('Edit on Data Hub', 'action');
-                setAccessSent(true);
+               requestAccess?.('Edit on Data Hub', 'action');
+               setAccessSent(true);
+}}
               }}
               className="text-[10px] px-2.5 py-1 bg-pink-600 text-white rounded font-bold hover:bg-pink-500 transition shrink-0"
             >
