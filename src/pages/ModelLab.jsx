@@ -866,6 +866,24 @@ const ModelLab = () => {
     } catch (err) {
       if (err.name === 'AbortError' || err.message?.includes('Cancelled')) {
         addLog('[CANCELLED] Run aborted.', 'warning');
+      } else if (err instanceof SyntaxError || err.name === 'SyntaxError') {
+        // [iOS FIX] WebKit threw on JSON.parse() — backend likely sent NaN/Infinity.
+        // This is the primary cause of silent pipeline failures on iOS Safari.
+        // The error message from sarimax-api.js includes the raw payload snippet.
+        const s = sanitiseError(err);
+        addLog(`[iOS ERROR] JSON parse failed — backend may have sent NaN/Infinity.`, 'error');
+        addLog(`[iOS ERROR] Detail: ${s}`, 'error');
+        addLog('[iOS ERROR] Fix: ensure all diagnostic arrays are finite (see main.py _clean_list).', 'error');
+        addAudit('PIPELINE_ERROR_IOS_JSON', s, 'system');
+      } else if (err instanceof TypeError || err.name === 'TypeError') {
+        // [iOS FIX] Network-level failure — common on iOS when the app is
+        // backgrounded mid-request, connection drops, or fetch is aborted
+        // without an explicit AbortController signal.
+        const s = sanitiseError(err);
+        addLog(`[iOS ERROR] Network error (TypeError) — request failed or was interrupted.`, 'error');
+        addLog(`[iOS ERROR] Detail: ${s}`, 'error');
+        addLog('[iOS ERROR] Try: keep the app in foreground; check backend CORS for Railway URL.', 'error');
+        addAudit('PIPELINE_ERROR_IOS_NETWORK', s, 'system');
       } else {
         const s = sanitiseError(err);
         addLog(`[ERROR] ${s}`, 'error');
