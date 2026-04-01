@@ -56,6 +56,7 @@ import {
 import { parseBookingCsv } from '../model-lab/domain/parseBookingCsv';
 import { deriveAdaptiveStats } from '../model-lab/domain/deriveAdaptiveStats';
 import { sanitiseDssResponse } from '../model-lab/domain/sanitiseDssResponse';
+import { sanitiseError } from '../model-lab/domain/sanitiseError';
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  INPUT SANITISATION
@@ -82,12 +83,6 @@ function validatePredictionResponse(data) {
   return true;
 }
 
-function sanitiseError(err) {
-  if (!err) return 'Unknown error';
-  return String(err.message || err)
-    .replace(/at\s+\S+\s+\([^)]+\)/g, '').replace(/\/[a-z0-9/_.-]+\.[a-z]+:\d+/gi, '[path]')
-    .replace(/[a-zA-Z0-9+/]{40,}/g, '[token]').replace(/\s{2,}/g, ' ').trim().slice(0, 200);
-}
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  AUDIT LOG
