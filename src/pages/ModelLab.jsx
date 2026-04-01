@@ -51,6 +51,7 @@ import {
   paxInt,
 } from '../features/model-lab/domain/formatters';
 
+import { parseBookingCsv } from '../features/model-lab/domain/parseBookingCsv';
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  ADAPTIVE STATS — derived from parsed CSV (client-side, no backend needed)
