@@ -63,19 +63,28 @@ export default function QQPlot({
   height      = 240,
   className   = '',
 }) {
-  // [ISO 25010 - Reliability] Filter NaN/Inf pairs before any calculation
+  // [iOS FIX + ISO 25010 - Reliability]
+  // Guard 1: Coerce incoming props to safe arrays before any processing.
+  //   iOS WebKit may call this component with undefined/null if the parent
+  //   renders before liveMetrics is populated — avoids .length TypeError.
+  // Guard 2: Filter NaN/Inf pairs — backend _clean_list should handle these,
+  //   but a second pass here ensures Recharts never receives bad coordinates.
+  const safeTheoretical = Array.isArray(theoretical) ? theoretical : [];
+  const safeSample      = Array.isArray(sample)      ? sample      : [];
+
   const data = useMemo(() => {
     const out = [];
-    const len = Math.min(theoretical.length, sample.length);
+    const len = Math.min(safeTheoretical.length, safeSample.length);
     for (let i = 0; i < len; i++) {
-      const t = theoretical[i];
-      const s = sample[i];
-      if (Number.isFinite(t) && Number.isFinite(s)) {
-        out.push({ theoretical: t, sample: s });
+      const t = safeTheoretical[i];
+      const s = safeSample[i];
+      // [iOS FIX] Explicit Number() coercion — WebKit is strict about non-numeric SVG coords
+      if (Number.isFinite(Number(t)) && Number.isFinite(Number(s))) {
+        out.push({ theoretical: Number(t), sample: Number(s) });
       }
     }
     return out;
-  }, [theoretical, sample]);
+  }, [safeTheoretical, safeSample]);
 
   // Square domain — same range on both axes so the y=x line is truly diagonal
   const domain = useMemo(() => {
@@ -107,7 +116,14 @@ export default function QQPlot({
       </p>
 
       {/* Chart */}
-      <div style={{ height }} className="bg-slate-950 rounded-xl border border-slate-800">
+      {/* [iOS FIX] WebKit/Safari collapses ResponsiveContainer to 0px when the
+           parent has no explicit height in a CSS Grid or Flexbox context.
+           Setting both height AND minHeight forces a paint frame on iOS.
+           The inline height prop is kept for desktop; minHeight is the iOS safety net. */}
+      <div
+        style={{ height, minHeight: height }}
+        className="bg-slate-950 rounded-xl border border-slate-800"
+      >
         {isEmpty ? (
           <EmptyState />
         ) : (
