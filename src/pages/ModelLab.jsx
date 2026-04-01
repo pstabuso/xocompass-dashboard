@@ -83,16 +83,6 @@ function validatePredictionResponse(data) {
   return true;
 }
 
-
-// ═══════════════════════════════════════════════════════════════════════════
-//  AUDIT LOG
-// ═══════════════════════════════════════════════════════════════════════════
-let _seq = 0;
-const mkAudit = (action, detail, actor = 'user') =>
-  Object.freeze({ seq: ++_seq, ts: new Date().toISOString(), actor, action, detail });
-
-
-
 // ═══════════════════════════════════════════════════════════════════════════
 //  CSV PARSER — KJS Airline Booking Export Format
 // ═══════════════════════════════════════════════════════════════════════════
@@ -407,9 +397,15 @@ const ModelLab = () => {
   const [dssScenario, setDssScenario]   = useState({ capacity: null, applyS: true }); // null = use derived
   const [dssBaseline, setDssBaseline]   = useState(null);
   const [dssResult, setDssResult]       = useState(null);
-  const [terminalLogs, setTerminalLogs] = useState([]);
-  const [progress, setProgress]         = useState(0);
-  const [modelMode, setModelMode]       = useState('hybrid');
+ const {
+  terminalLogs,
+  setTerminalLogs,
+  auditLog,
+  showAudit,
+  setShowAudit,
+  addAudit,
+  addLog,
+} = useModelLabConsole();
   // [ISO 25010 - Usability][BUG-2 FIX] Track whether model mode changed
   // AFTER a pipeline run — triggers "Re-run Required" banner so user knows
   // the displayed results no longer match the selected mode.
@@ -442,17 +438,6 @@ const ModelLab = () => {
   }, []);
 
   useEffect(() => () => { abortRef.current?.abort(); clearTimeout(dssTimerRef.current); }, []);
-
-  const addAudit = useCallback((action, detail, actor = 'user') => {
-    setAuditLog(prev => [...prev.slice(-99), mkAudit(action, detail, actor)]);
-  }, []);
-
-  const addLog = useCallback((text, type = 'default') => {
-    setTerminalLogs(prev => {
-      const next = [...prev, { text, type, ts: Date.now() }];
-      return next.length > FALLBACK.MAX_LOGS ? next.slice(-FALLBACK.MAX_LOGS) : next;
-    });
-  }, []);
 
   // ── Derive adaptive stats whenever csvData changes ────────────────────
   const adaptiveStats = useMemo(() => deriveAdaptiveStats(csvData), [csvData]);
