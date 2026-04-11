@@ -103,7 +103,7 @@ const Schedule = () => {
           {accessSent ? (
             <span className="text-[10px] px-2 py-1 bg-emerald-500/15 text-emerald-400 rounded font-bold shrink-0 flex items-center gap-1"><Send size={10} /> Sent</span>
           ) : (
-            <button onClick={() => { requestAccess('Edit on Calendar & Schedule', 'action'); setAccessSent(true); }} className="text-[10px] px-2.5 py-1 bg-sky-600 text-white rounded font-bold hover:bg-sky-500 transition shrink-0">
+            <button onClick={() => { requestAccess('Edit on Calendar & Schedule', 'action'); setAccessSent(true); }} className="text-[10px] px-2.5 py-1 bg-pink-600 text-white rounded font-bold hover:bg-pink-500 transition shrink-0">
               Request
             </button>
           )}
@@ -112,11 +112,11 @@ const Schedule = () => {
       <div className="flex-1 flex flex-col space-y-4 sm:space-y-6 min-w-0">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-slate-900/50 p-3 sm:p-4 rounded-xl border border-slate-800 transition hover:shadow-md duration-300">
           <div className="flex items-center gap-3">
-             <div className="p-2 bg-sky-600/15 text-sky-400 rounded-lg"><CalIcon size={20}/></div>
+             <div className="p-2 bg-pink-600/15 text-pink-400 rounded-lg"><CalIcon size={20}/></div>
              <div><h2 className="text-lg sm:text-xl font-bold text-slate-100">Team Calendar</h2><p className="text-slate-500 text-xs">Events & Deadlines</p></div>
           </div>
           <div className="flex items-center gap-2 sm:gap-4">
-             <button onClick={goToToday} className="text-xs font-bold text-slate-500 hover:text-sky-400 px-2 transition-colors">Today</button>
+             <button onClick={goToToday} className="text-xs font-bold text-slate-500 hover:text-pink-400 px-2 transition-colors">Today</button>
              <div className="flex items-center bg-slate-800 rounded-lg p-1 border border-slate-700">
                 <button onClick={prevMonth} className="p-1.5 hover:bg-slate-700 rounded transition-all active:scale-95" aria-label="Previous month"><ChevronLeft size={18} className="text-slate-400"/></button>
                 <div className="px-2 sm:px-4 font-bold text-slate-300 w-24 sm:w-32 text-center text-xs sm:text-sm">{monthNames[month]} {year}</div>
@@ -133,8 +133,8 @@ const Schedule = () => {
              {[...Array(daysInMonth)].map((_, i) => {
                 const day = i + 1; const items = getItemsForDay(day); const isToday = new Date().toDateString() === new Date(year, month, day).toDateString();
                 return (
-                  <div key={day} onClick={() => handleDayClick(day)} className={`border-b border-r border-slate-800/50 p-1 sm:p-2 relative group hover:bg-slate-800/50 transition duration-200 cursor-pointer min-h-[48px] sm:min-h-[80px] ${isToday ? 'bg-sky-600/20 border-sky-500/30' : ''}`}>
-                     <span className={`text-[10px] sm:text-xs font-bold w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center rounded-full ${isToday ? 'bg-sky-600 text-white' : 'text-slate-500'}`}>{day}</span>
+                  <div key={day} onClick={() => handleDayClick(day)} className={`border-b border-r border-slate-800/50 p-1 sm:p-2 relative group hover:bg-slate-800/50 transition duration-200 cursor-pointer min-h-[48px] sm:min-h-[80px] ${isToday ? 'bg-pink-600/20 border-pink-500/30' : ''}`}>
+                     <span className={`text-[10px] sm:text-xs font-bold w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center rounded-full ${isToday ? 'bg-pink-600 text-white' : 'text-slate-500'}`}>{day}</span>
                      <div className="mt-0.5 sm:mt-1 space-y-0.5 sm:space-y-1">
                        {items.slice(0, 2).map((item, idx) => (
                          <div key={idx} className={`text-[8px] sm:text-[10px] px-1 sm:px-1.5 py-0.5 rounded border truncate font-medium hidden sm:block ${
@@ -175,7 +175,7 @@ const Schedule = () => {
                           </div>
                           <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             {canCreate && (
-                              <button onClick={() => handleEditEvent(evt)} className="p-1 text-slate-500 hover:text-sky-400 transition"><Edit2 size={14}/></button>
+                              <button onClick={() => handleEditEvent(evt)} className="p-1 text-slate-500 hover:text-pink-400 transition"><Edit2 size={14}/></button>
                             )}
                             {canDelete && (
                               <button onClick={() => handleDeleteEvent(evt.id)} className="p-1 text-slate-500 hover:text-red-400 transition"><Trash2 size={14}/></button>
@@ -188,7 +188,7 @@ const Schedule = () => {
             {tasks.filter(t => t.status !== 'Done').length > 0 && (
               <div><h4 className="text-xs font-bold text-amber-400 uppercase mb-2 mt-4">Pending Deadlines</h4>
                 <div className="space-y-2">{[...tasks].filter(t => t.status !== 'Done').sort((a,b) => new Date(a.deadline) - new Date(b.deadline)).map(t => (
-                    <div key={t.id} className="p-3 rounded-lg border border-slate-800 bg-slate-800/30 hover:border-amber-500/30 transition-all duration-300 hover:shadow-md hover:-translate-y-1"><p className="font-bold text-sm text-slate-200 truncate">{t.task}</p><div className="flex justify-between items-center mt-1"><p className="text-xs text-amber-400 font-medium">Due: {t.deadline}</p><span className="text-[10px] bg-sky-500/15 text-sky-400 px-1.5 py-0.5 rounded font-medium truncate max-w-[80px]">{t.owner}</span></div></div>
+                    <div key={t.id} className="p-3 rounded-lg border border-slate-800 bg-slate-800/30 hover:border-amber-500/30 transition-all duration-300 hover:shadow-md hover:-translate-y-1"><p className="font-bold text-sm text-slate-200 truncate">{t.task}</p><div className="flex justify-between items-center mt-1"><p className="text-xs text-amber-400 font-medium">Due: {t.deadline}</p><span className="text-[10px] bg-pink-500/15 text-pink-400 px-1.5 py-0.5 rounded font-medium truncate max-w-[80px]">{t.owner}</span></div></div>
                   ))}</div></div>
             )}
          </div>
@@ -326,7 +326,7 @@ const Schedule = () => {
                                 taskForm.priority === p
                                   ? p === 'Critical' ? 'bg-red-600 text-white'
                                   : p === 'High' ? 'bg-orange-600 text-white'
-                                  : p === 'Medium' ? 'bg-sky-600 text-white'
+                                  : p === 'Medium' ? 'bg-pink-600 text-white'
                                   : 'bg-emerald-600 text-white'
                                   : 'bg-slate-700 text-slate-400 hover:bg-slate-600'
                               }`}

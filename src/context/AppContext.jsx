@@ -1,63 +1,26 @@
+import {
+  PM_EMAIL,
+  ROLE_PERMISSIONS,
+  ROLE_LABELS,
+  AVAILABLE_ROLES,
+  ROLE_ROUTES,
+  buildUserFromProfile,
+} from '../auth/domain/roles';
+
+// Note: ROLE_ROUTES and AVAILABLE_ROLES are importable directly from '../auth/domain/roles'
+
 import React, { createContext, useState, useEffect, useContext, useCallback, useRef } from 'react';
 import { supabase, isCloudEnabled, fetchProfile } from '../lib/supabase';
 
 const AppContext = createContext();
 
-// The canonical PM account — always gets PM role regardless of DB state
-const PM_EMAIL = 'pstabuso@fit.edu.ph';
-
-// ─── ROLE → PERMISSIONS MAP (non-hardcoded users, roles from DB) ──
-// Roles are stored in the `profiles` table; permissions derived here.
-// Only PM can create/edit/delete/download. Everyone else is strictly view-only.
-const ROLE_PERMISSIONS = {
-  pm:         { canCreate: true, canDelete: true, canNudge: true, canDownload: true, viewAll: true, isAdmin: true },
-  backend:    { canCreate: true, canDelete: true, canNudge: true, canDownload: true, viewAll: true, isAdmin: false },
-  frontend:   { canCreate: true, canDelete: true, canNudge: true, canDownload: true, viewAll: true, isAdmin: false },
-  guest:      { canCreate: false, canDelete: false, canNudge: false, canDownload: false, viewAll: true, isAdmin: false },
-  restricted: { canCreate: false, canDelete: false, canNudge: false, canDownload: false, viewAll: false, isAdmin: false },
-};
-
-const ROLE_LABELS = {
-  pm:         'Project Manager & Documentations Head',
-  backend:    'Backend Developer',
-  frontend:   'Frontend Developer',
-  guest:      'Guest Viewer',
-  restricted: 'Restricted',
-};
-
 /** Build a user object from a Supabase profile row.
  *  Always forces PM role for the canonical PM email, regardless of DB state. */
-const buildUser = (profile) => {
-  const effectiveRole = profile.email === PM_EMAIL ? 'pm' : profile.role;
-  return {
-    id: profile.id,
-    email: profile.email,
-    name: profile.name,
-    role: ROLE_LABELS[effectiveRole] || effectiveRole,
-    roleKey: effectiveRole,
-    permissions: ROLE_PERMISSIONS[effectiveRole] || ROLE_PERMISSIONS.guest,
-    avatar_url: profile.avatar_url,
-  };
-};
+const buildUser = buildUserFromProfile;
 
-// Available roles for admin role-assignment (NOT for sign-up — new users always start as guest)
-export const AVAILABLE_ROLES = [
-  { id: 'pm', label: 'Project Manager & Docs Head' },
-  { id: 'backend', label: 'Backend Developer' },
-  { id: 'frontend', label: 'Frontend Developer' },
-  { id: 'guest', label: 'Guest Viewer' },
-];
 
 // Route access by role. null = all routes. Guests get view-only basics.
 // SARIMAX Lab, Calendar, Minutes are locked for guests until PM grants a role.
-export const ROLE_ROUTES = {
-  pm:         null,
-  backend:    null,
-  frontend:   null,
-  guest:      ['/', '/tasks', '/data', '/defense', '/resources'],
-  restricted: ['/'],
-};
-
 /** Check if a notification is addressed to a given user.
  *  Matches by email (preferred) or falls back to first-name in to_user. */
 export const isNotificationForUser = (n, user) => {
@@ -863,7 +826,7 @@ export const AppProvider = ({ children }) => {
     const sanitized = sanitizeRow(dataset);
     if (sanitized.type && !VALID_DATASET_TYPES.includes(sanitized.type)) sanitized.type = 'Primary';
     if (sanitized.status && !VALID_DATASET_STATUSES.includes(sanitized.status)) sanitized.status = 'Raw';
-    const d = { ...sanitized, id: crypto.randomUUID(), uploadedAt: new Date().toISOString(), created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+    const d = { id: crypto.randomUUID(), ...sanitized, uploadedAt: new Date().toISOString(), created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
     setDatasets(prev => [...prev, d]);
     insertRow(TABLES.datasets, d).then(r => showWriteError('add dataset', r));
     logAction('Uploaded Dataset', `"${sanitized.name}" (${sanitized.type}, ${sanitized.rows || 0} rows)`);
@@ -1095,6 +1058,28 @@ export const AppProvider = ({ children }) => {
       subscription.unsubscribe();
     };
   }, [handleProfile]);
+
+  // ── Profile realtime: re-hydrate permissions when PM changes current user's role ──
+  // Subscribes to UPDATE events on the current user's own profiles row only.
+  // When the PM edits a role via AdminPanel, Supabase broadcasts the change and
+  // this callback rebuilds the user object with the new permissions immediately —
+  // no reload or re-login needed.
+  // NOTE: Must be placed AFTER handleProfile is declared to avoid TDZ in production builds.
+  useEffect(() => {
+    if (!isCloudEnabled || !user?.id) return;
+    const channel = supabase
+      .channel(`realtime-profile-${user.id}`)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'profiles',
+        filter: `id=eq.${user.id}`,
+      }, (payload) => {
+        if (payload.new) handleProfile(payload.new, 'realtime');
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user?.id, handleProfile]);
 
   // ── Helper: race a promise against a timeout ──
   const withTimeout = (promise, ms, msg) =>

@@ -1,8 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
 import { LayoutDashboard, CheckSquare, Calendar, Book, FolderOpen, LogOut, User, Database, Shield, BrainCircuit, Users, Cloud, CloudOff, Loader2, Mail, Lock, Eye, EyeOff, Menu, X, Bell, LockKeyhole, Send, ArrowRight, Sun, Moon, AlertTriangle, RefreshCw, WifiOff, ChevronLeft } from 'lucide-react';
-import { AppProvider, useAppContext, ROLE_ROUTES, isNotificationForUser } from './context/AppContext';
+import { AppProvider, useAppContext, isNotificationForUser } from './context/AppContext';
+import { ROLE_ROUTES } from './auth/domain/roles';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
+import { DatasetFileProvider } from './context/DatasetFileContext';
 import { isCloudEnabled } from './lib/supabase';
 
 // Pages
@@ -738,6 +740,7 @@ const AppContent = () => {
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/model" element={<GuardedRoute path="/model" element={<ModelLab />} />} />
+            <Route path="/lab" element={<GuardedRoute path="/model" element={<ModelLab />} />} />
             <Route path="/tasks" element={<TaskTracker />} />
             <Route path="/schedule" element={<GuardedRoute path="/schedule" element={<Schedule />} />} />
             <Route path="/minutes" element={<GuardedRoute path="/minutes" element={<Minutes />} />} />
@@ -773,5 +776,15 @@ class ErrorBoundary extends React.Component {
   }
 }
 
-const App = () => <ErrorBoundary><ThemeProvider><AppProvider><AppContent /></AppProvider></ThemeProvider></ErrorBoundary>;
+const App = () => (
+  <ErrorBoundary>
+    <ThemeProvider>
+      <AppProvider>
+        <DatasetFileProvider>
+          <AppContent />
+        </DatasetFileProvider>
+      </AppProvider>
+    </ThemeProvider>
+  </ErrorBoundary>
+);
 export default App;

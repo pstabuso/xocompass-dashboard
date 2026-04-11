@@ -13,7 +13,7 @@ const Defense = () => {
   return (
     <div className="max-w-3xl mx-auto px-2 space-y-6 animate-enter">
        <div className="text-center py-8">
-           <Shield size={48} className="mx-auto text-sky-400 mb-4"/>
+           <Shield size={48} className="mx-auto text-pink-400 mb-4"/>
            <h2 className="text-3xl font-bold text-slate-100">Defense Preparation</h2>
            <p className="text-slate-500">Anticipated Questions & Standard Answers</p>
        </div>
@@ -25,7 +25,7 @@ const Defense = () => {
                     onClick={() => setOpenIndex(openIndex === idx ? null : idx)}
                     className="w-full flex justify-between items-center gap-3 p-6 text-left font-bold text-slate-200 hover:bg-slate-800/50 transition"
                    >
-                       <span className="flex items-center gap-3 flex-1 min-w-0"><MessageCircle className="text-sky-400 shrink-0" size={20}/> <span className="truncate">{item.q}</span></span>
+                       <span className="flex items-center gap-3 flex-1 min-w-0"><MessageCircle className="text-pink-400 shrink-0" size={20}/> <span className="truncate">{item.q}</span></span>
                        {openIndex === idx ? <ChevronUp size={20} className="text-slate-500 shrink-0"/> : <ChevronDown size={20} className="text-slate-500 shrink-0"/>}
                    </button>
                    {openIndex === idx && (
