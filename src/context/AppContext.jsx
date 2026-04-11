@@ -921,6 +921,20 @@ export const AppProvider = ({ children }) => {
     logAction('Cleared Notifications', `${userRef.current?.name} cleared their notifications`);
   }, [logAction]);
 
+  const markNotificationsRead = useCallback(() => {
+    const currentUser = userRef.current;
+    if (!currentUser) return;
+    setNotifications(prev => prev.map(n => {
+      if (!n.read && isNotificationForUser(n, currentUser)) {
+        if (isCloudEnabled) {
+          supabase.from(TABLES.notifications).update({ read: true }).eq('id', n.id).catch(() => {});
+        }
+        return { ...n, read: true };
+      }
+      return n;
+    }));
+  }, []);
+
   // ── AUTH: handle profile → user, with restricted check ──
   // PM_EMAIL always gets PM role, even if DB says otherwise
   const handleProfile = useCallback((profile, eventSource) => {
@@ -1266,7 +1280,7 @@ export const AppProvider = ({ children }) => {
       activityLog, refreshActivityLog, getStats,
       minutes, addMinute, updateMinute, deleteMinute,
       datasets, addDataset, updateDataset, deleteDataset,
-      notifications, nudgeUser, clearNotifications, requestAccess,
+      notifications, nudgeUser, clearNotifications, markNotificationsRead, requestAccess,
       exportAllData, importAllData,
       syncStatus, syncError, isCloudEnabled, cloudReady,
       sessionExpired, dismissSessionExpiry,

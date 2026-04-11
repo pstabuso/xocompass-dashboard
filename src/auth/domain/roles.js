@@ -2,8 +2,8 @@ export const PM_EMAIL = 'pstabuso@fit.edu.ph';
 
 export const ROLE_PERMISSIONS = {
   pm:         { canCreate: true, canDelete: true, canNudge: true, canDownload: true, viewAll: true, isAdmin: true },
-  backend:    { canCreate: false, canDelete: false, canNudge: false, canDownload: false, viewAll: true, isAdmin: false },
-  frontend:   { canCreate: false, canDelete: false, canNudge: false, canDownload: false, viewAll: true, isAdmin: false },
+  backend:    { canCreate: true, canDelete: true, canNudge: true, canDownload: true, viewAll: true, isAdmin: false },
+  frontend:   { canCreate: true, canDelete: true, canNudge: true, canDownload: true, viewAll: true, isAdmin: false },
   guest:      { canCreate: false, canDelete: false, canNudge: false, canDownload: false, viewAll: true, isAdmin: false },
   restricted: { canCreate: false, canDelete: false, canNudge: false, canDownload: false, viewAll: false, isAdmin: false },
 };
