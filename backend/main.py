@@ -478,11 +478,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://localhost:4173",
-        "https://xocompass.vercel.app",
-    ],
+    allow_origins=["*"],
     allow_methods=["POST", "GET", "OPTIONS"],
     allow_headers=["*"],
 )

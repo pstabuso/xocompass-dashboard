@@ -1,17 +1,63 @@
 /**
- * XoCompass v17.8 — Airline Booking Demand API Client
+ * XoCompass v17.9 — Airline Booking Demand API Client
  * ====================================================
- * Fixes vs v17.4:
- *   [BUG-1] AbortSignal now correctly threaded through to fetch() calls.
- *           cancelRun() in ModelLab.jsx will now actually abort in-flight requests.
- *   [BUG-2] signal param added to predictHybrid() and predictSarimax() signatures.
- *   [BUG-3] All fetch() calls use the passed signal, not AbortSignal.timeout().
- *   [BUG-4] recalculateDSS() also accepts optional signal for cancellation.
- *   [NUM-1] commission_per_pax properly defaults to NET_COMMISSION_PHP constant.
- *   [NUM-2] buildObservation() uses correct month-end calculation for payday flag.
+ * v17.9 iOS FIXES:
+ *   [iOS-1] AbortSignal.timeout() was added in Safari 17.4 (March 2024).
+ *           Older iPhones (iOS 15/16) throw TypeError calling it, making the
+ *           backend health check fail silently and block all training.
+ *           Replaced with _timedAbort(ms) that works back to iOS 13.
+ *   [iOS-2] predictSarimax() and recalculateDSS() now use res.text() + manual
+ *           JSON.parse() matching predictHybrid() — prevents silent failures
+ *           on WebKit when the response contains bare NaN/Infinity tokens.
+ *
+ * Previous fixes (preserved):
+ *   [BUG-1] AbortSignal threaded through to fetch() so cancelRun() works.
+ *   [BUG-2] signal param added to predictHybrid() / predictSarimax().
+ *   [BUG-3] All fetch() calls use passed signal, not AbortSignal.timeout().
+ *   [BUG-4] recalculateDSS() accepts optional signal for cancellation.
+ *   [NUM-1] commission_per_pax defaults to NET_COMMISSION_PHP constant.
+ *   [NUM-2] buildObservation() uses correct month-end for payday flag.
  */
 
 const API_URL = import.meta.env.VITE_SARIMAX_API_URL || 'http://localhost:8000';
+
+/**
+ * Cross-browser abort signal with timeout.
+ * [iOS-1] AbortSignal.timeout() requires Safari ≥ 17.4 (March 2024).
+ * Older iOS devices throw TypeError, which is silently caught and makes
+ * the backend appear offline even when it's reachable.
+ * This helper works on Safari 13+ / Chrome 66+ / Firefox 57+.
+ */
+function _timedAbort(ms) {
+  if (typeof AbortSignal?.timeout === 'function') {
+    return AbortSignal.timeout(ms);
+  }
+  const ac = new AbortController();
+  setTimeout(() => ac.abort(new DOMException('TimeoutError', 'TimeoutError')), ms);
+  return ac.signal;
+}
+
+/**
+ * iOS-safe JSON response reader.
+ * [iOS-2] WebKit throws SyntaxError on bare NaN/Infinity JSON tokens.
+ * Reading as text first gives us the raw payload for diagnostic logging
+ * and converts the error into a SyntaxError (not a TypeError) so the
+ * caller's error handler can distinguish network vs parse failures.
+ */
+async function _readJSON(res) {
+  let text;
+  try {
+    text = await res.text();
+  } catch (networkErr) {
+    throw new TypeError(`[iOS] Network read failed mid-stream: ${networkErr.message}`);
+  }
+  try {
+    return JSON.parse(text);
+  } catch (parseErr) {
+    const snippet = text.slice(0, 200).replace(/\s+/g, ' ');
+    throw new SyntaxError(`[iOS] JSON parse failed — raw: ${snippet}… (${parseErr.message})`);
+  }
+}
 
 // ── Health / Capability ──────────────────────────────────────────────────
 
@@ -22,7 +68,7 @@ const API_URL = import.meta.env.VITE_SARIMAX_API_URL || 'http://localhost:8000';
 export async function isBackendAvailable(signal) {
   try {
     const res = await fetch(`${API_URL}/health`, {
-      signal: signal ?? AbortSignal.timeout(5_000),
+      signal: signal ?? _timedAbort(5_000),
     });
     if (!res.ok) return { ok: false, engine: null };
     const data = await res.json();
@@ -47,7 +93,7 @@ export async function isBackendAvailable(signal) {
  */
 export async function getPipelineInfo(signal) {
   const res = await fetch(`${API_URL}/pipeline/info`, {
-    signal: signal ?? AbortSignal.timeout(5_000),
+    signal: signal ?? _timedAbort(5_000),
   });
   if (!res.ok) throw new Error(`Pipeline info failed: ${res.status}`);
   return res.json();
@@ -87,7 +133,7 @@ export async function predictHybrid({
       seasonal_order:     seasonalOrder,
       max_daily_bookings: maxDailyBookings,
     }),
-    signal: signal ?? AbortSignal.timeout(300_000),
+    signal: signal ?? _timedAbort(300_000),
   });
 
   if (!res.ok) {
@@ -100,31 +146,7 @@ export async function predictHybrid({
     throw new Error(detail);
   }
 
-  // [iOS FIX] Explicit JSON parse with typed error surfacing.
-  //
-  // Desktop Chrome/V8 silently accepts JSON containing bare NaN/Infinity tokens.
-  // iOS WebKit's JSON.parse() throws a SyntaxError on those tokens, causing the
-  // pipeline to fail silently — the catch block in runPipeline sees nothing.
-  //
-  // By calling res.text() first and then JSON.parse() manually, we:
-  //   1. Get a SyntaxError with the raw payload so we can log which field is bad.
-  //   2. Surface a human-readable error in the terminal UI on the device itself.
-  //   3. Distinguish network failures (TypeError) from parse failures (SyntaxError).
-  let text;
-  try {
-    text = await res.text();
-  } catch (networkErr) {
-    // [iOS FIX] TypeError: network failure mid-stream (common on iOS background tab)
-    throw new TypeError(`[iOS] Network read failed: ${networkErr.message}`);
-  }
-  try {
-    return JSON.parse(text);
-  } catch (parseErr) {
-    // [iOS FIX] SyntaxError: backend sent NaN/Infinity or malformed JSON.
-    // Attach a snippet of the raw text so the terminal shows which field is bad.
-    const snippet = text.slice(0, 200).replace(/\s+/g, ' ');
-    throw new SyntaxError(`[iOS] JSON parse failed — raw: ${snippet}… (${parseErr.message})`);
-  }
+  return _readJSON(res);
 }
 
 /**
@@ -150,7 +172,7 @@ export async function predictSarimax({
       seasonal_order:     seasonalOrder,
       max_daily_bookings: maxDailyBookings,
     }),
-    signal: signal ?? AbortSignal.timeout(300_000),  // [BUG-2]
+    signal: signal ?? _timedAbort(300_000),
   });
 
   if (!res.ok) {
@@ -160,7 +182,7 @@ export async function predictSarimax({
       : (body.detail || `Backend returned ${res.status}`);
     throw new Error(detail);
   }
-  return res.json();
+  return _readJSON(res);
 }
 
 // ── DSS What-If ──────────────────────────────────────────────────────────
@@ -191,7 +213,7 @@ export async function recalculateDSS({
       commission_per_pax: commissionPerPax,
       apply_surcharge:    applySurcharge,
     }),
-    signal: signal ?? AbortSignal.timeout(30_000),   // [BUG-4]
+    signal: signal ?? _timedAbort(30_000),
   });
 
   if (!res.ok) {
@@ -201,7 +223,7 @@ export async function recalculateDSS({
       : (body.detail || `DSS recalculation failed: ${res.status}`);
     throw new Error(detail);
   }
-  return res.json();
+  return _readJSON(res);
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────

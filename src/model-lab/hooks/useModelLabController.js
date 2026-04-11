@@ -333,6 +333,7 @@ export function useModelLabController() {
       setModeStale(false)
       addAudit('PIPELINE_END', `wmape=${metrics?.wmape} aic=${raw.sarimax_aic} mode=${modelMode}`, 'system')
       setCompleted((prev) => new Set([...prev, 'train']))
+      setStage('dss')   // auto-advance — never leave user on train after success
     } catch (err) {
       if (err.name === 'AbortError' || err.message?.includes('Cancelled')) {
         addLog('[CANCELLED] Run aborted.', 'warning')
