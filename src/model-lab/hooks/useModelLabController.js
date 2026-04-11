@@ -246,7 +246,7 @@ export function useModelLabController() {
     // Backend STRIDE-D DoS guard: max 3650 observations (~10 years).
     // Datasets with >10 years of history are trimmed to the most recent 3650
     // days so the user never hits a silent 422 — a warning is shown instead.
-    const MAX_DAILY_OBS = 3650
+    const MAX_DAILY_OBS = 10000
 
     try {
       addLog('[S1] Converting monthly bookings to daily observations...', 'info')
