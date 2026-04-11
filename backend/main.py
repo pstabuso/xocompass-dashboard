@@ -76,7 +76,7 @@ except ImportError:
 
 # ── Constants ──────────────────────────────────────────────────────────────
 MAX_DAILY_BOOKINGS    = 200
-MAX_OBSERVATIONS      = 3_650      # ~10 years of daily data  [STRIDE-D]
+MAX_OBSERVATIONS      = 5_475      # ~15 years of daily data  [STRIDE-D]
 TEST_SIZE             = 90
 SEASONAL_PERIOD       = 7
 NET_COMMISSION_PHP    = 69.35

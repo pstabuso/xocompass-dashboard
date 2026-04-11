@@ -91,8 +91,13 @@ export async function predictHybrid({
   });
 
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }));
-    throw new Error(err.detail || `Backend returned ${res.status}`);
+    const body = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }));
+    // FastAPI 422 returns detail as an array of Pydantic error objects.
+    // Coercing an array with new Error() gives "[object Object]" — stringify properly.
+    const detail = Array.isArray(body.detail)
+      ? body.detail.map(d => `[${(d.loc || []).slice(-2).join('.')}] ${d.msg}`).join('; ')
+      : (body.detail || `Backend returned ${res.status}`);
+    throw new Error(detail);
   }
 
   // [iOS FIX] Explicit JSON parse with typed error surfacing.
@@ -149,8 +154,11 @@ export async function predictSarimax({
   });
 
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }));
-    throw new Error(err.detail || `Backend returned ${res.status}`);
+    const body = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }));
+    const detail = Array.isArray(body.detail)
+      ? body.detail.map(d => `[${(d.loc || []).slice(-2).join('.')}] ${d.msg}`).join('; ')
+      : (body.detail || `Backend returned ${res.status}`);
+    throw new Error(detail);
   }
   return res.json();
 }
@@ -187,8 +195,11 @@ export async function recalculateDSS({
   });
 
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }));
-    throw new Error(err.detail || `DSS recalculation failed: ${res.status}`);
+    const body = await res.json().catch(() => ({ detail: `DSS recalculation failed: ${res.status}` }));
+    const detail = Array.isArray(body.detail)
+      ? body.detail.map(d => `[${(d.loc || []).slice(-2).join('.')}] ${d.msg}`).join('; ')
+      : (body.detail || `DSS recalculation failed: ${res.status}`);
+    throw new Error(detail);
   }
   return res.json();
 }

@@ -243,11 +243,24 @@ export function useModelLabController() {
       return
     }
 
+    // Backend STRIDE-D DoS guard: max 3650 observations (~10 years).
+    // Datasets with >10 years of history are trimmed to the most recent 3650
+    // days so the user never hits a silent 422 — a warning is shown instead.
+    const MAX_DAILY_OBS = 3650
+
     try {
       addLog('[S1] Converting monthly bookings to daily observations...', 'info')
-      const dailyObs = buildDailyObservations(csvData)
+      let dailyObs = buildDailyObservations(csvData)
       if (!Array.isArray(dailyObs) || dailyObs.length === 0) {
         throw new Error('Daily conversion failed')
+      }
+
+      if (dailyObs.length > MAX_DAILY_OBS) {
+        addLog(
+          `[WARN] Dataset has ${dailyObs.length} daily records (limit ${MAX_DAILY_OBS}). Trimming to most recent ${MAX_DAILY_OBS} days.`,
+          'warning'
+        )
+        dailyObs = dailyObs.slice(-MAX_DAILY_OBS)
       }
 
       addLog(`[S1] ✓ ${dailyObs.length} daily records`, 'info')
