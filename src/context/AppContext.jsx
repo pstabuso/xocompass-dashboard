@@ -12,7 +12,6 @@ export { ROLE_ROUTES, AVAILABLE_ROLES };
 
 import React, { createContext, useState, useEffect, useContext, useCallback, useRef } from 'react';
 import { supabase, isCloudEnabled, fetchProfile } from '../lib/supabase';
-import { DatasetFileProvider } from './DatasetFileContext';
 
 const AppContext = createContext();
 
