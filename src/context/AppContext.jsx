@@ -7,8 +7,7 @@ import {
   buildUserFromProfile,
 } from '../auth/domain/roles';
 
-// Re-export constants that consumers (App.jsx, pages) import directly from AppContext
-export { ROLE_ROUTES, AVAILABLE_ROLES };
+// Note: ROLE_ROUTES and AVAILABLE_ROLES are importable directly from '../auth/domain/roles'
 
 import React, { createContext, useState, useEffect, useContext, useCallback, useRef } from 'react';
 import { supabase, isCloudEnabled, fetchProfile } from '../lib/supabase';
