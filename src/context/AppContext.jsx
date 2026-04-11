@@ -581,6 +581,27 @@ export const AppProvider = ({ children }) => {
     };
   }, [authSettled]);
 
+  // ── Profile realtime: re-hydrate permissions when PM changes current user's role ──
+  // Subscribes to UPDATE events on the current user's own profiles row only.
+  // When the PM edits a role via AdminPanel, Supabase broadcasts the change and
+  // this callback rebuilds the user object with the new permissions immediately —
+  // no reload or re-login needed.
+  useEffect(() => {
+    if (!isCloudEnabled || !user?.id) return;
+    const channel = supabase
+      .channel(`realtime-profile-${user.id}`)
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'profiles',
+        filter: `id=eq.${user.id}`,
+      }, (payload) => {
+        if (payload.new) handleProfile(payload.new, 'realtime');
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user?.id, handleProfile]);
+
   // ── Retry queue processor (runs after auth settles + every 30s) ──
   useEffect(() => {
     if (!isCloudEnabled || !authSettled) return;

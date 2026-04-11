@@ -23,7 +23,9 @@ import {
   Eye,
   EyeOff,
   User,
+  Bell,
 } from 'lucide-react';
+import { isNotificationForUser } from './context/AppContext';
 
 import { AppProvider, useAppContext } from './context/AppContext';
 import { DatasetFileProvider } from './context/DatasetFileContext';
@@ -88,7 +90,10 @@ const navItems = [
 ];
 
 const AppShell = () => {
-  const { user, signOut } = useAppContext();
+  const { user, signOut, notifications, markNotificationsRead } = useAppContext();
+  const myUnread = user?.permissions?.isAdmin
+    ? (notifications || []).filter(n => !n.read && isNotificationForUser(n, user)).length
+    : 0;
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200">
@@ -102,8 +107,18 @@ const AppShell = () => {
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
+            {myUnread > 0 && (
+              <NavLink to="/admin" onClick={markNotificationsRead}
+                className="relative flex items-center justify-center w-8 h-8 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 transition"
+                title={`${myUnread} new notification${myUnread > 1 ? 's' : ''}`}>
+                <Bell size={16} className="text-amber-400" />
+                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-amber-500 text-[9px] font-black text-black flex items-center justify-center">
+                  {myUnread > 9 ? '9+' : myUnread}
+                </span>
+              </NavLink>
+            )}
             {user?.name && (
-              <span className="hidden md:inline text-xs text-slate-400">
+              <span className="hidden md:inline text-xs text-slate-400 max-w-[120px] truncate">
                 {user.name}
               </span>
             )}
