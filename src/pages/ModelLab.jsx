@@ -34,7 +34,6 @@ import {
   Line,
   Area,
   ReferenceLine,
-  BarChart as ReBarChart,
   Cell,
 } from 'recharts';
 
@@ -51,6 +50,10 @@ import { buildForecastChartData } from '../model-lab/domain/buildForecastChartDa
 import { buildAblationForecast } from '../model-lab/domain/buildAblationForecast';
 import { pearsonR } from '../model-lab/domain/pearsonR';
 import { useModelLabController } from '../model-lab/hooks/useModelLabController';
+import AlgorithmLabStage from '../model-lab/components/AlgorithmLabStage';
+import QQPlot from '../components/QQPlot';
+import ACFChart from '../components/ACFChart';
+import PACFChart from '../components/PACFChart';
 
 const TT_STYLE = Object.freeze({
   backgroundColor: '#0f172a',
@@ -1067,52 +1070,19 @@ const ModelLab = () => {
 
           {stage === 'alglab' && (
             <PipelineErrorBoundary>
-              <div className="space-y-5">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <MetricCard label="RMSE" value={modelData.metrics.rmse} color="text-emerald-400" />
-                  <MetricCard label="WMAPE" value={`${modelData.metrics.wmape}%`} color="text-emerald-400" />
-                  <MetricCard label="Ljung-Box p" value={modelData.metrics.lb_pvalue} color="text-emerald-400" />
-                </div>
-
-                <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5">
-                  <h4 className="font-bold text-white text-sm mb-3 flex items-center gap-2">
-                    <TrendingUp size={16} className="text-pink-400" /> Ablation Forecast vs Actual
-                  </h4>
-                  <div className="h-60 bg-slate-950 rounded-xl border border-slate-800 p-3">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <ComposedChart data={modelData.forecast}>
-                        <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" vertical={false} />
-                        <XAxis dataKey="date" stroke="#64748b" tick={{ fontSize: 10 }} />
-                        <YAxis stroke="#64748b" tick={{ fontSize: 10 }} />
-                        <Tooltip contentStyle={TT_STYLE} formatter={(v) => [`${v} pax`, undefined]} />
-                        <Line type="monotone" dataKey="actual" stroke="#94a3b8" strokeWidth={1.5} dot={{ r: 2 }} name="Actual" />
-                        <Line type="monotone" dataKey="prediction" stroke="#10b981" strokeWidth={2.5} dot={{ r: 2.5 }} name="Prediction" />
-                      </ComposedChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-
-                <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5">
-                  <h4 className="font-bold text-white text-sm mb-3 flex items-center gap-2">
-                    <BarChart4 size={16} className="text-blue-400" /> Feature Gain
-                  </h4>
-                  <div className="h-60 bg-slate-950 rounded-xl border border-slate-800 p-3">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <ReBarChart layout="vertical" data={modelData.featureGain}>
-                        <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" horizontal={false} />
-                        <XAxis type="number" stroke="#64748b" tick={{ fontSize: 10 }} />
-                        <YAxis type="category" dataKey="feature" stroke="#64748b" tick={{ fontSize: 10 }} width={100} />
-                        <Tooltip contentStyle={TT_STYLE} formatter={(v) => [Number(v).toFixed(2), 'Gain']} />
-                        <Bar dataKey="gain" radius={[0, 4, 4, 0]}>
-                          {modelData.featureGain.map((_, i) => (
-                            <Cell key={i} fill={['#3b82f6', '#60a5fa', '#93c5fd'][i % 3]} />
-                          ))}
-                        </Bar>
-                      </ReBarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </div>
-              </div>
+              <AlgorithmLabStage
+                isAblation={isAblation}
+                toggleAblation={toggleAblation}
+                modelData={modelData}
+                rmseOk={modelData.metrics.rmse < 5}
+                wmapeOk={modelData.metrics.wmape < 30}
+                lbOk={modelData.metrics.lb_pvalue > 0.05}
+                adaptiveStats={adaptiveStats}
+                EFF={EFF}
+                QQPlot={QQPlot}
+                ACFChart={ACFChart}
+                PACFChart={PACFChart}
+              />
             </PipelineErrorBoundary>
           )}
         </main>

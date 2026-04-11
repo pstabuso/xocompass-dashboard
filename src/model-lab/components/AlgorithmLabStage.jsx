@@ -25,7 +25,7 @@ import {
   YAxis,
   Tooltip,
   Line,
-  RechartsBarChart,
+  BarChart,
   Bar,
   Cell,
   ScatterChart,
@@ -188,7 +188,7 @@ export default function AlgorithmLabStage({
           </div>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <RechartsBarChart layout="vertical" data={modelData.featureGain} margin={{ top: 0, right: 10, bottom: 0, left: 10 }}>
+              <BarChart layout="vertical" data={modelData.featureGain} margin={{ top: 0, right: 10, bottom: 0, left: 10 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" horizontal={false} />
                 <XAxis type="number" stroke="#475569" tick={{ fontSize: 10 }} domain={[0, 0.7]} />
                 <YAxis type="category" dataKey="feature" stroke="#475569" tick={{ fontSize: 10 }} width={95} />
@@ -198,7 +198,7 @@ export default function AlgorithmLabStage({
                     <Cell key={i} fill={['#3b82f6', '#60a5fa', '#93c5fd'][i % 3]} opacity={1 - i * 0.15} />
                   ))}
                 </Bar>
-              </RechartsBarChart>
+              </BarChart>
             </ResponsiveContainer>
           </div>
         </section>
