@@ -323,6 +323,18 @@ export function useModelLabController() {
         )
       }
 
+      if (metrics?.diagnostics) {
+        addLog(
+          `[DIAG] ✓ Residual diagnostics ready — ACF: ${metrics.diagnostics.acf?.length ?? 0} lags · n=${metrics.diagnostics.n_obs ?? '?'}`,
+          'success'
+        )
+      } else {
+        addLog(
+          '[DIAG] Diagnostics unavailable — SARIMAX may have failed or dataset is too small (<20 obs).',
+          'warning'
+        )
+      }
+
       addLog(
         `[DSS] Commission at risk: ₱${Math.round(raw.revenue_at_risk || 0).toLocaleString()} | Critical days: ${raw.critical_days}`,
         'success'
