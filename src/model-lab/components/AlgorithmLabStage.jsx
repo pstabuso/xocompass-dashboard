@@ -52,6 +52,8 @@ export default function AlgorithmLabStage({
   QQPlot,
   ACFChart,
   PACFChart,
+  ResidualsHistogram,
+  DiagnosticsHealthCard,
 }) {
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
@@ -301,8 +303,20 @@ export default function AlgorithmLabStage({
               : 'Run pipeline for live diagnostics'}
           </span>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {DiagnosticsHealthCard && (
+          <DiagnosticsHealthCard
+            ljungBoxPvalue={EFF.ljungBoxPvalue}
+            diagnostics={EFF.diagnostics}
+            className="mb-4"
+          />
+        )}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <QQPlot theoretical={EFF.diagnostics?.qq_theoretical ?? []} sample={EFF.diagnostics?.qq_sample ?? []} height={220} />
+          {ResidualsHistogram ? (
+            <ResidualsHistogram sample={EFF.diagnostics?.qq_sample ?? []} height={220} />
+          ) : (
+            <div />
+          )}
           <ACFChart acf={EFF.diagnostics?.acf ?? []} ciBound={EFF.diagnostics?.ci_bound ?? 0.2} nObs={EFF.diagnostics?.n_obs ?? 0} height={220} />
           <PACFChart pacf={EFF.diagnostics?.pacf ?? []} ciBound={EFF.diagnostics?.ci_bound ?? 0.2} nObs={EFF.diagnostics?.n_obs ?? 0} height={220} />
         </div>
