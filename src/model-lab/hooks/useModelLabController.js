@@ -120,10 +120,11 @@ export function useModelLabController() {
 
   const isUnlocked = useCallback(
     (id) => {
-      if (id === 'ingest' || id === 'alglab') return true
+      if (id === 'ingest') return true
       const idx = STAGE_ORDER.indexOf(id)
       if (id === 'collinearity') return completedStages.has('ingest') && csvData !== null
       if (id === 'dss') return completedStages.has('train') && prediction !== null
+      if (id === 'alglab') return completedStages.has('dss')
       if (idx <= 0) return true
       return completedStages.has(STAGE_ORDER[idx - 1])
     },
@@ -235,12 +236,23 @@ export function useModelLabController() {
     addLog('─'.repeat(58), 'divider')
 
     if (!backendStatus?.ok) {
-      addLog('[WARN] Backend offline — reference metrics from CSV analysis shown.', 'warning')
-      addLog('[WARN] Start: uvicorn main:app --reload --port 8000', 'warning')
-      addAudit('PIPELINE_END', 'backend_offline', 'system')
-      setIsRunning(false)
-      setRunGuard(false)
-      return
+      // Stale cache: re-check before giving up — backend may have started after page load
+      addLog('[SYSTEM] Re-checking backend connectivity...', 'info')
+      let fresh
+      try {
+        fresh = await checkForecastBackend()
+      } catch {
+        fresh = { ok: false }
+      }
+      if (!fresh?.ok) {
+        addLog('[WARN] Backend offline — reference metrics from CSV analysis shown.', 'warning')
+        addLog('[WARN] Start: uvicorn main:app --reload --port 8000', 'warning')
+        addAudit('PIPELINE_END', 'backend_offline', 'system')
+        setIsRunning(false)
+        setRunGuard(false)
+        return
+      }
+      setBackendStatus(fresh)
     }
 
     // Backend STRIDE-D DoS guard: max 3650 observations (~10 years).

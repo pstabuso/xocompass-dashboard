@@ -404,9 +404,11 @@ const ModelLab = () => {
 
   const modelData = React.useMemo(
     () => ({
-      metrics: isAblation
-        ? { rmse: 4.41, wmape: 28.43, lb_pvalue: 0.312 }
-        : { rmse: 7.82, wmape: 42.15, lb_pvalue: 0.031 },
+      metrics: {
+        rmse:      EFF.rmse      ?? (isAblation ? 4.41 : 7.82),
+        wmape:     EFF.wmape     ?? (isAblation ? 28.43 : 42.15),
+        lb_pvalue: EFF.ljungBoxPvalue ?? (isAblation ? 0.312 : 0.031),
+      },
       forecast: buildAblationForecast(isAblation),
       featureGain: isAblation
         ? [
@@ -420,7 +422,7 @@ const ModelLab = () => {
             { feature: 'fuel_price', gain: 0.25 },
           ],
     }),
-    [isAblation]
+    [isAblation, EFF.rmse, EFF.wmape, EFF.ljungBoxPvalue]
   );
 
   const activeDSS = React.useMemo(() => {
