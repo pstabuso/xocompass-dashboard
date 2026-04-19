@@ -54,6 +54,10 @@ import AlgorithmLabStage from '../model-lab/components/AlgorithmLabStage';
 import QQPlot from '../components/QQPlot';
 import ACFChart from '../components/ACFChart';
 import PACFChart from '../components/PACFChart';
+import ResidualsHistogram from '../components/ResidualsHistogram';
+import DiagnosticsHealthCard from '../components/DiagnosticsHealthCard';
+import RevenueWaterfall from '../components/RevenueWaterfall';
+import CalendarHeatmap from '../components/CalendarHeatmap';
 
 const TT_STYLE = Object.freeze({
   backgroundColor: '#0f172a',
@@ -863,11 +867,34 @@ const ModelLab = () => {
                   <MetricCard loading={isRunning} label="Rec. Capacity" value={`${EFF.maxDailyBookings} /day`} color="text-red-400" />
                 </div>
 
+                {prediction && EFF.diagnostics && (
+                  <DiagnosticsHealthCard
+                    ljungBoxPvalue={EFF.ljungBoxPvalue}
+                    diagnostics={EFF.diagnostics}
+                  />
+                )}
+
                 {prediction && (
                   <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5">
-                    <h4 className="text-sm font-bold text-white mb-3 flex items-center gap-2">
-                      <TrendingUp size={16} className="text-pink-400" /> Pax Booking Forecast vs Historical
-                    </h4>
+                    <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                      <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                        <TrendingUp size={16} className="text-pink-400" /> Pax Booking Forecast vs Historical
+                      </h4>
+                      <div className="flex items-center gap-3 text-[9px] text-slate-500">
+                        <span className="flex items-center gap-1">
+                          <span className="w-2.5 h-2.5 rounded-sm bg-pink-400" /> Forecast
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <span className="w-2.5 h-2.5 rounded-sm bg-indigo-500/70" /> 50% PI
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <span className="w-2.5 h-2.5 rounded-sm bg-indigo-500/40" /> 80% PI
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <span className="w-2.5 h-2.5 rounded-sm bg-indigo-500/20" /> 95% PI
+                        </span>
+                      </div>
+                    </div>
                     <div className="h-60 bg-slate-950 rounded-xl border border-slate-800 p-3">
                       <ResponsiveContainer width="100%" height="100%">
                         <ComposedChart data={forecastChartData}>
@@ -876,9 +903,15 @@ const ModelLab = () => {
                           <YAxis stroke="#64748b" tick={{ fontSize: 9 }} />
                           <Tooltip
                             contentStyle={TT_STYLE}
-                            formatter={(v) => [v != null ? `${Number(v).toFixed(0)} pax` : '—', undefined]}
+                            formatter={(v, name) => {
+                              if (v == null) return ['—', name]
+                              if (Array.isArray(v)) return [`${Number(v[0]).toFixed(0)} – ${Number(v[1]).toFixed(0)} pax`, name]
+                              return [`${Number(v).toFixed(0)} pax`, name]
+                            }}
                           />
-                          <Area type="monotone" dataKey="ci_upper" stroke="none" fill="#6366f1" fillOpacity={0.15} />
+                          <Area type="monotone" dataKey="ci95_range" name="95% PI" stroke="none" fill="#6366f1" fillOpacity={0.15} isAnimationActive={false} />
+                          <Area type="monotone" dataKey="ci80_range" name="80% PI" stroke="none" fill="#6366f1" fillOpacity={0.22} isAnimationActive={false} />
+                          <Area type="monotone" dataKey="ci50_range" name="50% PI" stroke="none" fill="#6366f1" fillOpacity={0.35} isAnimationActive={false} />
                           <Line type="monotone" dataKey="actual" stroke="#94a3b8" strokeWidth={1.5} dot={false} name="Actual Pax" />
                           <Line type="monotone" dataKey="forecast" stroke="#ec4899" strokeWidth={2.5} dot={false} name="Forecast Pax" />
                           <ReferenceLine
@@ -895,6 +928,10 @@ const ModelLab = () => {
                         </ComposedChart>
                       </ResponsiveContainer>
                     </div>
+                    <p className="text-[9px] text-slate-600 mt-2 leading-relaxed">
+                      Prediction intervals quantify forecast uncertainty. 50% band = most likely range; 95% band = plausible extremes.
+                      Narrower bands indicate higher model confidence.
+                    </p>
                   </div>
                 )}
 
@@ -970,6 +1007,21 @@ const ModelLab = () => {
                       <MetricCard label="Mitigated Commission" value={fmtPHPk(activeDSS.mitigated_revenue)} sub={`+${FALLBACK.PEAK_SURCHARGE * 100}% peak fee`} color="text-emerald-400" />
                     </div>
 
+                    <RevenueWaterfall
+                      potential={activeDSS.potential_revenue}
+                      capped={activeDSS.capped_revenue}
+                      atRisk={activeDSS.revenue_at_risk}
+                      mitigated={activeDSS.mitigated_revenue}
+                      fmt={fmtPHPk}
+                    />
+
+                    {prediction?.forecasts?.length > 0 && (
+                      <CalendarHeatmap
+                        forecasts={prediction.forecasts}
+                        capacity={effectiveCapacity}
+                      />
+                    )}
+
                     {dssBaseline && (
                       <div className="bg-slate-900/60 border border-blue-500/20 rounded-2xl p-5">
                         <h4 className="font-bold text-blue-300 text-sm mb-4 flex items-center gap-2">
@@ -1032,30 +1084,48 @@ const ModelLab = () => {
                       </div>
                     </div>
 
-                    {activeDSS.top_risk_dates?.length > 0 && (
-                      <div className="bg-slate-900/60 border border-red-500/20 rounded-2xl p-5">
-                        <h4 className="font-bold text-red-400 text-sm mb-4 flex items-center gap-2">
-                          <AlertCircle size={16} /> Top Commission-at-Risk Dates
-                        </h4>
-                        <ol className="space-y-2">
-                          {activeDSS.top_risk_dates.map((risk, i) => (
-                            <li
-                              key={risk.date}
-                              className="flex items-center justify-between p-2.5 bg-slate-900 rounded-lg border border-slate-800 text-xs"
-                            >
-                              <div className="flex items-center gap-2">
-                                <span className="text-slate-600 font-mono">#{i + 1}</span>
-                                <span className="text-slate-300 font-bold">{risk.date}</span>
-                                <span className="text-slate-500">
-                                  {Math.round(risk.forecast)} pax · {Math.round(risk.unmet)} unserved
-                                </span>
-                              </div>
-                              <span className="text-red-400 font-bold">{fmtPHPk(risk.revenue_risk)} at risk</span>
-                            </li>
-                          ))}
-                        </ol>
-                      </div>
-                    )}
+                    {activeDSS.top_risk_dates?.length > 0 && (() => {
+                      const maxRisk = Math.max(
+                        ...activeDSS.top_risk_dates.map((r) => Number(r.revenue_risk) || 0),
+                        1,
+                      );
+                      return (
+                        <div className="bg-slate-900/60 border border-red-500/20 rounded-2xl p-5">
+                          <h4 className="font-bold text-red-400 text-sm mb-4 flex items-center gap-2">
+                            <AlertCircle size={16} /> Top Commission-at-Risk Dates
+                          </h4>
+                          <ol className="space-y-2">
+                            {activeDSS.top_risk_dates.map((risk, i) => {
+                              const pct = (Number(risk.revenue_risk) / maxRisk) * 100;
+                              const overPct = Math.min(100, (Number(risk.unmet) / Math.max(1, Number(risk.forecast))) * 100);
+                              return (
+                                <li
+                                  key={risk.date}
+                                  className="p-2.5 bg-slate-900 rounded-lg border border-slate-800 text-xs"
+                                >
+                                  <div className="flex items-center justify-between gap-3 mb-1.5">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <span className="text-slate-600 font-mono shrink-0">#{i + 1}</span>
+                                      <span className="text-slate-200 font-bold shrink-0">{risk.date}</span>
+                                      <span className="text-slate-500 text-[10px] truncate">
+                                        {Math.round(risk.forecast)} pax · {Math.round(risk.unmet)} unserved ({overPct.toFixed(0)}% over)
+                                      </span>
+                                    </div>
+                                    <span className="text-red-400 font-bold shrink-0">{fmtPHPk(risk.revenue_risk)}</span>
+                                  </div>
+                                  <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                                    <div
+                                      className="h-full bg-gradient-to-r from-red-500 to-orange-500 transition-all duration-500"
+                                      style={{ width: `${pct}%` }}
+                                    />
+                                  </div>
+                                </li>
+                              );
+                            })}
+                          </ol>
+                        </div>
+                      );
+                    })()}
                   </>
                 )}
 
@@ -1084,6 +1154,8 @@ const ModelLab = () => {
                 QQPlot={QQPlot}
                 ACFChart={ACFChart}
                 PACFChart={PACFChart}
+                ResidualsHistogram={ResidualsHistogram}
+                DiagnosticsHealthCard={DiagnosticsHealthCard}
               />
             </PipelineErrorBoundary>
           )}

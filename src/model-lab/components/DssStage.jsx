@@ -317,9 +317,22 @@ export default function DssStage({
 
           {prediction && (
             <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5">
-              <h4 className="font-bold text-white text-sm mb-3 flex items-center gap-2">
-                <Plane size={16} className="text-pink-400" /> Booking Demand Heatmap — {horizon}d Forecast
-              </h4>
+              <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                <h4 className="font-bold text-white text-sm flex items-center gap-2">
+                  <Plane size={16} className="text-pink-400" /> Booking Demand with Uncertainty — {horizon}d Forecast
+                </h4>
+                <div className="flex items-center gap-3 text-[9px] text-slate-500">
+                  <span className="flex items-center gap-1">
+                    <span className="w-2.5 h-2.5 rounded-sm bg-indigo-500/70" /> 50%
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="w-2.5 h-2.5 rounded-sm bg-indigo-500/40" /> 80%
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="w-2.5 h-2.5 rounded-sm bg-indigo-500/20" /> 95%
+                  </span>
+                </div>
+              </div>
               <div className="h-56 bg-slate-950 rounded-xl border border-slate-800 p-3">
                 <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart data={forecastChartData}>
@@ -328,9 +341,15 @@ export default function DssStage({
                     <YAxis stroke="#64748b" tick={{ fontSize: 9 }} />
                     <Tooltip
                       contentStyle={TT_STYLE}
-                      formatter={(v) => [v != null ? `${Number(v).toFixed(0)} pax` : '—', undefined]}
+                      formatter={(v, name) => {
+                        if (v == null) return ['—', name]
+                        if (Array.isArray(v)) return [`${Number(v[0]).toFixed(0)} – ${Number(v[1]).toFixed(0)} pax`, name]
+                        return [`${Number(v).toFixed(0)} pax`, name]
+                      }}
                     />
-                    <Area type="monotone" dataKey="ci_upper" stroke="none" fill="#ef4444" fillOpacity={0.07} />
+                    <Area type="monotone" dataKey="ci95_range" name="95% PI" stroke="none" fill="#6366f1" fillOpacity={0.12} isAnimationActive={false} />
+                    <Area type="monotone" dataKey="ci80_range" name="80% PI" stroke="none" fill="#6366f1" fillOpacity={0.2} isAnimationActive={false} />
+                    <Area type="monotone" dataKey="ci50_range" name="50% PI" stroke="none" fill="#6366f1" fillOpacity={0.32} isAnimationActive={false} />
                     <Line type="monotone" dataKey="actual" stroke="#475569" strokeWidth={1.5} dot={false} name="Historical" />
                     <Line type="monotone" dataKey="forecast" stroke="#ec4899" strokeWidth={2.5} dot={false} name="Forecast" />
                     <ReferenceLine
