@@ -534,7 +534,8 @@ def _risk_label(forecast: float, capacity: int) -> str:
 _EXOG_COLS = [
     "is_payday", "is_holiday", "is_weekend",
     "is_peak_travel_month", "is_school_break",
-    "flight_density_index",
+    # flight_density_index excluded: frontend always sends 50.0 (constant),
+    # which is perfectly collinear with the NB2 intercept and slows SARIMAX.
 ]
 
 
@@ -648,7 +649,7 @@ def _run_sarimax(
             enforce_stationarity=False,
             enforce_invertibility=False,
         )
-        fit = model.fit(disp=False, maxiter=500, method="cg")
+        fit = model.fit(disp=False, maxiter=200, method="lbfgs")
         fc  = fit.get_forecast(steps=len(future_exog), exog=future_exog)
         ci  = fc.conf_int(alpha=0.05)
         h   = len(future_exog)
@@ -707,7 +708,7 @@ def _run_hybrid(
     if HAS_STATSMODELS and req.model_mode != "sarimax":
         try:
             X_const = sm.add_constant(train_exog, has_constant="add")  # [STRIDE-T]
-            nb2_model = sm.NegativeBinomial(y, X_const).fit(disp=False, maxiter=300)
+            nb2_model = sm.NegativeBinomial(y, X_const).fit(disp=False, maxiter=200)
             nb2_aic   = _safe_round(nb2_model.aic, 2)
             fitted_nb2 = _guard_arr(nb2_model.fittedvalues)
             residuals  = y - fitted_nb2
