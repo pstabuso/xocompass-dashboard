@@ -264,32 +264,54 @@ def _diagnostics(residuals: np.ndarray, n_obs: int) -> Optional["DiagnosticResul
         lb_pvalue = _guard(lb_result["lb_pvalue"].iloc[-1], 1.0, "lb_pvalue")
 
         # ── 2. ACF ───────────────────────────────────────────────────────
+        # Each sub-computation wrapped individually: a PACF LinAlgError or QQ
+        # failure must not silence the other diagnostics.
         # [iOS FIX] fft=False avoids scipy FFT edge cases that produce NaN
         # on short or degenerate series on older WebKit runtimes.
-        # nlags capped at n//2 - 1 to stay in valid statsmodels range.
-        acf_lags  = max(1, min(DIAG_ACF_LAGS, n // 2 - 1))
-        acf_vals  = sm_acf(r, nlags=acf_lags, fft=False)
-        acf_clean = _clean_list(acf_vals[1:])   # drop lag-0 (always 1.0)
+        acf_clean: List[float] = []
+        try:
+            acf_lags = max(1, min(DIAG_ACF_LAGS, n // 2 - 1))
+            acf_vals = sm_acf(r, nlags=acf_lags, fft=False)
+            acf_clean = _clean_list(acf_vals[1:])   # drop lag-0 (always 1.0)
+        except Exception as _e:
+            log.warning("ACF sub-computation failed: %s", _e)
 
         # ── 3. PACF ──────────────────────────────────────────────────────
-        # method="ols" is more numerically stable than "ywm" on short series
-        pacf_lags  = max(1, min(DIAG_ACF_LAGS, n // 2 - 1))
-        pacf_vals  = sm_pacf(r, nlags=pacf_lags, method="ols")
-        pacf_clean = _clean_list(pacf_vals[1:])  # drop lag-0 (always 1.0)
+        # method="ywunbiased" (Yule-Walker unbiased) is used instead of "ols".
+        # OLS PACF inverts a lag-matrix that becomes singular when residuals
+        # have exact periodicity, near-zero variance windows, or collinear lags
+        # — a common occurrence on short daily airline-booking sub-sequences.
+        # Yule-Walker solves the Toeplitz system recursively (no matrix inverse)
+        # and is numerically stable for all n ≥ nlags + 1.
+        pacf_clean: List[float] = []
+        try:
+            pacf_lags = max(1, min(DIAG_ACF_LAGS, n // 2 - 1))
+            pacf_vals = sm_pacf(r, nlags=pacf_lags, method="ywunbiased")
+            pacf_clean = _clean_list(pacf_vals[1:])  # drop lag-0 (always 1.0)
+        except Exception as _e:
+            log.warning("PACF sub-computation failed: %s", _e)
 
         # ── 4. Q-Q quantiles ─────────────────────────────────────────────
         # [iOS FIX] Clamp standardised residuals to [-10, 10] before ProbPlot.
         # Extreme outliers cause theoretical_quantiles to be ±Inf which
         # serialises as the bare token Infinity — invalid JSON on WebKit.
-        r_standardised = (r - r.mean()) / (r_std_scalar + 1e-10)
-        r_standardised = np.clip(r_standardised, -10.0, 10.0)  # [iOS FIX]
-        pp             = sm.ProbPlot(r_standardised, fit=True)
-        qq_theoretical = _clean_list(pp.theoretical_quantiles)
-        qq_sample      = _clean_list(pp.sample_quantiles)
+        qq_theoretical: List[float] = []
+        qq_sample:      List[float] = []
+        try:
+            r_standardised = (r - r.mean()) / (r_std_scalar + 1e-10)
+            r_standardised = np.clip(r_standardised, -10.0, 10.0)  # [iOS FIX]
+            pp             = sm.ProbPlot(r_standardised, fit=True)
+            qq_theoretical = _clean_list(pp.theoretical_quantiles)
+            qq_sample      = _clean_list(pp.sample_quantiles)
+        except Exception as _e:
+            log.warning("QQ sub-computation failed: %s", _e)
 
         # ── Guard: reject empty arrays (statsmodels edge cases) ───────────
         if not acf_clean or not pacf_clean or not qq_theoretical:
-            log.warning("Diagnostics produced empty arrays — returning None")
+            log.warning(
+                "Diagnostics produced empty arrays (acf=%d pacf=%d qq=%d) — returning None",
+                len(acf_clean), len(pacf_clean), len(qq_theoretical),
+            )
             return None
 
         # ── 95% CI half-width for ACF/PACF bar charts ─────────────────────
@@ -842,6 +864,35 @@ def _run_hybrid(
                 ljung_box_stat   = lb_stat,
                 ljung_box_pvalue = lb_pvalue,
                 diagnostics      = diag_model,
+            )
+
+    # ── Fallback diagnostics from NB2 residuals ─────────────────────────
+    # Runs when the SARIMAX metrics block was skipped (sarimax_result=None or
+    # fit_n=0) but NB2 succeeded.  Gives the user ACF/PACF/QQ on the demand
+    # residuals even without a SARIMAX fit — better than showing empty charts.
+    if metrics.diagnostics is None and nb2_used and n >= DIAG_MIN_N:
+        diag_raw = _diagnostics(residuals, n)   # residuals = y − fitted_nb2
+        if diag_raw is not None:
+            metrics = ModelMetrics(
+                wmape            = metrics.wmape,
+                mae              = metrics.mae,
+                rmse             = metrics.rmse,
+                r2               = metrics.r2,
+                aic              = metrics.aic,
+                ljung_box_stat   = diag_raw["ljung_box_stat"],
+                ljung_box_pvalue = diag_raw["ljung_box_pvalue"],
+                diagnostics      = DiagnosticPlots(
+                    acf            = diag_raw["acf"],
+                    pacf           = diag_raw["pacf"],
+                    qq_theoretical = diag_raw["qq_theoretical"],
+                    qq_sample      = diag_raw["qq_sample"],
+                    ci_bound       = diag_raw["ci_bound"],
+                    n_obs          = diag_raw["n_obs"],
+                ),
+            )
+            log.info(
+                "Fallback diagnostics from NB2 residuals (n=%d): LB_p=%s",
+                n, diag_raw["ljung_box_pvalue"],
             )
 
     # ── Confidence intervals ──────────────────────────────────────────────
