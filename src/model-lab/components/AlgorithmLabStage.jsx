@@ -284,31 +284,29 @@ export default function AlgorithmLabStage({
         </section>
       </div>
 
-      {EFF.diagnostics && (
-        <div>
-          <div className="flex items-center gap-2 mb-3">
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Live Residual Diagnostics</span>
-            <span
-              className={`text-[9px] px-2 py-0.5 rounded-full font-bold border ${
-                EFF.ljungBoxPvalue != null && EFF.ljungBoxPvalue > 0.05
-                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
-                  : 'bg-amber-500/10 border-amber-500/30 text-amber-400'
-              }`}
-            >
-              {EFF.ljungBoxPvalue != null
-                ? `Ljung-Box p=${EFF.ljungBoxPvalue.toFixed(4)} — ${
-                    EFF.ljungBoxPvalue > 0.05 ? 'White noise ✓' : 'Autocorrelation ⚠'
-                  }`
-                : 'Run pipeline for live diagnostics'}
-            </span>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <QQPlot theoretical={EFF.diagnostics?.qq_theoretical ?? []} sample={EFF.diagnostics?.qq_sample ?? []} height={220} />
-            <ACFChart acf={EFF.diagnostics?.acf ?? []} ciBound={EFF.diagnostics?.ci_bound ?? 0.2} nObs={EFF.diagnostics?.n_obs ?? 0} height={220} />
-            <PACFChart pacf={EFF.diagnostics?.pacf ?? []} ciBound={EFF.diagnostics?.ci_bound ?? 0.2} nObs={EFF.diagnostics?.n_obs ?? 0} height={220} />
-          </div>
+      <div>
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Live Residual Diagnostics</span>
+          <span
+            className={`text-[9px] px-2 py-0.5 rounded-full font-bold border ${
+              EFF.ljungBoxPvalue != null && EFF.ljungBoxPvalue > 0.05
+                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                : 'bg-amber-500/10 border-amber-500/30 text-amber-400'
+            }`}
+          >
+            {EFF.ljungBoxPvalue != null
+              ? `Ljung-Box p=${EFF.ljungBoxPvalue.toFixed(4)} — ${
+                  EFF.ljungBoxPvalue > 0.05 ? 'White noise ✓' : 'Autocorrelation ⚠'
+                }`
+              : 'Run pipeline for live diagnostics'}
+          </span>
         </div>
-      )}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <QQPlot theoretical={EFF.diagnostics?.qq_theoretical ?? []} sample={EFF.diagnostics?.qq_sample ?? []} height={220} />
+          <ACFChart acf={EFF.diagnostics?.acf ?? []} ciBound={EFF.diagnostics?.ci_bound ?? 0.2} nObs={EFF.diagnostics?.n_obs ?? 0} height={220} />
+          <PACFChart pacf={EFF.diagnostics?.pacf ?? []} ciBound={EFF.diagnostics?.ci_bound ?? 0.2} nObs={EFF.diagnostics?.n_obs ?? 0} height={220} />
+        </div>
+      </div>
 
       <div className="flex items-start gap-2 p-3 bg-slate-900/40 border border-slate-800/50 rounded-xl text-[10px] text-slate-500">
         <span>
