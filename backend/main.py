@@ -306,20 +306,29 @@ def _diagnostics(residuals: np.ndarray, n_obs: int) -> Optional["DiagnosticResul
         except Exception as _e:
             log.warning("QQ sub-computation failed: %s", _e)
 
-        # ── Guard: reject empty arrays (statsmodels edge cases) ───────────
-        if not acf_clean or not pacf_clean or not qq_theoretical:
+        # ── Guard: only abort when ALL three arrays are empty ────────────
+        # Previously used `or` (any failure → None), which caused the full
+        # diagnostics to be silently discarded whenever PACF threw a numerical
+        # error (e.g. near-singular Toeplitz matrix, LinAlgError).  The chart
+        # components handle empty arrays gracefully via their own empty states,
+        # so returning partial results is strictly better than returning None.
+        if not acf_clean and not pacf_clean and not qq_theoretical:
             log.warning(
-                "Diagnostics produced empty arrays (acf=%d pacf=%d qq=%d) — returning None",
+                "Diagnostics: all sub-computations failed (acf=%d pacf=%d qq=%d) — returning None",
                 len(acf_clean), len(pacf_clean), len(qq_theoretical),
             )
             return None
+        log.info(
+            "Diagnostics partial/OK — acf=%d  pacf=%d  qq=%d",
+            len(acf_clean), len(pacf_clean), len(qq_theoretical),
+        )
 
         # ── 95% CI half-width for ACF/PACF bar charts ─────────────────────
         ci_bound = round(1.96 / math.sqrt(n), 4)
 
         log.info(
-            "Diagnostics OK — LB_stat=%.2f  LB_p=%.4f  n_acf=%d  n_qq=%d  ci=±%.4f",
-            lb_stat, lb_pvalue, len(acf_clean), len(qq_theoretical), ci_bound,
+            "Diagnostics — LB_stat=%.2f  LB_p=%.4f  acf=%d  pacf=%d  qq=%d  ci=±%.4f",
+            lb_stat, lb_pvalue, len(acf_clean), len(pacf_clean), len(qq_theoretical), ci_bound,
         )
 
         return {
@@ -866,12 +875,13 @@ def _run_hybrid(
                 diagnostics      = diag_model,
             )
 
-    # ── Fallback diagnostics from NB2 residuals ─────────────────────────
-    # Runs when the SARIMAX metrics block was skipped (sarimax_result=None or
-    # fit_n=0) but NB2 succeeded.  Gives the user ACF/PACF/QQ on the demand
-    # residuals even without a SARIMAX fit — better than showing empty charts.
-    if metrics.diagnostics is None and nb2_used and n >= DIAG_MIN_N:
-        diag_raw = _diagnostics(residuals, n)   # residuals = y − fitted_nb2
+    # ── Fallback diagnostics when the SARIMAX metrics block was skipped ──
+    # `residuals` always holds the best available residuals:
+    #   • nb2_used=True  → y − fitted_nb2  (NB2 model residuals)
+    #   • nb2_used=False → y.copy()        (raw demand; at least shows autocorr)
+    # Covers both hybrid mode (SARIMAX failed) and SARIMAX-only mode (both failed).
+    if metrics.diagnostics is None and n >= DIAG_MIN_N:
+        diag_raw = _diagnostics(residuals, n)
         if diag_raw is not None:
             metrics = ModelMetrics(
                 wmape            = metrics.wmape,
@@ -891,8 +901,8 @@ def _run_hybrid(
                 ),
             )
             log.info(
-                "Fallback diagnostics from NB2 residuals (n=%d): LB_p=%s",
-                n, diag_raw["ljung_box_pvalue"],
+                "Fallback diagnostics from residuals (nb2_used=%s, n=%d): LB_p=%s",
+                nb2_used, n, diag_raw["ljung_box_pvalue"],
             )
 
     # ── Confidence intervals ──────────────────────────────────────────────
