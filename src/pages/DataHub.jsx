@@ -9,6 +9,7 @@ import { useAppContext } from '../context/AppContext';
 import { useDatasetFiles } from '../context/DatasetFileContext';
 
 const ALLOWED_EXTENSIONS = ['.csv', '.tsv', '.txt', '.json', '.xlsx', '.xls'];
+const MODEL_LAB_SUPPORTED_EXTENSIONS = ['.csv'];
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
 const getFileIcon = (name = '') => {
@@ -17,6 +18,14 @@ const getFileIcon = (name = '') => {
   if (ext === '.json') return FileCode;
   return FileText;
 };
+
+const getExtension = (name = '') => {
+  const parts = name.split('.');
+  if (parts.length < 2) return '';
+  return `.${parts.pop().toLowerCase()}`;
+};
+
+const isModelLabLoadable = (dataset) => MODEL_LAB_SUPPORTED_EXTENSIONS.includes(getExtension(dataset?.name));
 
 const STATUS_COLORS = {
   Raw: 'bg-slate-500/15 text-slate-400',
@@ -54,7 +63,7 @@ const DataHub = () => {
   } = useDatasetFiles();
 
   const canCreate = user?.permissions?.canCreate ?? true;
-  const canDelete = user?.permissions?.canDelete ?? true;;
+  const canDelete = user?.permissions?.canDelete ?? true;
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
@@ -83,7 +92,8 @@ const DataHub = () => {
     const verifiedCount = datasets.filter((d) => d.status === 'Verified').length;
     const integrityPct = datasets.length === 0 ? 0 : Math.round((verifiedCount / datasets.length) * 100);
     const availableNow = datasets.filter((d) => hasDatasetFile(d.id)).length;
-    return { totalRecords, integrityPct, availableNow };
+    const modelLabReady = datasets.filter((d) => hasDatasetFile(d.id) && isModelLabLoadable(d)).length;
+    return { totalRecords, integrityPct, availableNow, modelLabReady };
   }, [datasets, hasDatasetFile]);
 
   const filteredDatasets = useMemo(() => {
@@ -268,8 +278,8 @@ const DataHub = () => {
           ) : (
             <button
               onClick={() => {
-               requestAccess?.('Edit on Data Hub', 'action');
-               setAccessSent(true);
+                requestAccess?.('Edit on Data Hub', 'action');
+                setAccessSent(true);
               }}
               className="text-[10px] px-2.5 py-1 bg-pink-600 text-white rounded font-bold hover:bg-pink-500 transition shrink-0"
             >
@@ -282,15 +292,16 @@ const DataHub = () => {
       <div className="p-3 bg-violet-500/10 border border-violet-500/20 rounded-xl flex items-center gap-3">
         <FlaskConical size={16} className="text-violet-400 shrink-0" />
         <p className="text-xs text-violet-300 flex-1">
-          <span className="font-bold">{stats.availableNow}</span> dataset{stats.availableNow !== 1 ? 's are' : ' is'} currently available in this session for Model Lab.
-          <span className="text-slate-400"> Uploaded file contents are session-only and must be re-uploaded after refresh.</span>
+          <span className="font-bold">{stats.availableNow}</span> dataset{stats.availableNow !== 1 ? 's are' : ' is'} available in this session,
+          and <span className="font-bold">{stats.modelLabReady}</span> CSV dataset{stats.modelLabReady !== 1 ? 's are' : ' is'} loadable in Model Lab right now.
+          <span className="text-slate-400"> File contents are session-only and must be re-uploaded after refresh.</span>
         </p>
       </div>
 
       <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div>
           <h2 className="text-xl sm:text-2xl font-bold text-slate-100">Data Hub</h2>
-          <p className="text-slate-500 text-xs sm:text-sm">Manage datasets for SARIMAX Training</p>
+          <p className="text-slate-500 text-xs sm:text-sm">Manage datasets for SARIMAX training and session-based Model Lab loading</p>
         </div>
         {canCreate && (
           <button
@@ -332,10 +343,10 @@ const DataHub = () => {
         <div className="bg-slate-900/50 p-3 sm:p-5 rounded-xl border border-violet-500/20">
           <div className="flex items-center gap-1.5 sm:gap-3 text-violet-400 mb-1 sm:mb-2">
             <FlaskConical size={14} className="sm:w-[20px] sm:h-[20px]" />
-            <span className="text-[10px] sm:text-sm">Available Now</span>
+            <span className="text-[10px] sm:text-sm">Model Lab Ready</span>
           </div>
-          <p className="text-lg sm:text-3xl font-bold text-violet-400">{stats.availableNow}</p>
-          <p className="text-[10px] sm:text-xs text-slate-500 hidden sm:block">session file registry</p>
+          <p className="text-lg sm:text-3xl font-bold text-violet-400">{stats.modelLabReady}</p>
+          <p className="text-[10px] sm:text-xs text-slate-500 hidden sm:block">session-available CSV files</p>
         </div>
       </div>
 
@@ -403,7 +414,8 @@ const DataHub = () => {
           <Upload size={48} className="mx-auto text-slate-600 mb-4" />
           <h3 className="text-lg font-bold text-slate-400 mb-2">No datasets yet</h3>
           <p className="text-slate-500 text-sm">Upload your first dataset to get started.</p>
-          <p className="text-slate-600 text-xs mt-1">Supports: {ALLOWED_EXTENSIONS.join(', ')}</p>
+          <p className="text-slate-600 text-xs mt-1">Supports metadata/session registration for: {ALLOWED_EXTENSIONS.join(', ')}</p>
+          <p className="text-violet-400 text-xs mt-1">Model Lab currently loads CSV datasets only.</p>
         </div>
       ) : filteredDatasets.length === 0 ? (
         <div className="bg-slate-900/50 rounded-xl border border-slate-800 p-8 text-center">
@@ -437,6 +449,7 @@ const DataHub = () => {
                   </th>
                   <th className="p-4">Status</th>
                   <th className="p-4">Session File</th>
+                  <th className="p-4">Model Lab</th>
                   <th className="p-4 text-right">Actions</th>
                 </tr>
               </thead>
@@ -445,6 +458,7 @@ const DataHub = () => {
                   const Icon = getFileIcon(d.name);
                   const canDownload = !!getDatasetFile(d.id);
                   const availableNow = hasDatasetFile(d.id);
+                  const modelLabReady = availableNow && isModelLabLoadable(d);
 
                   return (
                     <tr key={d.id} className="hover:bg-slate-800/50 transition duration-200">
@@ -472,6 +486,17 @@ const DataHub = () => {
                           </span>
                         ) : (
                           <span className="text-[10px] text-slate-500">Re-upload needed</span>
+                        )}
+                      </td>
+                      <td className="p-4">
+                        {modelLabReady ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 bg-emerald-500/15 text-emerald-400 border border-emerald-500/20 rounded font-bold">
+                            CSV Ready
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-slate-500">
+                            {availableNow ? 'Not CSV-loadable' : 'Unavailable'}
+                          </span>
                         )}
                       </td>
                       <td className="p-4">
@@ -526,6 +551,7 @@ const DataHub = () => {
               const Icon = getFileIcon(d.name);
               const canDownload = !!getDatasetFile(d.id);
               const availableNow = hasDatasetFile(d.id);
+              const modelLabReady = availableNow && isModelLabLoadable(d);
 
               return (
                 <div key={d.id} className="bg-slate-900/50 rounded-xl border border-slate-800 p-3 space-y-2.5">
@@ -538,7 +564,7 @@ const DataHub = () => {
                   </div>
 
                   <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-800/50">
-                    <div className="flex items-center gap-3 text-[10px] text-slate-400">
+                    <div className="flex flex-wrap items-center gap-3 text-[10px] text-slate-400">
                       <span>{d.size}</span>
                       <span className="font-mono">{Number(d.rows).toLocaleString()} rows</span>
                       <span className={`font-bold flex items-center gap-1 ${STATUS_COLORS[d.status] || STATUS_COLORS.Raw}`}>
@@ -547,6 +573,9 @@ const DataHub = () => {
                       </span>
                       <span className={availableNow ? 'text-violet-400' : 'text-slate-500'}>
                         {availableNow ? 'Available' : 'Re-upload'}
+                      </span>
+                      <span className={modelLabReady ? 'text-emerald-400 font-bold' : 'text-slate-500'}>
+                        {modelLabReady ? 'CSV Ready' : 'Model Lab: no'}
                       </span>
                     </div>
 
@@ -655,8 +684,8 @@ const DataHub = () => {
                         <p className="text-xs text-slate-500">
                           {formData.size} • {Number(formData.rows).toLocaleString()} rows
                         </p>
-                        <p className="text-[10px] text-violet-400 mt-1 flex items-center gap-1">
-                          <FlaskConical size={10} /> Available in Model Lab for this session after upload
+                        <p className="text-[10px] text-violet-400 mt-1 flex items-center gap-1 text-center">
+                          <FlaskConical size={10} /> Stored for this session. Model Lab currently loads CSV files only.
                         </p>
                       </div>
                     ) : (
@@ -667,8 +696,8 @@ const DataHub = () => {
                           <span className="pl-1">or drag & drop</span>
                         </div>
                         <p className="text-xs text-slate-500">CSV, TSV, JSON, XLSX, TXT — max 50 MB</p>
-                        <p className="text-[10px] text-violet-400 flex items-center justify-center gap-1">
-                          <FlaskConical size={10} /> File contents do not persist after refresh
+                        <p className="text-[10px] text-violet-400 flex items-center justify-center gap-1 text-center">
+                          <FlaskConical size={10} /> Session-only file contents. Model Lab currently loads CSV files only.
                         </p>
                       </>
                     )}
