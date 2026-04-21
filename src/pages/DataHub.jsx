@@ -60,6 +60,7 @@ const DataHub = () => {
     hasDatasetFile,
     downloadDatasetFile,
     getDatasetFile,
+    storageReady,
   } = useDatasetFiles();
 
   const canCreate = user?.permissions?.canCreate ?? true;
@@ -265,6 +266,15 @@ const DataHub = () => {
 
   return (
     <div className="space-y-3 sm:space-y-6 animate-enter">
+      {!storageReady && (
+        <div className="p-3 bg-sky-500/10 border border-sky-500/20 rounded-xl flex items-center gap-3">
+          <FlaskConical size={16} className="text-sky-400 shrink-0" />
+          <p className="text-xs text-sky-300 flex-1">
+            Restoring locally saved dataset files...
+          </p>
+        </div>
+      )}
+
       {!!user && !canCreate && (
         <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl flex items-center gap-3">
           <LockKeyhole size={16} className="text-amber-400 shrink-0" />
@@ -292,16 +302,16 @@ const DataHub = () => {
       <div className="p-3 bg-violet-500/10 border border-violet-500/20 rounded-xl flex items-center gap-3">
         <FlaskConical size={16} className="text-violet-400 shrink-0" />
         <p className="text-xs text-violet-300 flex-1">
-          <span className="font-bold">{stats.availableNow}</span> dataset{stats.availableNow !== 1 ? 's are' : ' is'} available in this session,
-          and <span className="font-bold">{stats.modelLabReady}</span> CSV dataset{stats.modelLabReady !== 1 ? 's are' : ' is'} loadable in Model Lab right now.
-          <span className="text-slate-400"> File contents are session-only and must be re-uploaded after refresh.</span>
+          <span className="font-bold">{storageReady ? stats.availableNow : '...'}</span> dataset{storageReady && stats.availableNow !== 1 ? 's are' : ' is'} available locally,
+          and <span className="font-bold">{storageReady ? stats.modelLabReady : '...'}</span> CSV dataset{storageReady && stats.modelLabReady !== 1 ? 's are' : ' is'} loadable in Model Lab right now.
+          <span className="text-slate-400"> Files are now restored from local browser storage when available.</span>
         </p>
       </div>
 
       <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div>
           <h2 className="text-xl sm:text-2xl font-bold text-slate-100">Data Hub</h2>
-          <p className="text-slate-500 text-xs sm:text-sm">Manage datasets for SARIMAX training and session-based Model Lab loading</p>
+          <p className="text-slate-500 text-xs sm:text-sm">Manage datasets for SARIMAX training and locally persistent Model Lab loading</p>
         </div>
         {canCreate && (
           <button
@@ -345,8 +355,8 @@ const DataHub = () => {
             <FlaskConical size={14} className="sm:w-[20px] sm:h-[20px]" />
             <span className="text-[10px] sm:text-sm">Model Lab Ready</span>
           </div>
-          <p className="text-lg sm:text-3xl font-bold text-violet-400">{stats.modelLabReady}</p>
-          <p className="text-[10px] sm:text-xs text-slate-500 hidden sm:block">session-available CSV files</p>
+          <p className="text-lg sm:text-3xl font-bold text-violet-400">{storageReady ? stats.modelLabReady : '...'}</p>
+          <p className="text-[10px] sm:text-xs text-slate-500 hidden sm:block">locally available CSV files</p>
         </div>
       </div>
 
@@ -414,7 +424,7 @@ const DataHub = () => {
           <Upload size={48} className="mx-auto text-slate-600 mb-4" />
           <h3 className="text-lg font-bold text-slate-400 mb-2">No datasets yet</h3>
           <p className="text-slate-500 text-sm">Upload your first dataset to get started.</p>
-          <p className="text-slate-600 text-xs mt-1">Supports metadata/session registration for: {ALLOWED_EXTENSIONS.join(', ')}</p>
+          <p className="text-slate-600 text-xs mt-1">Supports metadata/local storage for: {ALLOWED_EXTENSIONS.join(', ')}</p>
           <p className="text-violet-400 text-xs mt-1">Model Lab currently loads CSV datasets only.</p>
         </div>
       ) : filteredDatasets.length === 0 ? (
@@ -448,7 +458,7 @@ const DataHub = () => {
                     Rows <SortIcon field="rows" />
                   </th>
                   <th className="p-4">Status</th>
-                  <th className="p-4">Session File</th>
+                  <th className="p-4">Local File</th>
                   <th className="p-4">Model Lab</th>
                   <th className="p-4 text-right">Actions</th>
                 </tr>
@@ -482,10 +492,10 @@ const DataHub = () => {
                       <td className="p-4">
                         {availableNow ? (
                           <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 bg-violet-500/15 text-violet-400 border border-violet-500/20 rounded font-bold">
-                            <FlaskConical size={9} /> Available
+                            <FlaskConical size={9} /> Restored
                           </span>
                         ) : (
-                          <span className="text-[10px] text-slate-500">Re-upload needed</span>
+                          <span className="text-[10px] text-slate-500">Not stored locally</span>
                         )}
                       </td>
                       <td className="p-4">
@@ -504,7 +514,7 @@ const DataHub = () => {
                           <button
                             onClick={() => handleDownload(d)}
                             className={`p-2 rounded-lg transition ${canDownload ? 'text-slate-500 hover:text-emerald-400 hover:bg-emerald-500/10' : 'text-slate-700 cursor-not-allowed'}`}
-                            title={canDownload ? 'Download file' : 'File content unavailable after refresh — re-upload to restore'}
+                            title={canDownload ? 'Download file' : 'Local file not available'}
                             disabled={!canDownload}
                           >
                             <Download size={16} />
@@ -572,7 +582,7 @@ const DataHub = () => {
                         {d.status}
                       </span>
                       <span className={availableNow ? 'text-violet-400' : 'text-slate-500'}>
-                        {availableNow ? 'Available' : 'Re-upload'}
+                        {availableNow ? 'Restored' : 'Not stored'}
                       </span>
                       <span className={modelLabReady ? 'text-emerald-400 font-bold' : 'text-slate-500'}>
                         {modelLabReady ? 'CSV Ready' : 'Model Lab: no'}
@@ -685,7 +695,7 @@ const DataHub = () => {
                           {formData.size} • {Number(formData.rows).toLocaleString()} rows
                         </p>
                         <p className="text-[10px] text-violet-400 mt-1 flex items-center gap-1 text-center">
-                          <FlaskConical size={10} /> Stored for this session. Model Lab currently loads CSV files only.
+                          <FlaskConical size={10} /> Saved locally in this browser. Model Lab currently loads CSV files only.
                         </p>
                       </div>
                     ) : (
@@ -697,7 +707,7 @@ const DataHub = () => {
                         </div>
                         <p className="text-xs text-slate-500">CSV, TSV, JSON, XLSX, TXT — max 50 MB</p>
                         <p className="text-[10px] text-violet-400 flex items-center justify-center gap-1 text-center">
-                          <FlaskConical size={10} /> Session-only file contents. Model Lab currently loads CSV files only.
+                          <FlaskConical size={10} /> Saved locally in this browser. Model Lab currently loads CSV files only.
                         </p>
                       </>
                     )}
