@@ -14,7 +14,7 @@
  */
 
 import React, { useMemo } from 'react'
-import { ShieldCheck, CircleAlert } from 'lucide-react'
+import { ShieldCheck, CircleAlert, Lightbulb } from 'lucide-react'
 
 const STATUS = {
   pass: {
@@ -65,17 +65,68 @@ function computeMoments(sample) {
   return { n, mean, std, skew, kurt }
 }
 
+function buildRecommendations(checks, context) {
+  const recs = []
+  const { acfSig, pacfSig, moments, ci, hasPacf } = context
+  const byKey = Object.fromEntries(checks.map((c) => [c.key, c]))
+
+  if (byKey.ljung?.status === 'fail') {
+    recs.push('Retune nonseasonal and seasonal orders because residual autocorrelation remains.')
+  } else if (byKey.ljung?.status === 'warn') {
+    recs.push('Inspect nearby AR/MA order combinations because residual autocorrelation is still marginal.')
+  }
+
+  if (byKey.acf?.status === 'fail') {
+    recs.push(`Increase MA and/or seasonal MA terms; ${acfSig} residual ACF lag${acfSig === 1 ? '' : 's'} exceed the ${Number.isFinite(ci) ? '95% band' : 'diagnostic threshold'}.`)
+  } else if (byKey.acf?.status === 'warn') {
+    recs.push('Try a slightly stronger MA term because a few residual ACF lags remain significant.')
+  }
+
+  if (byKey.pacf?.status === 'fail') {
+    recs.push(`Increase AR and/or seasonal AR terms; ${pacfSig} residual PACF lag${pacfSig === 1 ? '' : 's'} remain significant.`)
+  } else if (byKey.pacf?.status === 'warn') {
+    recs.push('Test a slightly stronger AR term because a few residual PACF lags remain significant.')
+  } else if (!hasPacf) {
+    recs.push('Expose PACF diagnostics from the backend so AR misspecification can be assessed directly.')
+  }
+
+  if (byKey.norm?.status === 'fail') {
+    const skewText = moments ? `skew ${moments.skew > 0 ? 'right' : 'left'} (${moments.skew.toFixed(2)})` : 'non-normal residual shape'
+    recs.push(`Investigate outliers, shocks, and missing exogenous drivers because residuals are ${skewText} and heavy-tailed.`)
+  } else if (byKey.norm?.status === 'warn') {
+    recs.push('Check outlier dates and variance stability because residuals show mild non-normality.')
+  }
+
+  const failCount = checks.filter((c) => c.status === 'fail').length
+  if (failCount >= 2) {
+    recs.push('Re-run grid search with a wider order range before accepting this specification.')
+  }
+
+  if (recs.length === 0) {
+    recs.push('No immediate retuning signal detected from residual diagnostics.')
+  }
+
+  return recs.slice(0, 4)
+}
+
 export default function DiagnosticsHealthCard({
   ljungBoxPvalue = null,
   diagnostics = null,
   className = '',
 }) {
-  const checks = useMemo(() => {
+  const diagnosticsState = useMemo(() => {
     const diag = diagnostics || {}
     const ci = Number(diag.ci_bound)
-    const acfSig  = significantCount(diag.acf, ci)
+    const acfSig = significantCount(diag.acf, ci)
     const pacfSig = significantCount(diag.pacf, ci)
     const moments = computeMoments(diag.qq_sample)
+    const hasPacf = Array.isArray(diag.pacf) && diag.pacf.length > 0
+
+    return { diag, ci, acfSig, pacfSig, moments, hasPacf }
+  }, [diagnostics])
+
+  const checks = useMemo(() => {
+    const { diag, acfSig, pacfSig, moments, hasPacf } = diagnosticsState
 
     const lb = Number.isFinite(ljungBoxPvalue)
       ? ljungBoxPvalue > 0.05
@@ -93,7 +144,7 @@ export default function DiagnosticsHealthCard({
           : { status: 'fail', detail: `${acfSig} significant lags — MA order under-specified` }
       : { status: 'unknown', detail: 'No ACF data' }
 
-    const pacfCheck = Array.isArray(diag.pacf) && diag.pacf.length > 0
+    const pacfCheck = hasPacf
       ? pacfSig === 0
         ? { status: 'pass', detail: 'All PACF lags within 95% CI' }
         : pacfSig <= 2
@@ -110,21 +161,26 @@ export default function DiagnosticsHealthCard({
       : { status: 'unknown', detail: 'No residual sample' }
 
     return [
-      { key: 'ljung', name: 'Whiteness (Ljung-Box)',  ...lb,         hint: 'Residuals should be uncorrelated.' },
-      { key: 'acf',   name: 'ACF structure',          ...acfCheck,    hint: 'No lag should exceed the 95% band.' },
-      { key: 'pacf',  name: 'PACF structure',         ...pacfCheck,   hint: 'No lag should exceed the 95% band.' },
-      { key: 'norm',  name: 'Residual normality',     ...normalCheck, hint: 'Errors should be roughly Gaussian.' },
+      { key: 'ljung', name: 'Whiteness (Ljung-Box)', ...lb, hint: 'Residuals should be uncorrelated.' },
+      { key: 'acf', name: 'ACF structure', ...acfCheck, hint: 'No lag should exceed the 95% band.' },
+      { key: 'pacf', name: 'PACF structure', ...pacfCheck, hint: 'No lag should exceed the 95% band.' },
+      { key: 'norm', name: 'Residual normality', ...normalCheck, hint: 'Errors should be roughly Gaussian.' },
     ]
-  }, [ljungBoxPvalue, diagnostics])
+  }, [ljungBoxPvalue, diagnosticsState])
+
+  const recommendations = useMemo(
+    () => buildRecommendations(checks, diagnosticsState),
+    [checks, diagnosticsState]
+  )
 
   const summary = useMemo(() => {
     const weight = { pass: 0, warn: 1, fail: 3, unknown: 0 }
     const known = checks.filter(c => c.status !== 'unknown')
     if (known.length === 0) return { grade: 'unknown', score: null, note: 'Run the pipeline to populate diagnostics.' }
     const total = known.reduce((s, c) => s + weight[c.status], 0)
-    if (total === 0)    return { grade: 'pass', score: `${known.length}/${known.length}`, note: 'All assumptions satisfied — forecast is trustworthy.' }
-    if (total <= 2)     return { grade: 'warn', score: `${known.filter(c => c.status === 'pass').length}/${known.length}`, note: 'Minor deviations — forecast usable with caveats.' }
-    return { grade: 'fail', score: `${known.filter(c => c.status === 'pass').length}/${known.length}`, note: 'Model misspecification likely — retune order/seasonal terms.' }
+    if (total === 0) return { grade: 'pass', score: `${known.length}/${known.length}`, note: 'All assumptions satisfied — forecast is trustworthy.' }
+    if (total <= 2) return { grade: 'warn', score: `${known.filter(c => c.status === 'pass').length}/${known.length}`, note: 'Minor deviations — forecast usable with caveats.' }
+    return { grade: 'fail', score: `${known.filter(c => c.status === 'pass').length}/${known.length}`, note: 'Model misspecification likely — retune order, seasonality, or exogenous terms.' }
   }, [checks])
 
   const summaryStyle = STATUS[summary.grade]
@@ -157,10 +213,7 @@ export default function DiagnosticsHealthCard({
         {checks.map((c) => {
           const style = STATUS[c.status]
           return (
-            <div
-              key={c.key}
-              className={`px-3 py-2 rounded-xl border ${style.bg}`}
-            >
+            <div key={c.key} className={`px-3 py-2 rounded-xl border ${style.bg}`}>
               <div className="flex items-center gap-2">
                 <span className={`inline-flex w-5 h-5 items-center justify-center rounded-full text-[10px] font-black text-slate-950 ${style.dot}`}>
                   {style.icon}
@@ -172,6 +225,21 @@ export default function DiagnosticsHealthCard({
             </div>
           )
         })}
+      </div>
+
+      <div className="mt-4 p-3 rounded-xl border border-sky-500/20 bg-sky-500/5">
+        <div className="flex items-center gap-2 mb-2">
+          <Lightbulb size={14} className="text-sky-400" />
+          <h5 className="text-[11px] font-bold text-sky-300 uppercase tracking-widest">Recommended next actions</h5>
+        </div>
+        <ul className="space-y-1.5">
+          {recommendations.map((item, idx) => (
+            <li key={`${idx}-${item}`} className="text-[11px] text-slate-300 leading-snug flex gap-2">
+              <span className="text-sky-400 shrink-0">•</span>
+              <span>{item}</span>
+            </li>
+          ))}
+        </ul>
       </div>
     </div>
   )
