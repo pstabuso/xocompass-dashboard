@@ -288,14 +288,22 @@ const CSVDropzone = React.memo(({ onLoad, isLoaded, csvMeta }) => {
 
 const DataHubPicker = React.memo(({ onLoad, loadingId, setLoadingId }) => {
   const { datasets } = useAppContext();
-  const { getDatasetText, hasDatasetFile } = useDatasetFiles();
+  const { getDatasetText, hasDatasetFile, storageReady } = useDatasetFiles();
 
   const available = datasets.filter((d) => d.name?.toLowerCase().endsWith('.csv') && hasDatasetFile(d.id));
+
+  if (!storageReady) {
+    return (
+      <div className="p-4 bg-slate-900/60 border border-slate-800 rounded-xl text-center">
+        <p className="text-xs text-slate-400 font-bold">Restoring locally saved CSV datasets...</p>
+      </div>
+    );
+  }
 
   if (available.length === 0) {
     return (
       <div className="p-4 bg-slate-900/60 border border-slate-800 rounded-xl text-center">
-        <p className="text-xs text-slate-500 font-bold">No CSV datasets registered from Data Hub</p>
+        <p className="text-xs text-slate-500 font-bold">No locally available CSV datasets found in Data Hub</p>
       </div>
     );
   }
@@ -304,7 +312,7 @@ const DataHubPicker = React.memo(({ onLoad, loadingId, setLoadingId }) => {
     setLoadingId(dataset.id);
     try {
       const text = await getDatasetText(dataset.id);
-      if (!text) throw new Error('File content unavailable — re-upload in Data Hub');
+      if (!text) throw new Error('Local file unavailable — re-upload in Data Hub');
       const result = parseBookingCsv(text);
       onLoad(result, dataset.name);
     } catch (e) {
@@ -323,6 +331,9 @@ const DataHubPicker = React.memo(({ onLoad, loadingId, setLoadingId }) => {
             <div className="flex items-center gap-2 mt-0.5">
               <span className="text-[9px] text-slate-500">
                 {Number(d.rows).toLocaleString()} rows · {d.size}
+              </span>
+              <span className="text-[9px] px-1.5 py-0.5 rounded bg-violet-500/15 text-violet-400 font-bold">
+                local
               </span>
             </div>
           </div>
