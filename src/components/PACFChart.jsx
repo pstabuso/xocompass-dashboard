@@ -32,9 +32,9 @@ const TT_STYLE = {
   fontSize:        11,
 };
 
-function EmptyState() {
+function EmptyState({ missingFromBackend = false }) {
   return (
-    <div className="flex flex-col items-center justify-center h-full gap-2 text-slate-600">
+    <div className="flex flex-col items-center justify-center h-full gap-2 text-slate-600 px-4 text-center">
       <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
         <line x1="4" y1="20" x2="4" y2="4"/>
         {[6, 9, 12, 15, 18].map((x, i) => (
@@ -42,7 +42,11 @@ function EmptyState() {
         ))}
       </svg>
       <p className="text-xs font-bold">No PACF data available</p>
-      <p className="text-[10px]">Run the pipeline to generate diagnostics</p>
+      <p className="text-[10px] leading-relaxed">
+        {missingFromBackend
+          ? 'The pipeline ran, but the backend did not return diagnostics.pacf. Generate PACF in the backend and include it in the diagnostics payload.'
+          : 'Run the pipeline to generate diagnostics.'}
+      </p>
     </div>
   );
 }
@@ -93,6 +97,7 @@ export default function PACFChart({
   }, [ciBound, nObs]);
 
   const isEmpty = data.length === 0;
+  const missingFromBackend = isEmpty && nObs > 0;
 
   // Count significant lags for the interpretation note
   const sigCount = useMemo(
@@ -129,8 +134,9 @@ export default function PACFChart({
 
       {isEmpty && (
         <p className="text-[10px] text-slate-500 mb-3 leading-relaxed">
-          Shows direct lag correlations after removing intermediate effects.
-          Significant lags outside bands suggest the AR order needs adjustment.
+          {missingFromBackend
+            ? 'The chart component rendered successfully, but the PACF array was missing from the diagnostics payload.'
+            : 'Shows direct lag correlations after removing intermediate effects. Significant lags outside bands suggest the AR order needs adjustment.'}
         </p>
       )}
 
@@ -140,7 +146,7 @@ export default function PACFChart({
         className="bg-slate-950 rounded-xl border border-slate-800"
       >
         {isEmpty ? (
-          <EmptyState />
+          <EmptyState missingFromBackend={missingFromBackend} />
         ) : (
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart
