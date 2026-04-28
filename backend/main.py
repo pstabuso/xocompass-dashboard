@@ -47,20 +47,6 @@ import numpy as np
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
-app = FastAPI()
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "https://xocompass.vercel.app",
-        "https://xocompass-dashboard.onrender.com",
-        "http://localhost:5173",
-        "http://localhost:3000",
-    ],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -517,12 +503,17 @@ app = FastAPI(
     title="XoCompass v17.7 Airline Booking Demand API",
     version=VERSION,
     description=(
-        "NB2 + SARIMAX + XGBoost hybrid for KJS International Travel & Tours. "
-        "v17.7: Ljung-Box + ACF/PACF/QQ diagnostics replace Durbin-Watson."
+        "NB2 + SARIMAX + XGBoost hybrid..."
     ),
 )
 
-
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # use * first to confirm working
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.exception_handler(Exception)
