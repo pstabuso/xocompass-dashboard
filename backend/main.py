@@ -47,6 +47,7 @@ import numpy as np
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
+app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
